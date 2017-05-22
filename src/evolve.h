@@ -14,7 +14,6 @@
 #include "./grid_info.h"
 #include "./eos.h"
 #include "./advance.h"
-#include "./hydro_source.h"
 #include "./u_derivative.h"
 
 // this is a control class for the hydrodynamic evolution
@@ -26,7 +25,6 @@ class Evolve {
     Util *util;
     Advance *advance;
     U_derivative *u_derivative;
-    hydro_source *hydro_source_ptr;
 
     InitData *DATA_ptr;
 
@@ -46,7 +44,7 @@ class Evolve {
     vector<double> epsFO_list;
 
  public:
-    Evolve(EOS *eos, InitData *DATA_in, hydro_source *hydro_source_in);
+    Evolve(EOS *eos, InitData *DATA_in);
     ~Evolve();
     int EvolveIt(InitData *DATA, Grid ***arena);
 

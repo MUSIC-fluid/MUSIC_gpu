@@ -7,15 +7,10 @@
 
 using namespace std;
 
-Init::Init(EOS *eosIn, InitData *DATA_in, hydro_source *hydro_source_in) {
+Init::Init(EOS *eosIn, InitData *DATA_in) {
     eos = eosIn;
     util = new Util;
     DATA_ptr = DATA_in;
-    if (DATA_ptr->Initial_profile == 12) {
-        hydro_source_ptr = hydro_source_in;
-    } else if (DATA_ptr->Initial_profile == 30) {
-        hydro_source_ptr = hydro_source_in;
-    }
 }
 
 // destructor
@@ -955,15 +950,6 @@ void Init::initial_MCGlbLEXUS_with_rhob_XY(InitData *DATA, int ieta,
             double y_local = - DATA->y_size/2. + iy*DATA->delta_y;
             double rhob = 0.0;
             double epsilon = 0.0;
-            if (DATA->turn_on_rhob == 1) {
-                rhob = hydro_source_ptr->get_hydro_rhob_source_before_tau(
-                                                tau0, x_local, y_local, eta);
-            } else {
-                rhob = 0.0;
-            }
-
-            hydro_source_ptr->get_hydro_energy_source_before_tau(
-                                    tau0, x_local, y_local, eta, j_mu);
 
             if (entropy_flag == 0) {
                 epsilon = j_mu[0];           // 1/fm^4
@@ -1057,15 +1043,6 @@ void Init::initial_AMPT_XY(InitData *DATA, int ieta, Grid ***arena) {
             double y_local = - DATA->y_size/2. + iy*DATA->delta_y;
             double rhob = 0.0;
             double epsilon = 0.0;
-            if (DATA->turn_on_rhob == 1) {
-                rhob = hydro_source_ptr->get_hydro_rhob_source_before_tau(
-                                                tau0, x_local, y_local, eta);
-            } else {
-                rhob = 0.0;
-            }
-
-            hydro_source_ptr->get_hydro_energy_source_before_tau(
-                                    tau0, x_local, y_local, eta, j_mu);
 
             epsilon = j_mu[0];           // 1/fm^4
 

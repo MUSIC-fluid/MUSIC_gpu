@@ -15,9 +15,6 @@ EOS::EOS(InitData *para_in) {
     util = new Util;
     initialize_eos();
     whichEOS = parameters_ptr->whichEOS;
-    if (parameters_ptr->check_eos == 1) {
-        check_eos();
-    }
     eps_max = 1e5;  // [1/fm^4]
 }
 

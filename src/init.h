@@ -9,17 +9,15 @@
 #include <cmath>
 #include "./data.h"
 #include "./grid.h"
-#include "./hydro_source.h"
 
 class Init {
  private:
     InitData *DATA_ptr;
     EOS *eos;
     Util *util;
-    hydro_source *hydro_source_ptr;
 
  public:
-    Init(EOS *eos, InitData *DATA_in, hydro_source *hydro_source_in);
+    Init(EOS *eos, InitData *DATA_in);
     ~Init();  // destructor
 
     void InitArena(InitData *DATA, Grid ****arena);

@@ -9,7 +9,6 @@
 #include "./minmod.h"
 #include "./u_derivative.h"
 #include "./reconst.h"
-#include "./hydro_source.h"
 
 class Advance {
  private:
@@ -21,11 +20,9 @@ class Advance {
     EOS *eos;
     Minmod *minmod;
     U_derivative *u_derivative;
-    hydro_source *hydro_source_ptr;
 
     int grid_nx, grid_ny, grid_neta;
     int rk_order;
-    bool flag_add_hydro_source;
 
     typedef struct bdry_cells {
         Grid *grid_p_h_L;
@@ -45,7 +42,7 @@ class Advance {
     } NbrQs;
 
  public:
-    Advance(EOS *eosIn, InitData* DATA_in, hydro_source *hydro_source_in);
+    Advance(EOS *eosIn, InitData* DATA_in);
     ~Advance();
 
     int AdvanceIt(double tau_init, InitData *DATA, Grid ***arena, int rk_flag);

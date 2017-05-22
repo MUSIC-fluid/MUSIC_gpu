@@ -10,8 +10,7 @@
 
 using namespace std;
 
-Advance::Advance(EOS *eosIn, InitData *DATA_in,
-                 hydro_source *hydro_source_in) {
+Advance::Advance(EOS *eosIn, InitData *DATA_in) {
     DATA_ptr = DATA_in;
     eos = eosIn;
     grid = new Grid();
@@ -20,12 +19,6 @@ Advance::Advance(EOS *eosIn, InitData *DATA_in,
     diss = new Diss(eosIn, DATA_in);
     minmod = new Minmod(DATA_in);
     u_derivative = new U_derivative(eosIn, DATA_in);
-    if (DATA_in->Initial_profile == 12) {
-        flag_add_hydro_source = true;
-        hydro_source_ptr = hydro_source_in;
-    } else {
-        flag_add_hydro_source = false;
-    }
 
     grid_nx = DATA_in->nx;
     grid_ny = DATA_in->ny;
@@ -181,22 +174,6 @@ int Advance::FirstRKStepT(double tau, double x_local, double y_local,
         j_mu[ii] = 0.0;
     }
     double rhob_source = 0.0;
-    if (flag_add_hydro_source) {
-        double *u_local = new double[4];
-        for (int ii = 0; ii < 4; ii++) {
-            u_local[ii] = grid_pt->u[rk_flag][ii];
-        }
-        hydro_source_ptr->get_hydro_energy_source(
-                tau_rk, x_local, y_local, eta_s_local, u_local, j_mu);
-        for (int ii = 0; ii < 4; ii++) {
-            j_mu[ii] *= tau_rk;
-        }
-        if (DATA->turn_on_rhob == 1) {
-            rhob_source = tau_rk*hydro_source_ptr->get_hydro_rhob_source(
-                    tau_rk, x_local, y_local, eta_s_local, u_local);
-        }
-        delete[] u_local;
-    }
 
     for (int alpha = 0; alpha < 5; alpha++) {
         qirk[alpha][0] = qi[alpha] + rhs[alpha];
@@ -212,15 +189,6 @@ int Advance::FirstRKStepT(double tau, double x_local, double y_local,
         /* dwmn is the only one with the minus sign */
         qirk[alpha][0] -= dwmn*(DATA->delta_tau);
 
-        if (flag_add_hydro_source) {
-            // adding hydro_source terms
-            if (alpha < 4) {
-                qirk[alpha][0] += j_mu[alpha]*DATA->delta_tau;
-            } else {
-                qirk[alpha][0] += rhob_source*DATA->delta_tau;
-            }
-        }
-     
         // set baryon density back to zero if viscous correction made it
         // non-zero remove/modify if rho_b!=0 
         // - this is only to remove the viscous correction that 
