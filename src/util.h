@@ -1,3 +1,6 @@
+// MUSIC - a 3+1D viscous relativistic hydrodynamic code for heavy ion collisions
+// Copyright (C) 2017  Gabriel Denicol, Charles Gale, Sangyong Jeon, Matthew Luzum, Jean-François Paquet, Björn Schenke, Chun Shen
+
 #ifndef UTIL_H
 #define UTIL_H
 
@@ -44,29 +47,32 @@ using namespace std;
 
 #define BT_BUF_SIZE 500
 
+//! This is a utility class which contains a collection of helper functions.
+
 class Util{
  public:
-double ***cube_malloc(int , int , int ); 
-double **mtx_malloc(int , int );
-double *vector_malloc(int );
-char *char_malloc(int );
-void char_free(char *);
 
-void cube_free(double ***, int, int, int);
-void mtx_free(double **, int, int);
-void vector_free(double *);
+    double ***cube_malloc(int , int , int ); 
+    double **mtx_malloc(int , int );
+    double *vector_malloc(int );
+    
+    void cube_free(double ***, int, int, int);
+    void mtx_free(double **, int, int);
+    void vector_free(double *);
+    
+    int IsFile(string);
+    
+    string StringFind4(string file_name, string str_in);
+    
+    double lin_int(double x1,double x2,double f1,double f2,double x);
 
-double Power(double, int);
-
-int IsFile(string );
-
-double DFind(string file_name, const char *st);
-string StringFind(string file_name, const char *st);
-string StringFind4(string file_name, string str_in);
-
-double lin_int(double x1,double x2,double f1,double f2,double x);
-double four_dimension_linear_interpolation(double* lattice_spacing, double** fraction, double**** cube);
-double three_dimension_linear_interpolation(double* lattice_spacing, double** fraction, double*** cube);
+    double four_dimension_linear_interpolation(
+            double* lattice_spacing, double** fraction, double**** cube);
+    double three_dimension_linear_interpolation(
+            double* lattice_spacing, double** fraction, double*** cube);
+    int binary_search(double* array, int length, double x);
+    void print_backtrace_errors();
+    int map_2d_idx_to_1d(int a, int b);
 
 };
 

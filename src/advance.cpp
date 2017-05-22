@@ -169,12 +169,6 @@ int Advance::FirstRKStepT(double tau, double x_local, double y_local,
     MakeDeltaQI(tau_rk, grid_pt, qi, rhs, DATA, rk_flag,
                 NbrCells, HalfwayCells);
 
-    double *j_mu = new double[4];
-    for (int ii = 0; ii < 4; ii++) {
-        j_mu[ii] = 0.0;
-    }
-    double rhob_source = 0.0;
-
     for (int alpha = 0; alpha < 5; alpha++) {
         qirk[alpha][0] = qi[alpha] + rhs[alpha];
         if (qirk[alpha][0] > LARGE) {
@@ -205,7 +199,6 @@ int Advance::FirstRKStepT(double tau, double x_local, double y_local,
             qirk[alpha][0] *= 0.5;
         }
     }
-    delete[] j_mu;
 
     int flag = 0;
     flag = reconst_ptr->ReconstIt_shell(grid_rk, 0, tau_next, qirk, grid_pt,
