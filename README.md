@@ -21,3 +21,6 @@ An input file is required that contains the line "EndOfData",
 preceded by a list of parameter names and values, one per line,
 with parameter names and values separated by a space or tab.
 If omitted, each parameter will be assigned a default value.  
+
+To run MUSIC, compiled under the name "mpihydro", with an input file "input_Gubser", use
+./mpihydro input_Gubser
