@@ -49,16 +49,3 @@ int MUSIC::run_hydro() {
     flag_hydro_run = 1;
     return(0);
 }
-
-
-void MUSIC::output_transport_coefficients() {
-    // this is a test function to output the transport coefficients as
-    // function of T and mu_B
-    cout << "output transport coefficients as functions of T and mu_B" << endl;
-    Diss *temp_dissipative_ptr = new Diss(eos, DATA);
-    temp_dissipative_ptr->output_eta_over_s_T_and_muB_dependence(DATA);
-    temp_dissipative_ptr->output_eta_over_s_along_const_sovernB(DATA);
-    temp_dissipative_ptr->output_kappa_T_and_muB_dependence(DATA);
-    temp_dissipative_ptr->output_kappa_along_const_sovernB(DATA);
-    delete temp_dissipative_ptr;
-}

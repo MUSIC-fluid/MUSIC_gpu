@@ -47,9 +47,6 @@ class MUSIC {
     //! this is a shell function to run hydro
     int run_hydro();
 
-    //! this is a test function to output the transport coefficients as
-    //! function of T and mu_B
-    void output_transport_coefficients();
 };
 
 #endif  // SRC_MUSIC_H_

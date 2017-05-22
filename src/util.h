@@ -19,6 +19,10 @@ using namespace std;
 #define hbarc (0.1973)
 #endif
 
+#ifndef LARGE
+#define LARGE (1e20)
+#endif
+
 #ifndef default_tol
 #define default_tol (1.0e-8)
 #endif
@@ -61,6 +65,8 @@ string StringFind(string file_name, const char *st);
 string StringFind4(string file_name, string str_in);
 
 double lin_int(double x1,double x2,double f1,double f2,double x);
+double four_dimension_linear_interpolation(double* lattice_spacing, double** fraction, double**** cube);
+double three_dimension_linear_interpolation(double* lattice_spacing, double** fraction, double*** cube);
 
 };
 

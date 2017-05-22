@@ -362,3 +362,31 @@ double Util::lin_int(double x1,double x2,double f1,double f2,double x)
   return aa*x + bb;
 }
 
+double Util::four_dimension_linear_interpolation(double* lattice_spacing, double** fraction, double**** cube)
+{
+   double denorm = 1.0;
+   double results = 0.0;
+   for(int i = 0; i < 4; i++)
+      denorm *= lattice_spacing[i];
+   for(int i = 0; i < 2; i++)
+      for(int j = 0; j < 2; j++)
+         for(int k = 0; k < 2; k++)
+            for(int l = 0; l < 2; l++)
+               results += cube[i][j][k][l]*fraction[i][0]*fraction[j][1]*fraction[k][2]*fraction[l][3];
+   results = results/denorm;
+   return(results);
+}
+
+double Util::three_dimension_linear_interpolation(double* lattice_spacing, double** fraction, double*** cube)
+{
+   double denorm = 1.0;
+   double results = 0.0;
+   for(int i = 0; i < 3; i++)
+      denorm *= lattice_spacing[i];
+   for(int i = 0; i < 2; i++)
+      for(int j = 0; j < 2; j++)
+         for(int k = 0; k < 2; k++)
+            results += cube[i][j][k]*fraction[i][0]*fraction[j][1]*fraction[k][2];
+   results = results/denorm;
+   return(results);
+}
