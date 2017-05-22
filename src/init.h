@@ -25,12 +25,7 @@ class Init {
     void LinkNeighbors_XY(InitData *DATA, int ieta, Grid ***arena);
     int InitTJb(InitData *DATA, Grid ****arena);
     void initial_Gubser_XY(InitData *DATA, int ieta, Grid ***arena);
-    void initial_1p1D_eta(InitData *DATA, Grid ***arena);
     void initial_IPGlasma_XY(InitData *DATA, int ieta, Grid ***arena);
-    void initial_MCGlb_with_rhob_XY(InitData *DATA, int ieta, Grid ***arena);
-    void initial_MCGlbLEXUS_with_rhob_XY(InitData *DATA, int ieta,
-                                         Grid ***arena);
-    void initial_AMPT_XY(InitData *DATA, int ieta, Grid ***arena);
 
     double eta_profile_normalisation(InitData *DATA, double eta);
     double eta_rhob_profile_normalisation(InitData *DATA, double eta);
