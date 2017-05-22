@@ -48,9 +48,6 @@ INSTPATH	=	../
 $(OBJDIR)/%.o: %.cpp
 	$(CC) $(CFLAGS) -c $< -o $@
 
-%.cpp:
-	if [ -f $@ ] ; then touch $@ ; else false ; fi
-
 # -------------------------------------------------
 
 .PHONY:		all mkobjdir clean distclean install
