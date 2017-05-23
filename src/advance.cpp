@@ -15,7 +15,7 @@ Advance::Advance(EOS *eosIn, InitData *DATA_in) {
     eos = eosIn;
     grid = new Grid();
     util = new Util;
-    reconst_ptr = new Reconst(eos, DATA_in->reconst_type);
+    reconst_ptr = new Reconst(eos, DATA_in);
     diss = new Diss(eosIn, DATA_in);
     minmod = new Minmod(DATA_in);
     u_derivative = new U_derivative(eosIn, DATA_in);
@@ -171,7 +171,7 @@ int Advance::FirstRKStepT(double tau, double x_local, double y_local,
 
     for (int alpha = 0; alpha < 5; alpha++) {
         qirk[alpha][0] = qi[alpha] + rhs[alpha];
-        if (qirk[alpha][0] > LARGE) {
+        if (qirk[alpha][0] > 1e20) {
 	        fprintf(stderr, "qirk[%d][0] = %e is a nan.\n", alpha,
                     qirk[alpha][0]);
 	        fprintf(stderr, "qi[%d] = %e\n", alpha, qi[alpha]);
@@ -671,7 +671,7 @@ int Advance::MakeQIHalfs(double *qi, NbrQs *NbrCells, BdryCells *HalfwayCells,
                                           NbrCells->qim1[alpha][direc]);
 
             tempf = HalfwayCells->qiphL[alpha][direc] = gphL + fphL;
-            if (tempf > LARGE) {
+            if (tempf > 1e20) {
                 fprintf(stderr, "qiphL is not finite with g = %e, f = %e\n",
                         gphL, fphL);
                 fprintf(stderr, "alpha = %d\n", alpha);
@@ -679,7 +679,7 @@ int Advance::MakeQIHalfs(double *qi, NbrQs *NbrCells, BdryCells *HalfwayCells,
                 exit(0);
             }
             tempf = HalfwayCells->qiphR[alpha][direc] = gphR + fphR;
-            if (tempf > LARGE) {
+            if (tempf > 1e20) {
                 fprintf(stderr, "qiphR is not finite with g = %e, f = %e\n",
                         gphR, fphR);
                 fprintf(stderr, "alpha = %d\n", alpha);
@@ -687,7 +687,7 @@ int Advance::MakeQIHalfs(double *qi, NbrQs *NbrCells, BdryCells *HalfwayCells,
                 exit(0);
             }
             tempf = HalfwayCells->qimhL[alpha][direc] = gmhL + fmhL;
-            if (tempf > LARGE) {
+            if (tempf > 1e20) {
                 fprintf(stderr, "qimhL is not finite with g = %e, f = %e\n",
                         gmhL, fmhL);
                 fprintf(stderr, "alpha = %d\n", alpha);
@@ -695,7 +695,7 @@ int Advance::MakeQIHalfs(double *qi, NbrQs *NbrCells, BdryCells *HalfwayCells,
                 exit(0);
             }
             tempf = HalfwayCells->qimhR[alpha][direc] = gmhR + fmhR;
-            if (tempf > LARGE) {
+            if (tempf > 1e20) {
                 fprintf(stderr, "qimhR is not finite with g = %e, f = %e\n",
                         gmhR, fmhR);
                 fprintf(stderr, "alpha = %d\n", alpha);
@@ -774,7 +774,7 @@ void Advance::MakeKTCurrents(double tau, double **DFmmp, Grid *grid_pt,
                                            - HalfwayCells->qimhL[alpha][i]);
     
             tempf= DFmmp[alpha][i] = (Fimh[alpha][i] - Fiph[alpha][i]);
-            if (tempf > LARGE) {
+            if (tempf > 1e20) {
                 fprintf(stderr, "DFmmp[%d][%d] is not finite.\n", alpha, i);
                 fprintf(stderr, "FimhL[%d][%d] is %e.\n",
                         alpha, i, FimhL[alpha][i]);

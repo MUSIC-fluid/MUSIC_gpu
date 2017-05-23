@@ -22,10 +22,6 @@ using namespace std;
 #define hbarc (0.1973)
 #endif
 
-#ifndef LARGE
-#define LARGE (1e20)
-#endif
-
 #ifndef default_tol
 #define default_tol (1.0e-8)
 #endif

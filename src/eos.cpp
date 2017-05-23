@@ -237,7 +237,6 @@ double EOS::get_muS(double eps, double rhob) {
 double EOS::get_s2e(double s, double rhob) {
     // s - entropy density in 1/fm^3
     double e;  // epsilon - energy density
-    int status;
     if (whichEOS == 0) {
         e = s2e_ideal_gas(s);
     } else {
