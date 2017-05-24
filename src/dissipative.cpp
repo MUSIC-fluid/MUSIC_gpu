@@ -597,52 +597,6 @@ int Diss::Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs,
     return 1; /* if successful */
 }/* Make_uWRHS */
 
-void Diss::Get_uWmns(double tau, Grid *grid_pt, int mu, int nu, int direc,
-        double *g, double *f, double *gp1, double *fp1, double *gp2,
-        double *fp2, double *gm1, double *fm1, double *gm2, double *fm2, 
-        InitData *DATA, int rk_flag) {
-    double tf, tg, tgp1, tfp1, tgp2, tfp2, tgm1, tfm1, tgm2, tfm2;
-    /* Get_uWmns */
-    /* this is the last step of split-operator evolution */
-    /* should use Wmunu[rk_flag+1] and u[rk_flag] */
-    /* recall that in this file, rk_flag = 0 always. */
-
-    int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-    tg = grid_pt->Wmunu[rk_flag][idx_1d];
-    tf = tg*grid_pt->u[rk_flag][direc];
-    tg *=   grid_pt->u[rk_flag][0];
-       
-    tgp2 = grid_pt->nbr_p_2[direc]->Wmunu[rk_flag][idx_1d];
-    tfp2 = tgp2*grid_pt->nbr_p_2[direc]->u[rk_flag][direc];
-    tgp2 *=     grid_pt->nbr_p_2[direc]->u[rk_flag][0];
-    
-    tgp1 = grid_pt->nbr_p_1[direc]->Wmunu[rk_flag][idx_1d];
-    tfp1 = tgp1*grid_pt->nbr_p_1[direc]->u[rk_flag][direc];
-    tgp1 *=     grid_pt->nbr_p_1[direc]->u[rk_flag][0];
-    
-    tgm1 = grid_pt->nbr_m_1[direc]->Wmunu[rk_flag][idx_1d];
-    tfm1 = tgm1*grid_pt->nbr_m_1[direc]->u[rk_flag][direc];
-    tgm1 *=     grid_pt->nbr_m_1[direc]->u[rk_flag][0];
-    
-    tgm2 = grid_pt->nbr_m_2[direc]->Wmunu[rk_flag][idx_1d];
-    tfm2 = tgm2*grid_pt->nbr_m_2[direc]->u[rk_flag][direc];
-    tgm2 *=     grid_pt->nbr_m_2[direc]->u[rk_flag][0];
-    
-    *g = tg;
-    *f = tf;
-    *gp1 = tgp1;
-    *fp1 = tfp1;
-    *gm1 = tgm1;
-    *fm1 = tfm1;
-    *gp2 = tgp2;
-    *fp2 = tfp2;
-    *gm2 = tgm2;
-    *fm2 = tfm2;
-       
-    return;
-}/* Get_uWmns */
-
-
 
 int Diss::Make_uPRHS(double tau, Grid *grid_pt, double *p_rhs, InitData *DATA, 
                      int rk_flag) {

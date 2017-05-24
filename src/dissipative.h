@@ -22,10 +22,6 @@ class Diss {
                        int rk_flag);
     int Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs, InitData *DATA,
                    int rk_flag);
-    void Get_uWmns(double tau, Grid *grid_pt, int mu, int nu, int direc,
-                   double *g, double *f, double *gp1, double *fp1, double *gp2,
-                   double *fp2, double *gm1, double *fm1, double *gm2,
-                   double *fm2, InitData *DATA, int rk_flag);
     double Make_uWSource(double tau, Grid *grid_pt, int mu, int nu,
                          InitData *DATA, int rk_flag);
     
