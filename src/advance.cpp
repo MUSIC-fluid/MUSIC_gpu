@@ -25,20 +25,15 @@ Advance::Advance(EOS *eosIn, InitData *DATA_in) {
     grid_neta = DATA_in->neta;
     rk_order = DATA_in->rk_order;
     
-    grid_rk_t.TJb = util->cube_malloc(rk_order, 5, 4);
     grid_rk_t.u = util->mtx_malloc(rk_order, 4);
 
     qiphL = new double[5];
     qiphR = new double[5];
     qimhL = new double[5];
     qimhR = new double[5];
-    grid_phL.TJb = util->cube_malloc(1, 5, 4);
     grid_phL.u = util->mtx_malloc(1, 4);
-    grid_phR.TJb = util->cube_malloc(1, 5, 4);
     grid_phR.u = util->mtx_malloc(1, 4);
-    grid_mhL.TJb = util->cube_malloc(1, 5, 4);
     grid_mhL.u = util->mtx_malloc(1, 4);
-    grid_mhR.TJb = util->cube_malloc(1, 5, 4);
     grid_mhR.u = util->mtx_malloc(1, 4);
     
     DFmmp = util->mtx_malloc(5, 4);
@@ -51,15 +46,10 @@ Advance::~Advance() {
     delete[] qimhL;
     delete[] qimhR;
     util->mtx_free(DFmmp, 5, 4);
-    util->cube_free(grid_rk_t.TJb, rk_order, 5, 4);
     util->mtx_free(grid_rk_t.u, rk_order, 4);
-    util->cube_free(grid_phL.TJb, 1, 5, 4);
     util->mtx_free(grid_phL.u, 1, 4);
-    util->cube_free(grid_phR.TJb, 1, 5, 4);
     util->mtx_free(grid_phR.u, 1, 4);
-    util->cube_free(grid_mhL.TJb, 1, 5, 4);
     util->mtx_free(grid_mhL.u, 1, 4);
-    util->cube_free(grid_mhR.TJb, 1, 5, 4);
     util->mtx_free(grid_mhR.u, 1, 4);
     delete grid;
     delete util;
@@ -174,7 +164,6 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
         /* if rk_flag > 0, we now have q0 + k1 + k2. 
          * So add q0 and multiply by 1/2 */
         if (rk_flag > 0) {
-            //qirk[alpha] += (grid_pt->TJb[0][alpha][0])*tau_now;
             qirk[alpha] += get_TJb(grid_pt, 0, alpha, 0)*tau_now;
             qirk[alpha] *= 0.5;
         }
@@ -427,9 +416,7 @@ void Advance::UpdateTJbRK(Grid *grid_rk, Grid *grid_pt, int rk_flag) {
     // reconstructed grid_rk uses rk_flag 0 only
     for (int mu=0; mu<4; mu++) {
         grid_pt->u[trk_flag][mu] = grid_rk->u[0][mu];
-        for (int alpha=0; alpha<5; alpha++)  // alpha = 4 is the baryon current
-            grid_pt->TJb[trk_flag][alpha][mu] = grid_rk->TJb[0][alpha][mu];
-    }/* mu */
+    }
 }/* UpdateTJbRK */
 
 //! this function reduce the size of shear stress tensor and bulk pressure
@@ -576,7 +563,6 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi, double *rhs,
 
     // tau*Tmu0
     for (int alpha = 0; alpha < 5; alpha++) {
-        //qi[alpha] = grid_pt->TJb[rk_flag][alpha][0]*tau;
         qi[alpha] = get_TJb(grid_pt, rk_flag, alpha, 0)*tau;
     }/* get qi first */
 
@@ -589,21 +575,17 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi, double *rhs,
         }
         for (int alpha = 0; alpha < 5; alpha++) {
             double gphL = qi[alpha];
-            //double gphR = tau*grid_pt->nbr_p_1[direc]->TJb[rk_flag][alpha][0];
             double gphR = (
                     tau*get_TJb(grid_pt->nbr_p_1[direc], rk_flag, alpha, 0));
-            //double gmhL = tau*grid_pt->nbr_m_1[direc]->TJb[rk_flag][alpha][0];
             double gmhL = (
                     tau*get_TJb(grid_pt->nbr_m_1[direc], rk_flag, alpha, 0));
             double gmhR = qi[alpha];
             double fphL = 0.5*minmod->minmod_dx(gphR, qi[alpha], gmhL);
             double fphR = -0.5*minmod->minmod_dx(
-                    //tau*grid_pt->nbr_p_2[direc]->TJb[rk_flag][alpha][0],
                     tau*get_TJb(grid_pt->nbr_p_2[direc], rk_flag, alpha, 0),
                     gphR, qi[alpha]);
             double fmhL = 0.5*minmod->minmod_dx(qi[alpha], gmhL,
                     tau*get_TJb(grid_pt->nbr_m_2[direc], rk_flag, alpha, 0));
-                    //tau*grid_pt->nbr_m_2[direc]->TJb[rk_flag][alpha][0]);
             double fmhR = -0.5*minmod->minmod_dx(gphR, qi[alpha], gmhL);
             qiphL[alpha] = gphL + fphL;
             qiphR[alpha] = gphR + fphR;
@@ -631,13 +613,9 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi, double *rhs,
         double FiphL[5], FiphR[5], FimhL[5], FimhR[5];
         double Fiph[5], Fimh[5];
         for (int alpha = 0; alpha < 5; alpha++) {
-            //FiphL[alpha] = grid_phL.TJb[0][alpha][direc]*tau_fac;
             FiphL[alpha] = get_TJb(&grid_phL, 0, alpha, direc)*tau_fac;
-            //FiphR[alpha] = grid_phR.TJb[0][alpha][direc]*tau_fac;
             FiphR[alpha] = get_TJb(&grid_phR, 0, alpha, direc)*tau_fac;
-            //FimhL[alpha] = grid_mhL.TJb[0][alpha][direc]*tau_fac;
             FimhL[alpha] = get_TJb(&grid_mhL, 0, alpha, direc)*tau_fac;
-            //FimhR[alpha] = grid_mhR.TJb[0][alpha][direc]*tau_fac;
             FimhR[alpha] = get_TJb(&grid_mhR, 0, alpha, direc)*tau_fac;
             
             // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
@@ -657,10 +635,8 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi, double *rhs,
             sumf += DFmmp[alpha][i]/delta[i];
         } /* i */
         if (alpha == 0) {
-            //sumf -= grid_pt->TJb[rk_flag][3][3];
             sumf -= get_TJb(grid_pt, rk_flag, 3, 3);
         } else if(alpha==3) {
-            //sumf -= grid_pt->TJb[rk_flag][3][0];
             sumf -= get_TJb(grid_pt, rk_flag, 3, 0);
         }
         rhs[alpha] = sumf*(DATA_ptr->delta_tau);

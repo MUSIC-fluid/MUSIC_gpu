@@ -54,7 +54,7 @@ int Reconst::ReconstIt_shell(Grid *grid_p, double tau, double *uq,
 //! reconstruct TJb from q[0] - q[4] solve energy density first
 int Reconst::ReconstIt(Grid *grid_p, double tau, double *uq,
                        Grid *grid_pt, int rk_flag) {
-    double K00, T00, J0, u[4], epsilon, p, h, rhob;
+    double K00, T00, J0, u[4], epsilon, p, h;
     double epsilon_prev, rhob_prev, p_prev, p_guess, temperr;
     double epsilon_next, rhob_next, p_next, err, temph, cs2;
     double eps_guess, scalef;
@@ -173,9 +173,8 @@ int Reconst::ReconstIt(Grid *grid_p, double tau, double *uq,
     // update
     epsilon = grid_p->epsilon = epsilon_next;
     p = grid_p->p = p_next;
-    rhob = grid_p->rhob = rhob_next;
+    grid_p->rhob = rhob_next;
     h = p+epsilon;
-    double pressure = p_next;
 
     /* q[0] = Ttautau/tau, q[1] = Ttaux, q[2] = Ttauy, q[3] = Ttaueta,
        q[4] = Jtau */
@@ -246,19 +245,7 @@ int Reconst::ReconstIt(Grid *grid_p, double tau, double *uq,
     /* End: Correcting normalization of 4-velocity */
 
     for (int mu = 0; mu < 4; mu++) {
-        grid_p->TJb[0][4][mu] = rhob*u[mu];
         grid_p->u[0][mu] = u[mu];
-        double gfac = (mu == 0 ? -1.0 : 1.0);
-        double tempf = (epsilon + pressure)*u[mu]*u[mu] + pressure*gfac;
-        grid_p->TJb[0][mu][mu] = tempf;
-    }
-    for (int mu = 0; mu < 4; mu++) {
-        double tempf = (epsilon + pressure)*u[mu];
-        for (int nu = mu+1; nu < 4; nu++) {
-            double Tmunu = tempf*u[nu];
-            grid_p->TJb[0][mu][nu] = Tmunu;
-            grid_p->TJb[0][nu][mu] = Tmunu;
-        }
     }
 
     return(1);  // on successful execution
@@ -271,12 +258,7 @@ void Reconst::revert_grid(Grid *grid_current, Grid *grid_prev, int rk_flag) {
     grid_current->rhob = grid_prev->rhob;
     grid_current->p = grid_prev->p;
     for (int mu = 0; mu < 4; mu++) {
-        grid_current->TJb[0][4][mu] = grid_prev->TJb[rk_flag][4][mu];
         grid_current->u[0][mu] = grid_prev->u[rk_flag][mu];
- 
-        for (int nu = 0; nu < 4; nu++) {
-            grid_current->TJb[0][nu][mu] = grid_prev->TJb[rk_flag][nu][mu];
-        }
     }
 }
 
@@ -490,19 +472,7 @@ int Reconst::ReconstIt_velocity_iteration(
     // End: Correcting normalization of 4-velocity
    
     for (int mu = 0; mu < 4; mu++) {
-        grid_p->TJb[0][4][mu] = rhob*u[mu];
         grid_p->u[0][mu] = u[mu];
-        double gfac = (mu == 0 ? -1.0 : 1.0);
-        double tempf = (epsilon + pressure)*u[mu]*u[mu] + pressure*gfac;
-        grid_p->TJb[0][mu][mu] = tempf;
-    }
-    for (int mu = 0; mu < 4; mu++) {
-        double tempf = (epsilon + pressure)*u[mu];
-        for (int nu = mu+1; nu < 4; nu++) {
-            double Tmunu = tempf*u[nu];
-            grid_p->TJb[0][mu][nu] = Tmunu;
-            grid_p->TJb[0][nu][mu] = Tmunu;
-        }
     }
 
     return 1;  /* on successful execution */
@@ -729,19 +699,7 @@ int Reconst::ReconstIt_velocity_Newton(
     // End: Correcting normalization of 4-velocity
    
     for (int mu = 0; mu < 4; mu++) {
-        grid_p->TJb[0][4][mu] = rhob*u[mu];
         grid_p->u[0][mu] = u[mu];
-        double gfac = (mu == 0 ? -1.0 : 1.0);
-        double tempf = (epsilon + pressure)*u[mu]*u[mu] + pressure*gfac;
-        grid_p->TJb[0][mu][mu] = tempf;
-    }
-    for (int mu = 0; mu < 4; mu++) {
-        double tempf = (epsilon + pressure)*u[mu];
-        for (int nu = mu+1; nu < 4; nu++) {
-            double Tmunu = tempf*u[nu];
-            grid_p->TJb[0][mu][nu] = Tmunu;
-            grid_p->TJb[0][nu][mu] = Tmunu;
-        }
     }
 
     return 1;  /* on successful execution */
@@ -849,16 +807,4 @@ void Reconst::regulate_grid(Grid *grid_cell, double elocal, int rk_flag) {
     grid_cell->u[rk_flag][2] = 0.0;
     grid_cell->u[rk_flag][3] = 0.0;
     
-    grid_cell->TJb[rk_flag][0][0] = elocal;
-    grid_cell->TJb[rk_flag][1][1] = plocal;
-    grid_cell->TJb[rk_flag][2][2] = plocal;
-    grid_cell->TJb[rk_flag][3][3] = plocal;
-
-    for (int mu = 0; mu < 4; mu++) {
-        grid_cell->TJb[rk_flag][4][mu] = 0.0;
-        for (int nu = mu+1; nu < 4; nu++) {
-            grid_cell->TJb[rk_flag][mu][nu] = 0.0;
-            grid_cell->TJb[rk_flag][nu][mu] = 0.0;
-        }
-    }
 }

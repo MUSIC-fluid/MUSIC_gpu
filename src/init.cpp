@@ -334,7 +334,6 @@ void Init::initial_Gubser_XY(InitData *DATA, int ieta, Grid ***arena) {
             arena[ieta][ix][iy].p = p;
             arena[ieta][ix][iy].p_t = p;
             
-            arena[ieta][ix][iy].TJb = util->cube_malloc(rk_order+1, 5, 4);
             arena[ieta][ix][iy].dUsup = util->cube_malloc(1, 5, 4);
             arena[ieta][ix][iy].u = util->mtx_malloc(rk_order+1, 4);
             arena[ieta][ix][iy].a = util->mtx_malloc(1, 5);
@@ -403,15 +402,6 @@ void Init::initial_Gubser_XY(InitData *DATA, int ieta, Grid ***arena) {
                         arena[ieta][ix][iy].Wmunu[0][mu] = 0.0;
                 }
             }
-            for (int mu = 0; mu < 4; mu++) {
-                /* baryon density */
-                arena[ieta][ix][iy].TJb[0][4][mu] = rhob*u[mu];
-                for (int nu = 0; nu < 4; nu++) {
-                    arena[ieta][ix][iy].TJb[0][mu][nu] = (
-                                                (epsilon + p)*u[mu]*u[nu]
-                                                + p*(DATA->gmunu)[mu][nu]);
-                }/* nu */
-            }/* mu */
             for (int rkstep = 0; rkstep < 2; rkstep++) {
                 for (int ii = 0; ii < 14; ii++) {
                     arena[ieta][ix][iy].prevWmunu[rkstep][ii] = 
@@ -547,7 +537,6 @@ void Init::initial_IPGlasma_XY(InitData *DATA, int ieta, Grid ***arena) {
             arena[ieta][ix][iy].p = p;
             arena[ieta][ix][iy].p_t = p;
 
-            arena[ieta][ix][iy].TJb = util->cube_malloc(rk_order+1, 5, 4);
             arena[ieta][ix][iy].dUsup = util->cube_malloc(1, 5, 4);
             arena[ieta][ix][iy].u = util->mtx_malloc(rk_order+1, 4);
             arena[ieta][ix][iy].a = util->mtx_malloc(1, 5);
@@ -581,15 +570,6 @@ void Init::initial_IPGlasma_XY(InitData *DATA, int ieta, Grid ***arena) {
 
             arena[ieta][ix][iy].pi_b[0] = 0.0;
 
-            for (int mu = 0; mu < 4; mu++) {
-                /* baryon density */
-                arena[ieta][ix][iy].TJb[0][4][mu] = rhob*u[mu];
-                for (int nu = 0; nu < 4; nu++) {
-                    arena[ieta][ix][iy].TJb[0][nu][mu] = (
-                                            (epsilon + p)*u[mu]*u[nu]
-                                            + p*(DATA->gmunu)[mu][nu]);
-                }/* nu */
-            }/* mu */
             for (int ii = 0; ii < 14; ii++) {
                 arena[ieta][ix][iy].prevWmunu[0][ii] = 0.0;
                 arena[ieta][ix][iy].prevWmunu[1][ii] = 0.0;
