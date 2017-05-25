@@ -13,50 +13,23 @@ using namespace std;
 Advance::Advance(EOS *eosIn, InitData *DATA_in) {
     DATA_ptr = DATA_in;
     eos = eosIn;
-    grid = new Grid();
     util = new Util;
     reconst_ptr = new Reconst(eos, DATA_in);
     diss = new Diss(eosIn, DATA_in);
     minmod = new Minmod(DATA_in);
-    u_derivative = new U_derivative(eosIn, DATA_in);
 
     grid_nx = DATA_in->nx;
     grid_ny = DATA_in->ny;
     grid_neta = DATA_in->neta;
     rk_order = DATA_in->rk_order;
-    
-    grid_rk_t.u = util->mtx_malloc(rk_order, 4);
-
-    qiphL = new double[5];
-    qiphR = new double[5];
-    qimhL = new double[5];
-    qimhR = new double[5];
-    grid_phL.u = util->mtx_malloc(1, 4);
-    grid_phR.u = util->mtx_malloc(1, 4);
-    grid_mhL.u = util->mtx_malloc(1, 4);
-    grid_mhR.u = util->mtx_malloc(1, 4);
-    
-    DFmmp = util->mtx_malloc(5, 4);
 }
 
 // destructor
 Advance::~Advance() {
-    delete[] qiphL;
-    delete[] qiphR;
-    delete[] qimhL;
-    delete[] qimhR;
-    util->mtx_free(DFmmp, 5, 4);
-    util->mtx_free(grid_rk_t.u, rk_order, 4);
-    util->mtx_free(grid_phL.u, 1, 4);
-    util->mtx_free(grid_phR.u, 1, 4);
-    util->mtx_free(grid_mhL.u, 1, 4);
-    util->mtx_free(grid_mhR.u, 1, 4);
-    delete grid;
     delete util;
     delete diss;
     delete reconst_ptr;
     delete minmod;
-    delete u_derivative;
 }
 
 
@@ -170,8 +143,11 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
     }
 
     int flag = 0;
+    Grid grid_rk_t;
+    grid_rk_t.u = util->mtx_malloc(rk_order, 4);
     flag = reconst_ptr->ReconstIt_shell(&grid_rk_t, tau_next, qirk, grid_pt,
                                         rk_flag); 
+
     delete[] qi;
     delete[] qirk;
     delete[] rhs;
@@ -180,6 +156,7 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
         UpdateTJbRK(&grid_rk_t, grid_pt, rk_flag); 
         /* TJb[rk_flag+1] is filled */
     }
+    util->mtx_free(grid_rk_t.u, rk_order, 4);
     return(flag);
 }
 
@@ -566,6 +543,18 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi, double *rhs,
         qi[alpha] = get_TJb(grid_pt, rk_flag, alpha, 0)*tau;
     }/* get qi first */
 
+    double *qiphL = new double[5];
+    double *qiphR = new double[5];
+    double *qimhL = new double[5];
+    double *qimhR = new double[5];
+    double **DFmmp = util->mtx_malloc(5, 4);
+    
+    Grid grid_phL, grid_phR, grid_mhL, grid_mhR;
+    grid_phL.u = util->mtx_malloc(1, 4);
+    grid_phR.u = util->mtx_malloc(1, 4);
+    grid_mhL.u = util->mtx_malloc(1, 4);
+    grid_mhR.u = util->mtx_malloc(1, 4);
+
     // implement Kurganov-Tadmor scheme
     // here computes the half way T^\tau\mu currents
     for (int direc = 1; direc < 4; direc++) {
@@ -628,6 +617,16 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi, double *rhs,
             DFmmp[alpha][direc] = Fimh[alpha] - Fiph[alpha];
         }
     }
+    
+    delete[] qiphL;
+    delete[] qiphR;
+    delete[] qimhL;
+    delete[] qimhR;
+    
+    util->mtx_free(grid_phL.u, 1, 4);
+    util->mtx_free(grid_phR.u, 1, 4);
+    util->mtx_free(grid_mhL.u, 1, 4);
+    util->mtx_free(grid_mhR.u, 1, 4);
    
     for (int alpha = 0; alpha < 5; alpha++) {
         double sumf = 0.0; 
@@ -641,6 +640,9 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi, double *rhs,
         }
         rhs[alpha] = sumf*(DATA_ptr->delta_tau);
     }/* alpha */
+    
+    util->mtx_free(DFmmp, 5, 4);
+
     return;
 }/* MakeDeltaQI */
 

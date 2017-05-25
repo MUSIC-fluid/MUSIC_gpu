@@ -20,18 +20,10 @@ class Advance {
     InitData* DATA_ptr;
     Util *util;
     Diss *diss;
-    Grid *grid;
     Reconst *reconst_ptr;
     EOS *eos;
     Minmod *minmod;
-    U_derivative *u_derivative;
     
-    Grid grid_rk_t;
-
-    double *qiphL, *qiphR, *qimhL, *qimhR;
-    double **DFmmp;
-    Grid grid_phL, grid_phR, grid_mhL, grid_mhR;
-
     int grid_nx, grid_ny, grid_neta;
     int rk_order;
 
