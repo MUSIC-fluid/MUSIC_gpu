@@ -34,10 +34,8 @@ class Advance {
     int AdvanceIt(double tau_init, InitData *DATA, Grid ***arena, int rk_flag);
 
 
-    int AdvanceLocalT(double tau_init, InitData *DATA, int ieta, Grid ***arena,
-                      int rk_flag);
-    int AdvanceLocalW(double tau_init, InitData *DATA, int ieta, Grid ***arena,
-                      int rk_flag);
+    int AdvanceLocalT(double tau_init, InitData *DATA, int ieta, int ix,
+                      Grid ***arena, int rk_flag);
 
     int FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt, int rk_flag);
 
