@@ -25,41 +25,33 @@ Reconst::Reconst(EOS *eosIn, InitData *DATA_in) {
 Reconst::~Reconst() {
 }
 
-int Reconst::ReconstIt_shell(Grid *grid_p, double tau, double *uq,
-                             Grid *grid_pt, int rk_flag) {
+int Reconst::ReconstIt_shell(double *grid_array, double tau, double *uq,
+                             double *grid_array_p) {
     int flag = 0;
-    flag = ReconstIt_velocity_Newton(grid_p, tau, uq, grid_pt,
-                                     rk_flag);
+    flag = ReconstIt_velocity_Newton(grid_array, tau, uq, grid_array_p);
     if (flag < 0) {
-        flag = ReconstIt_velocity_iteration(grid_p, tau, uq, grid_pt,
-                                            rk_flag);
+        flag = ReconstIt_velocity_iteration(grid_array, tau, uq, grid_array_p);
     }
 
     if (flag < 0) {
-        flag = ReconstIt(grid_p, tau, uq, grid_pt, rk_flag);
+        flag = ReconstIt(grid_array, tau, uq, grid_array_p);
     }
 
     if (flag == -1) {
-        revert_grid(grid_p, grid_pt, rk_flag);
+        revert_grid(grid_array, grid_array_p);
     } else if (flag == -2) {
         if (uq[0]/tau < abs_err) {
-            regulate_grid(grid_p, abs_err, 0);
+            regulate_grid(grid_array, abs_err, 0);
         } else {
-            regulate_grid(grid_p, uq[0]/tau, 0);
+            regulate_grid(grid_array, uq[0]/tau);
         }
     }
     return(flag);
 }
 
 //! reconstruct TJb from q[0] - q[4] solve energy density first
-int Reconst::ReconstIt(Grid *grid_p, double tau, double *uq,
-                       Grid *grid_pt, int rk_flag) {
-    double K00, T00, J0, u[4], epsilon, p, h;
-    double epsilon_prev, rhob_prev, p_prev, p_guess, temperr;
-    double epsilon_next, rhob_next, p_next, err, temph, cs2;
-    double eps_guess, scalef;
-    int iter, alpha;
-    double q[5];
+int Reconst::ReconstIt(double *grid_array, double tau, double *uq,
+                       double *grid_array_p) {
     const double RECONST_PRECISION = 1e-8;
 
     /* prepare for the iteration */
@@ -79,15 +71,15 @@ int Reconst::ReconstIt(Grid *grid_p, double tau, double *uq,
        q[4] = Jtau */
     /* uq = qiphL, qiphR, qimhL, qimhR, qirk */
 
-    for (alpha=0; alpha<5; alpha++) {
-        q[alpha] = uq[alpha];
+    double q[5];
+    for (int alpha = 0; alpha < 5; alpha++) {
+        q[alpha] = uq[alpha]/tau;
     }
 
-    K00 = q[1]*q[1] + q[2]*q[2] + q[3]*q[3];
-    K00 /= (tau*tau);
+    double K00 = q[1]*q[1] + q[2]*q[2] + q[3]*q[3];
  
-    T00 = q[0]/tau;
-    J0 = q[4]/tau;
+    double T00 = q[0];
+    double J0 = q[4];
  
     if ((T00 - K00/T00) < 0.0 || (T00 < (abs_err))) {
         // can't make Tmunu with this. restore the previous value
@@ -97,34 +89,37 @@ int Reconst::ReconstIt(Grid *grid_p, double tau, double *uq,
     }
 
     /* Iteration scheme */
-    double eps_init = grid_pt->epsilon;
-    double rhob_init = grid_pt->rhob;
-    cs2 = eos->p_e_func(eps_init, rhob_init);
-    eps_guess = GuessEps(T00, K00, cs2);
-    epsilon_next = eps_guess;
+    double eps_init = grid_array_p[0];
+    double rhob_init = grid_array_p[4];
+    double cs2 = eos->p_e_func(eps_init, rhob_init);
+    double eps_guess = GuessEps(T00, K00, cs2);
+    double epsilon_next = eps_guess;
      
     if (isnan(epsilon_next)) {
         cout << "problem " << eps_guess << " T00=" << T00
                       << " K00=" << K00 << " cs2=" << cs2
-                      << " q[0]=" << q[0] << " uq[0] ="
-                      << uq[0] << " q[1]=" << q[1] << " q[2]=" << q[2];
+                      << " q[0]=" << q[0]
+                      << " q[1]=" << q[1] << " q[2]=" << q[2]
+                      << endl;
     }
-    p_guess = eos->get_pressure(epsilon_next, rhob_init);
-    p_next = p_guess;
+    double p_next = eos->get_pressure(epsilon_next, rhob_init);
 
-    if (J0 == 0.0) {
+    double rhob_next = 0.0;
+    if (fabs(J0) < 1e-15) {
         rhob_next = 0.0;
     } else {
-        rhob_next = J0*sqrt((eps_guess + p_guess)/(T00 + p_guess));
+        rhob_next = J0*sqrt((eps_guess + p_next)/(T00 + p_next));
         if (rhob_next < 0) {
             rhob_next = 0.0;
         }
         if (rhob_next > LARGE) {
-            cout << "rhob_next is crazy! rhob = " << rhob_next;
+            cout << "rhob_next is crazy! rhob = " << rhob_next << endl;
         }
     }
-    err = 1.0;
-    for (iter=0; iter<100; iter++) {
+    double temperr = 0.0;
+    double err = 1.0;
+    double epsilon_prev, rhob_prev, p_prev;
+    for (int iter = 0; iter < max_iter; iter++) {
         if (err < (RECONST_PRECISION)*0.01) {
             if (isnan(epsilon_next)) {
                 exit(-1);
@@ -147,48 +142,53 @@ int Reconst::ReconstIt(Grid *grid_p, double tau, double *uq,
         if (DATA_ptr->turn_on_rhob == 1) {
             rhob_next = J0*sqrt((epsilon_prev + p_prev)/(T00 + p_prev));
             temperr = fabs((rhob_next-rhob_prev)/(rhob_prev+abs_err));
-            if (temperr > LARGE)
+            if (temperr > LARGE) {
                 err += temperr;
-            else if (temperr > LARGE)
+            } else if (temperr > LARGE) {
                 err += 1000.0;  //big enough
-            else if (isnan(temperr))
+            } else if (isnan(temperr)) {
                 err += 1000.0;
+            }
         } else {
             rhob_next = 0.0;
         }
    
         temperr = fabs((epsilon_next-epsilon_prev)/(epsilon_prev+abs_err));
-        if (temperr > LARGE)
+        if (temperr > LARGE) {
             err += temperr;
-        else if (temperr > LARGE)
+        } else if (temperr > LARGE) {
             err += 1000.0;  // big enough
-        else if (isnan(temperr))
+        } else if (isnan(temperr)) {
             err += 1000.0;
+        }
     }
 
-    if (iter == 100) {
+    if (iter == max_iter) {
         return(-1);
     }  // if iteration is unsuccessful, revert
 
     // update
-    epsilon = grid_p->epsilon = epsilon_next;
-    p = p_next;
-    grid_p->rhob = rhob_next;
-    h = p+epsilon;
+    double epsilon = grid_array[0] = epsilon_next;
+    double p = p_next;
+    double grid_array[4] = rhob_next;
+    double h = p+epsilon;
 
     /* q[0] = Ttautau/tau, q[1] = Ttaux, q[2] = Ttauy, q[3] = Ttaueta,
        q[4] = Jtau */
 
+    double u[4];
     u[0] = sqrt((q[0]/tau + p)/h);
-    double check_u0_var = (fabs(u[0] - grid_pt->u[rk_flag][0])
-                           /(grid_pt->u[rk_flag][0]));
+    double prev_u0 = 1./sqrt(1. - grid_array_p[1]*grid_array_p[1]
+                             - grid_array_p[2]*grid_array_p[2]
+                             - grid_array_p[3]*grid_array_p[3]);
+    double check_u0_var = (fabs(u[0] - prev_u0)/(prev_u0));
     if (check_u0_var > 100.) {
-        if (grid_pt->epsilon > 1e-6 || echo_level > 5) {
+        if (grid_array_p[0] > 1e-6 || echo_level > 5) {
             cout << "u0 varies more than 100 times compared to "
                           << "its value at previous time step";
-            cout << "e = " << grid_pt->epsilon
+            cout << "e = " << grid_array_p[0]
                           << ", u[0] = " << u[0]
-                          << ", prev_u[0] = " << grid_pt->u[rk_flag][0];
+                          << ", prev_u[0] = " << prev_u0;
         }
         return(-1);
     }
@@ -198,7 +198,7 @@ int Reconst::ReconstIt(Grid *grid_p, double tau, double *uq,
             cout << "Reconst velocity: e = " << epsilon
                           << " > e_max in the EoS table.";
 	        cout << "e_max = " << eos_eps_max << " [1/fm^4]";
-	        cout << "previous epsilon = " << grid_pt->epsilon
+	        cout << "previous epsilon = " << grid_array_p[0]
                           << " [1/fm^4]";
         }
         return(-1);
@@ -207,10 +207,9 @@ int Reconst::ReconstIt(Grid *grid_p, double tau, double *uq,
     double u_max = 242582597.70489514; // cosh(20)
     if (u[0] > u_max) {
         fprintf(stderr, "Reconst: u[0] = %e is too large.\n", u[0]);
-        if (grid_pt->epsilon > 0.3) {
+        if (grid_array_p[0] > 0.3) {
 	        fprintf(stderr, "Reconst: u[0] = %e is too large.\n", u[0]);
-	        fprintf(stderr, "epsilon = %e\n", grid_pt->epsilon);
-	        fprintf(stderr, "Reverting to the previous TJb...\n"); 
+	        fprintf(stderr, "epsilon = %e\n", grid_array_p[0]);
 	    }
         return(-1);
     } else {
@@ -220,7 +219,7 @@ int Reconst::ReconstIt(Grid *grid_p, double tau, double *uq,
     }
 
     /* Correcting normalization of 4-velocity */
-    temph = u[0]*u[0] - u[1]*u[1] - u[2]*u[2] - u[3]*u[3];
+    double temph = u[0]*u[0] - u[1]*u[1] - u[2]*u[2] - u[3]*u[3];
     // Correct velocity when unitarity is not satisfied to numerical accuracy
     if (fabs(temph - 1.0) > abs_err) {
         // If the deviation is too large, exit MUSIC
@@ -237,15 +236,16 @@ int Reconst::ReconstIt(Grid *grid_p, double tau, double *uq,
 
         // Rescaling spatial components of velocity so that unitarity 
         // is exactly satisfied (u[0] is not modified)
-        scalef = sqrt((u[0]*u[0]-1.0)/(u[1]*u[1] + u[2]*u[2] + u[3]*u[3]));
+        double scalef = sqrt((u[0]*u[0]-1.0)
+                             /(u[1]*u[1] + u[2]*u[2] + u[3]*u[3]));
         u[1] *= scalef;
         u[2] *= scalef;
         u[3] *= scalef;
     }/* if u^mu u_\mu != 1 */
     /* End: Correcting normalization of 4-velocity */
 
-    for (int mu = 0; mu < 4; mu++) {
-        grid_p->u[0][mu] = u[mu];
+    for (int mu = 1; mu < 4; mu++) {
+        grid_array[mu] = u[mu]/u[0];
     }
 
     return(1);  // on successful execution
@@ -253,16 +253,14 @@ int Reconst::ReconstIt(Grid *grid_p, double tau, double *uq,
 
 //! This function reverts the grid information back its values
 //! at the previous time step
-void Reconst::revert_grid(Grid *grid_current, Grid *grid_prev, int rk_flag) {
-    grid_current->epsilon = grid_prev->epsilon;
-    grid_current->rhob = grid_prev->rhob;
-    for (int mu = 0; mu < 4; mu++) {
-        grid_current->u[0][mu] = grid_prev->u[rk_flag][mu];
+void Reconst::revert_grid(double *grid_array, double *grid_prev) {
+    for (int i = 0; i < 5; i++) {
+        grid_array[i] = grid_prev[i];
     }
 }
 
 int Reconst::ReconstIt_velocity_iteration(
-    Grid *grid_p, double tau, double *uq, Grid *grid_pt, int rk_flag) {
+    double *grid_array, double tau, double *uq, double *grid_array_p) {
     /* reconstruct TJb from q[0] - q[4] */
     /* reconstruct velocity first for finite mu_B case */
     /* use iteration to solve v and u0 */
@@ -302,7 +300,7 @@ int Reconst::ReconstIt_velocity_iteration(
         return(-2);
     }/* if t00-k00/t00 < 0.0 */
 
-    double u[4], epsilon, pressure, rhob;
+    double u[4], epsilon, rhob;
 
     int v_status = 1;
     int iter = 0;
@@ -376,15 +374,17 @@ int Reconst::ReconstIt_velocity_iteration(
         rhob = J0/u0_solution;
     }
     
-    double check_u0_var = (fabs(u[0] - grid_pt->u[rk_flag][0])
-                           /(grid_pt->u[rk_flag][0]));
+    double prev_u0 = 1./sqrt(1. - grid_array_p[1]*grid_array_p[1]
+                             - grid_array_p[2]*grid_array_p[2]
+                             - grid_array_p[3]*grid_array_p[3]);
+    double check_u0_var = (fabs(u[0] - prev_u0)/(prev_u0));
     if (check_u0_var > 100.) {
-        if (grid_pt->epsilon > 1e-6 || echo_level > 5) {
+        if (grid_array_p[0] > 1e-6 || echo_level > 5) {
             cout << "u0 varies more than 100 times compared to "
                           << "its value at previous time step";
-            cout << "e = " << grid_pt->epsilon
+            cout << "e = " << grid_array_p[0]
                           << ", u[0] = " << u[0]
-                          << ", prev_u[0] = " << grid_pt->u[rk_flag][0];
+                          << ", prev_u[0] = " << prev_u0;
         }
         return(-1);
     }
@@ -394,16 +394,16 @@ int Reconst::ReconstIt_velocity_iteration(
             cout << "Reconst velocity: e = " << epsilon
                           << " > e_max in the EoS table.";
 	        cout << "e_max = " << eos_eps_max << " [1/fm^4]";
-	        cout << "previous epsilon = " << grid_pt->epsilon
+	        cout << "previous epsilon = " << grid_array_p[0]
                           << " [1/fm^4]";
         }
         return(-1);
     }
 
-    grid_p->epsilon = epsilon;
-    grid_p->rhob = rhob;
+    grid_array[0] = epsilon;
+    grid_array[4] = rhob;
 
-    pressure = eos->get_pressure(epsilon, rhob);
+    double pressure = eos->get_pressure(epsilon, rhob);
 
     double u_max = 242582597.70489514; // cosh(20)
     //remove if for speed
@@ -412,7 +412,7 @@ int Reconst::ReconstIt_velocity_iteration(
         if (echo_level > 5) {
             cout << "Reconst velocity: u[0] = " << u[0]
                           << " is too large!"
-                          << "epsilon = " << grid_pt->epsilon;
+                          << "epsilon = " << grid_array_p[0]
         }
         return(-1);
     } else {
@@ -469,11 +469,11 @@ int Reconst::ReconstIt_velocity_iteration(
     }// if u^mu u_\mu != 1 
     // End: Correcting normalization of 4-velocity
    
-    for (int mu = 0; mu < 4; mu++) {
-        grid_p->u[0][mu] = u[mu];
+    for (int mu = 1; mu < 4; mu++) {
+        grid_array[mu] = u[mu]/u[0];
     }
 
-    return 1;  /* on successful execution */
+    return(1);  /* on successful execution */
 }/* Reconst */
 
 
@@ -481,7 +481,7 @@ int Reconst::ReconstIt_velocity_iteration(
 //! reconstruct velocity first for finite mu_B case
 //! use Newton's method to solve v and u0
 int Reconst::ReconstIt_velocity_Newton(
-    Grid *grid_p, double tau, double *uq, Grid *grid_pt, int rk_flag) {
+    double *grid_array, double tau, double *uq, double *grid_array_p) {
     /* prepare for the iteration */
     /* uq = qiphL, qiphR, etc 
        qiphL[alpha] means, for instance, TJ[alpha][0] 
@@ -519,7 +519,9 @@ int Reconst::ReconstIt_velocity_Newton(
 
     double u[4], epsilon, pressure, rhob;
 
-    double u0_guess = grid_pt->u[rk_flag][0];
+    double u0_guess = 1./sqrt(1. - grid_array_p[1]*grid_array_p[1]
+                              - grid_array_p[2]*grid_array_p[2]
+                              - grid_array_p[3]*grid_array_p[3]);
     double v_guess = sqrt(1. - 1./(u0_guess*u0_guess + 1e-15));
     if (isnan(v_guess)) {
         v_guess = 0.0;
@@ -603,15 +605,14 @@ int Reconst::ReconstIt_velocity_Newton(
         rhob = J0/u0_solution;
     }
 
-    double check_u0_var = (fabs(u[0] - grid_pt->u[rk_flag][0])
-                           /(grid_pt->u[rk_flag][0]));
+    double check_u0_var = (fabs(u[0] - u0_guess)/u0_guess);
     if (check_u0_var > 100.) {
-        if (grid_pt->epsilon > 1e-6 || echo_level > 5) {
+        if (grid_array_p[0] > 1e-6 || echo_level > 5) {
             cout << "u0 varies more than 100 times compared to "
                           << "its value at previous time step";
-            cout << "e = " << grid_pt->epsilon
+            cout << "e = " << grid_array_p[0]
                           << ", u[0] = " << u[0]
-                          << ", prev_u[0] = " << grid_pt->u[rk_flag][0];
+                          << ", prev_u[0] = " << u0_guess;
         }
         return(-1);
     }
@@ -621,14 +622,14 @@ int Reconst::ReconstIt_velocity_Newton(
             cout << "Reconst velocity: e = " << epsilon
                           << " > e_max in the EoS table.";
 	        cout << "e_max = " << eos_eps_max << " [1/fm^4]";
-	        cout << "previous epsilon = " << grid_pt->epsilon
+	        cout << "previous epsilon = " << grid_array_p[0]
                           << " [1/fm^4]";
         }
         return(-1);
     }
 
-    grid_p->epsilon = epsilon;
-    grid_p->rhob = rhob;
+    grid_array[0] = epsilon;
+    grid_array[4] = rhob;
 
     pressure = eos->get_pressure(epsilon, rhob);
 
@@ -642,7 +643,7 @@ int Reconst::ReconstIt_velocity_Newton(
         if (echo_level > 5) {
             cout << "Reconst velocity: u[0] = " << u[0]
                           << " is too large!"
-                          << "epsilon = " << grid_pt->epsilon;
+                          << "epsilon = " << grid_array_p[0] << endl;
         }
         return(-1);
     } else {
@@ -695,11 +696,11 @@ int Reconst::ReconstIt_velocity_Newton(
     }  // if u^mu u_\mu != 1 
     // End: Correcting normalization of 4-velocity
    
-    for (int mu = 0; mu < 4; mu++) {
-        grid_p->u[0][mu] = u[mu];
+    for (int mu = 1; mu < 4; mu++) {
+        grid_array[mu] = u[mu]/u[0];
     }
 
-    return 1;  /* on successful execution */
+    return(1);  /* on successful execution */
 }/* Reconst */
 
 
@@ -793,13 +794,10 @@ double Reconst::reconst_u0_df(double u0, double T00, double K00, double M,
 
 
 //! This function regulate the grid information
-void Reconst::regulate_grid(Grid *grid_cell, double elocal, int rk_flag) {
-    grid_cell->epsilon = elocal;
-    grid_cell->rhob = 0.0;
-
-    grid_cell->u[rk_flag][0] = 1.0;
-    grid_cell->u[rk_flag][1] = 0.0;
-    grid_cell->u[rk_flag][2] = 0.0;
-    grid_cell->u[rk_flag][3] = 0.0;
-    
+void Reconst::regulate_grid(double *grid_array, double elocal) {
+    grid_array[0] = elocal;  // e
+    grid_array[1] = 0.0;     // vx
+    grid_array[2] = 0.0;     // vy
+    grid_array[3] = 0.0;     // veta
+    grid_array[4] = 0.0;     // rhob
 }

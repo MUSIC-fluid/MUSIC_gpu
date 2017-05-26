@@ -39,7 +39,7 @@ Advance::~Advance() {
 int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                        int rk_flag) {
     int ieta;
-    for (ieta=0; ieta < grid_neta; ieta++) {
+    for (ieta = 0; ieta < grid_neta; ieta++) {
         int ix;
         #pragma omp parallel private(ix)
         {
