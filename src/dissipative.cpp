@@ -67,8 +67,13 @@ double Diss::MakeWSource(double tau, int alpha, Grid *grid_pt,
     // backward time derivative (first order is more stable)
     int idx_1d_alpha0 = util->map_2d_idx_to_1d(alpha, 0);
     double dWdtau;
-    dWdtau = (grid_pt->Wmunu[rk_flag][idx_1d_alpha0]
-              - grid_pt->prevWmunu[rk_flag][idx_1d_alpha0])/DATA->delta_tau;
+    if (rk_flag == 0) {
+        dWdtau = (grid_pt->Wmunu[rk_flag][idx_1d_alpha0]
+                  - grid_pt->prevWmunu[0][idx_1d_alpha0])/DATA->delta_tau;
+    } else {
+        dWdtau = (grid_pt->Wmunu[rk_flag][idx_1d_alpha0]
+                  - grid_pt->Wmunu[0][idx_1d_alpha0])/DATA->delta_tau;
+    }
 
     /* bulk pressure term */
     double dPidtau = 0.0;
@@ -78,9 +83,15 @@ double Diss::MakeWSource(double tau, int alpha, Grid *grid_pt,
         Pi_alpha0 = (
             grid_pt->pi_b[rk_flag]*(gfac + grid_pt->u[rk_flag][alpha]
                                            *grid_pt->u[rk_flag][0]));
-        dPidtau = (Pi_alpha0 - grid_pt->prev_pi_b[rk_flag]
-                               *(gfac + grid_pt->prev_u[rk_flag][alpha]
-                                        *grid_pt->prev_u[rk_flag][0]));
+        if (rk_flag == 0) {
+            dPidtau = (Pi_alpha0 - grid_pt->prev_pi_b[0]
+                                   *(gfac + grid_pt->prev_u[0][alpha]
+                                            *grid_pt->prev_u[0][0]));
+        } else {
+            dPidtau = (Pi_alpha0 - grid_pt->pi_b[0]
+                                   *(gfac + grid_pt->u[0][alpha]
+                                            *grid_pt->u[0][0]));
+        }
     }
 
     // use central difference to preserve conservation law exactly
@@ -220,8 +231,9 @@ double Diss::Make_uWSource(double tau, Grid *grid_pt, int mu, int nu,
 ///                 Defining transport coefficients                        ///
 /// ////////////////////////////////////////////////////////////////////// ///
 /// ////////////////////////////////////////////////////////////////////// ///
-    shear = (shear_to_s)*(grid_pt->epsilon + grid_pt->p)/(T + 1e-15);
-    tau_pi = 5.0*shear/(grid_pt->epsilon + grid_pt->p + 1e-15);
+    double pressure = eos->get_pressure(grid_pt->epsilon, grid_pt->rhob);
+    shear = (shear_to_s)*(grid_pt->epsilon + pressure)/(T + 1e-15);
+    tau_pi = 5.0*shear/(grid_pt->epsilon + pressure + 1e-15);
 
     // tau_pi = maxi(tau_pi, DATA->tau_pi);
     if (tau_pi > 1e20) {
@@ -759,15 +771,16 @@ double Diss::Make_uPiSource(double tau, Grid *grid_pt, InitData *DATA,
 
     // cs2 is the velocity of sound squared
     double cs2 = eos->get_cs2(grid_pt->epsilon, grid_pt->rhob);  
+    double pressure = eos->get_pressure(grid_pt->epsilon, grid_pt->rhob);
 
     // T dependent bulk viscosity from Gabriel
     bulk = get_temperature_dependent_zeta_s(temperature);
-    bulk = bulk*(grid_pt->epsilon + grid_pt->p)/temperature;
+    bulk = bulk*(grid_pt->epsilon + pressure)/temperature;
 
     // defining bulk relaxation time and additional transport coefficients
     // Bulk relaxation time from kinetic theory
     Bulk_Relax_time = (
-        1./14.55/(1./3.-cs2)/(1./3.-cs2)/(grid_pt->epsilon + grid_pt->p)*bulk);
+        1./14.55/(1./3.-cs2)/(1./3.-cs2)/(grid_pt->epsilon + pressure)*bulk);
 
     // from kinetic theory, small mass limit
     transport_coeff1   = 2.0/3.0*(Bulk_Relax_time);
@@ -867,7 +880,7 @@ double Diss::Make_uqSource(double tau, Grid *grid_pt, int nu, InitData *DATA,
     // Useful variables to define
     double epsilon = grid_pt->epsilon;
     double rhob = grid_pt->rhob;
-    double pressure = grid_pt->p;
+    double pressure = eos->get_pressure(epsilon, rhob);
     double T = eos->get_temperature(epsilon, rhob);
 
     double kappa_coefficient = DATA->kappa_coefficient;

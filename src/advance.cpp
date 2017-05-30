@@ -81,9 +81,6 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
         exit(0);
     }
 
-    double *qirk = new double[5];
-    double *rhs = new double[5];
-    
     // Solve partial_a T^{a mu} = -partial_a W^{a mu}
     // Update T^{mu nu}
 
@@ -94,48 +91,44 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
     // It is the spatial derivative part of partial_a T^{a mu}
     // (including geometric terms)
     double *qi = new double[5];
-    MakeDeltaQI(tau_rk, grid_pt, qi, rhs, rk_flag);
+    MakeDeltaQI(tau_rk, grid_pt, qi, rk_flag);
 
     for (int alpha = 0; alpha < 5; alpha++) {
-        qirk[alpha] = qi[alpha] + rhs[alpha];
         // now MakeWSource returns partial_a W^{a mu}
         // (including geometric terms) 
         double dwmn = diss->MakeWSource(tau_rk, alpha, grid_pt, DATA, rk_flag);
         /* dwmn is the only one with the minus sign */
-        qirk[alpha] -= dwmn*(DATA->delta_tau);
+        qi[alpha] -= dwmn*(DATA->delta_tau);
 
         // set baryon density back to zero if viscous correction made it
         // non-zero remove/modify if rho_b!=0 
         // - this is only to remove the viscous correction that 
         // can make rho_b negative which we do not want.
         if (DATA->turn_on_rhob == 0) {
-            if (alpha == 4 && fabs(qirk[alpha]) > 1e-12)
-                qirk[alpha] = 0.;
+            if (alpha == 4 && fabs(qi[alpha]) > 1e-12)
+                qi[alpha] = 0.;
         }
 
         /* if rk_flag > 0, we now have q0 + k1 + k2. 
          * So add q0 and multiply by 1/2 */
         if (rk_flag > 0) {
-            qirk[alpha] += get_TJb(grid_pt, 0, alpha, 0)*tau_now;
-            qirk[alpha] *= 0.5;
+            qi[alpha] += get_TJb(grid_pt, 0, alpha, 0)*tau_now;
+            qi[alpha] *= 0.5;
         }
     }
 
     int flag = 0;
     Grid grid_rk_t;
-    grid_rk_t.u = util->mtx_malloc(rk_order, 4);
-    flag = reconst_ptr->ReconstIt_shell(&grid_rk_t, tau_next, qirk, grid_pt,
+    grid_rk_t.u = util->mtx_malloc(1, 4);
+    flag = reconst_ptr->ReconstIt_shell(&grid_rk_t, tau_next, qi, grid_pt,
                                         rk_flag); 
 
     delete[] qi;
-    delete[] qirk;
-    delete[] rhs;
 
     if (flag != 0) {
         UpdateTJbRK(&grid_rk_t, grid_pt, rk_flag); 
-        /* TJb[rk_flag+1] is filled */
     }
-    util->mtx_free(grid_rk_t.u, rk_order, 4);
+    util->mtx_free(grid_rk_t.u, 1, 4);
     return(flag);
 }
 
@@ -151,6 +144,11 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
                           int rk_flag) {
     double tau_now = tau;
     double tau_next = tau + (DATA->delta_tau);
+
+    int trk_flag = rk_flag + 1;
+    if (rk_flag == 1) {
+        trk_flag = 0;
+    }
   
     double **w_rhs;
     w_rhs = new double* [5];
@@ -190,8 +188,8 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
                                             rk_flag); 
                 tempf += temps*(DATA->delta_tau);
                 tempf += w_rhs[mu][nu];
-                grid_pt->Wmunu[rk_flag+1][idx_1d] = (
-                                    tempf/(grid_pt->u[rk_flag+1][0]));
+                grid_pt->Wmunu[trk_flag][idx_1d] = (
+                                    tempf/(grid_pt->u[trk_flag][0]));
             }
         }
     } else if (rk_flag > 0) {
@@ -199,7 +197,7 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
         for (int mu = 1; mu < 4; mu++) {
             for (int nu = mu; nu < 4; nu++) {
                 int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                tempf = (grid_pt->Wmunu[0][idx_1d])*(grid_pt->u[0][0]);
+                tempf = (grid_pt->Wmunu[0][idx_1d])*(grid_pt->prev_u[0][0]);
                 temps = diss->Make_uWSource(tau_next, grid_pt, mu, nu, DATA,
                                             rk_flag); 
                 tempf += temps*(DATA->delta_tau);
@@ -209,8 +207,8 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
                           *(grid_pt->u[rk_flag][0]));
                 tempf *= 0.5;
        
-                grid_pt->Wmunu[rk_flag+1][idx_1d] = (
-                                            tempf/(grid_pt->u[rk_flag+1][0]));
+                grid_pt->Wmunu[trk_flag][idx_1d] = (
+                                            tempf/(grid_pt->u[trk_flag][0]));
             }
         }
     } /* rk_flag > 0 */
@@ -227,12 +225,12 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
             tempf += temps*(DATA->delta_tau);
             tempf += p_rhs;
    
-            grid_pt->pi_b[rk_flag+1] = tempf/(grid_pt->u[rk_flag+1][0]);
+            grid_pt->pi_b[trk_flag] = tempf/(grid_pt->u[trk_flag][0]);
         } else if (rk_flag > 0) {
             /* calculate delta u^0 pi */
             diss->Make_uPRHS(tau_next, grid_pt, &p_rhs, DATA, rk_flag);
    
-            tempf = (grid_pt->pi_b[0])*(grid_pt->u[0][0]);
+            tempf = (grid_pt->pi_b[0])*(grid_pt->prev_u[0][0]);
             temps = diss->Make_uPiSource(tau_next, grid_pt, DATA, rk_flag);
             tempf += temps*(DATA->delta_tau);
             tempf += p_rhs;
@@ -240,10 +238,10 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
             tempf += (grid_pt->pi_b[1])*(grid_pt->u[0][0]);
             tempf *= 0.5;
 
-            grid_pt->pi_b[rk_flag+1] = tempf/(grid_pt->u[rk_flag+1][0]);
+            grid_pt->pi_b[trk_flag] = tempf/(grid_pt->u[trk_flag][0]);
         }
     } else {
-            grid_pt->pi_b[rk_flag+1] = 0.0;
+            grid_pt->pi_b[trk_flag] = 0.0;
     }
 
     // CShen: add source term for baryon diffusion
@@ -260,15 +258,15 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
                 tempf += temps*(DATA->delta_tau);
                 tempf += w_rhs[mu][nu];
 
-                grid_pt->Wmunu[rk_flag+1][idx_1d] = (
-                                            tempf/(grid_pt->u[rk_flag+1][0]));
+                grid_pt->Wmunu[trk_flag][idx_1d] = (
+                                            tempf/(grid_pt->u[trk_flag][0]));
             }
         } else if (rk_flag > 0) {
             diss->Make_uqRHS(tau_next, grid_pt, w_rhs, DATA, rk_flag);
             int mu = 4;
             for (int nu = 1; nu < 4; nu++) {
                 int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                tempf = (grid_pt->Wmunu[0][idx_1d])*(grid_pt->u[0][0]);
+                tempf = (grid_pt->Wmunu[0][idx_1d])*(grid_pt->prev_u[0][0]);
                 temps = diss->Make_uqSource(tau_next, grid_pt, nu, DATA,
                                             rk_flag); 
                 tempf += temps*(DATA->delta_tau);
@@ -278,33 +276,33 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
                           *(grid_pt->u[rk_flag][0]));
                 tempf *= 0.5;
        
-                grid_pt->Wmunu[rk_flag+1][idx_1d] = (
-                                        tempf/(grid_pt->u[rk_flag+1][0]));
+                grid_pt->Wmunu[trk_flag][idx_1d] = (
+                                        tempf/(grid_pt->u[trk_flag][0]));
             }
         } /* rk_flag > 0 */
     } else {
         for (int nu = 0; nu < 4; nu++) {
             int idx_1d = util->map_2d_idx_to_1d(4, nu);
-            grid_pt->Wmunu[rk_flag+1][idx_1d] = 0.0;
+            grid_pt->Wmunu[trk_flag][idx_1d] = 0.0;
         }
     }
    
     // re-make Wmunu[3][3] so that Wmunu[mu][nu] is traceless
-    grid_pt->Wmunu[rk_flag+1][9] = (
-            (2.*(grid_pt->u[rk_flag+1][1]*grid_pt->u[rk_flag+1][2]
-                *grid_pt->Wmunu[rk_flag+1][5]
-                + grid_pt->u[rk_flag+1][1]*grid_pt->u[rk_flag+1][3]
-                  *grid_pt->Wmunu[rk_flag+1][6]
-                + grid_pt->u[rk_flag+1][2]*grid_pt->u[rk_flag+1][3]
-                  *grid_pt->Wmunu[rk_flag+1][8])
-                - (grid_pt->u[rk_flag+1][0]*grid_pt->u[rk_flag+1][0] 
-                   - grid_pt->u[rk_flag+1][1]*grid_pt->u[rk_flag+1][1])
-                   *grid_pt->Wmunu[rk_flag+1][4] 
-                - (grid_pt->u[rk_flag+1][0]*grid_pt->u[rk_flag+1][0] 
-                   - grid_pt->u[rk_flag+1][2]*grid_pt->u[rk_flag+1][2])
-                  *grid_pt->Wmunu[rk_flag+1][7])
-            /(grid_pt->u[rk_flag+1][0]*grid_pt->u[rk_flag+1][0] 
-              - grid_pt->u[rk_flag+1][3]*grid_pt->u[rk_flag+1][3]));
+    grid_pt->Wmunu[trk_flag][9] = (
+            (2.*(grid_pt->u[trk_flag][1]*grid_pt->u[trk_flag][2]
+                *grid_pt->Wmunu[trk_flag][5]
+                + grid_pt->u[trk_flag][1]*grid_pt->u[trk_flag][3]
+                  *grid_pt->Wmunu[trk_flag][6]
+                + grid_pt->u[trk_flag][2]*grid_pt->u[trk_flag][3]
+                  *grid_pt->Wmunu[trk_flag][8])
+                - (grid_pt->u[trk_flag][0]*grid_pt->u[trk_flag][0] 
+                   - grid_pt->u[trk_flag][1]*grid_pt->u[trk_flag][1])
+                   *grid_pt->Wmunu[trk_flag][4] 
+                - (grid_pt->u[trk_flag][0]*grid_pt->u[trk_flag][0] 
+                   - grid_pt->u[trk_flag][2]*grid_pt->u[trk_flag][2])
+                  *grid_pt->Wmunu[trk_flag][7])
+            /(grid_pt->u[trk_flag][0]*grid_pt->u[trk_flag][0] 
+              - grid_pt->u[trk_flag][3]*grid_pt->u[trk_flag][3]));
 
     // make Wmunu[i][0] using the transversality
     for (int mu = 1; mu < 4; mu++) {
@@ -312,16 +310,16 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
         for (int nu = 1; nu < 4; nu++) {
             int idx_1d = util->map_2d_idx_to_1d(mu, nu);
             tempf += (
-                grid_pt->Wmunu[rk_flag+1][idx_1d]*grid_pt->u[rk_flag+1][nu]);
+                grid_pt->Wmunu[trk_flag][idx_1d]*grid_pt->u[trk_flag][nu]);
         }
-        grid_pt->Wmunu[rk_flag+1][mu] = tempf/(grid_pt->u[rk_flag+1][0]);
+        grid_pt->Wmunu[trk_flag][mu] = tempf/(grid_pt->u[trk_flag][0]);
     }
 
     // make Wmunu[0][0]
     tempf = 0.0;
     for (int nu=1; nu<4; nu++)
-        tempf += grid_pt->Wmunu[rk_flag+1][nu]*grid_pt->u[rk_flag+1][nu]; 
-    grid_pt->Wmunu[rk_flag+1][0] = tempf/(grid_pt->u[rk_flag+1][0]);
+        tempf += grid_pt->Wmunu[trk_flag][nu]*grid_pt->u[trk_flag][nu]; 
+    grid_pt->Wmunu[trk_flag][0] = tempf/(grid_pt->u[trk_flag][0]);
  
     if (DATA->turn_on_diff == 1) {
         // make qmu[0] using transversality
@@ -329,14 +327,14 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
             tempf = 0.0;
             for (int nu = 1; nu < 4; nu++) {
                 int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                tempf += (grid_pt->Wmunu[rk_flag+1][idx_1d]
-                          *grid_pt->u[rk_flag+1][nu]);
+                tempf += (grid_pt->Wmunu[trk_flag][idx_1d]
+                          *grid_pt->u[trk_flag][nu]);
             }
-            grid_pt->Wmunu[rk_flag+1][10] = (
-                                        tempf/(grid_pt->u[rk_flag+1][0]));
+            grid_pt->Wmunu[trk_flag][10] = (
+                                        tempf/(grid_pt->u[trk_flag][0]));
         }
     } else {
-        grid_pt->Wmunu[rk_flag+1][10] = 0.0;
+        grid_pt->Wmunu[trk_flag][10] = 0.0;
     }
 
     // If the energy density of the fluid element is smaller than 0.01GeV
@@ -363,11 +361,18 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
 
 // update results after RK evolution to grid_pt
 void Advance::UpdateTJbRK(Grid *grid_rk, Grid *grid_pt, int rk_flag) {
-    int trk_flag = rk_flag+1;
+    int trk_flag = rk_flag + 1;
+    if (rk_flag == 1) {
+        trk_flag = 0;
+    }
 
-    grid_pt->epsilon_t = grid_rk->epsilon;
-    grid_pt->p_t = grid_rk->p;
-    grid_pt->rhob_t = grid_rk->rhob;
+    if (rk_flag == 0) {
+        grid_pt->epsilon_t = grid_rk->epsilon;
+        grid_pt->rhob_t = grid_rk->rhob;
+    } else {
+        grid_pt->epsilon = grid_rk->epsilon;
+        grid_pt->rhob = grid_rk->rhob;
+    }
     
     // reconstructed grid_rk uses rk_flag 0 only
     for (int mu=0; mu<4; mu++) {
@@ -382,29 +387,35 @@ int Advance::QuestRevert(double tau, Grid *grid_pt, int rk_flag,
     int revert_flag = 0;
     const double energy_density_warning = 0.01;  // GeV/fm^3, T~100 MeV
 
+    int trk_flag = rk_flag + 1;
+    if (rk_flag == 1) {
+        trk_flag = 0;
+    }
+
     double eps_scale = 1.0;  // 1/fm^4
     double factor = 300.*tanh(grid_pt->epsilon/eps_scale);
 
-    double pi_00 = grid_pt->Wmunu[rk_flag+1][0];
-    double pi_01 = grid_pt->Wmunu[rk_flag+1][1];
-    double pi_02 = grid_pt->Wmunu[rk_flag+1][2];
-    double pi_03 = grid_pt->Wmunu[rk_flag+1][3];
-    double pi_11 = grid_pt->Wmunu[rk_flag+1][4];
-    double pi_12 = grid_pt->Wmunu[rk_flag+1][5];
-    double pi_13 = grid_pt->Wmunu[rk_flag+1][6];
-    double pi_22 = grid_pt->Wmunu[rk_flag+1][7];
-    double pi_23 = grid_pt->Wmunu[rk_flag+1][8];
-    double pi_33 = grid_pt->Wmunu[rk_flag+1][9];
+    double pi_00 = grid_pt->Wmunu[trk_flag][0];
+    double pi_01 = grid_pt->Wmunu[trk_flag][1];
+    double pi_02 = grid_pt->Wmunu[trk_flag][2];
+    double pi_03 = grid_pt->Wmunu[trk_flag][3];
+    double pi_11 = grid_pt->Wmunu[trk_flag][4];
+    double pi_12 = grid_pt->Wmunu[trk_flag][5];
+    double pi_13 = grid_pt->Wmunu[trk_flag][6];
+    double pi_22 = grid_pt->Wmunu[trk_flag][7];
+    double pi_23 = grid_pt->Wmunu[trk_flag][8];
+    double pi_33 = grid_pt->Wmunu[trk_flag][9];
 
     double pisize = (pi_00*pi_00 + pi_11*pi_11 + pi_22*pi_22 + pi_33*pi_33
                      - 2.*(pi_01*pi_01 + pi_02*pi_02 + pi_03*pi_03)
                      + 2.*(pi_12*pi_12 + pi_13*pi_13 + pi_23*pi_23));
   
-    double pi_local = grid_pt->pi_b[rk_flag+1];
+    double pi_local = grid_pt->pi_b[trk_flag];
     double bulksize = 3.*pi_local*pi_local;
 
     double e_local = grid_pt->epsilon;
-    double p_local = grid_pt->p;
+    double rhob_local = grid_pt->rhob;
+    double p_local = eos->get_pressure(e_local, rhob_local);
     double eq_size = e_local*e_local + 3.*p_local*p_local;
        
     double rho_shear = sqrt(pisize/eq_size)/factor; 
@@ -420,9 +431,9 @@ int Advance::QuestRevert(double tau, Grid *grid_pt, int rk_flag,
         for (int mu = 0; mu < 4; mu++) {
             for (int nu = mu; nu < 4; nu++) {
                 int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                grid_pt->Wmunu[rk_flag+1][idx_1d] = (
+                grid_pt->Wmunu[trk_flag][idx_1d] = (
                     (rho_shear_max/rho_shear)
-                    *grid_pt->Wmunu[rk_flag+1][idx_1d]);
+                    *grid_pt->Wmunu[trk_flag][idx_1d]);
             }
         }
         revert_flag = 1;
@@ -435,8 +446,8 @@ int Advance::QuestRevert(double tau, Grid *grid_pt, int rk_flag,
             printf("energy density = %lf --  |Pi/(epsilon+3*P)| = %lf\n",
                    e_local*hbarc, rho_bulk);
         }
-        grid_pt->pi_b[rk_flag+1] = (
-                (rho_bulk_max/rho_bulk)*grid_pt->pi_b[rk_flag+1]);
+        grid_pt->pi_b[trk_flag] = (
+                (rho_bulk_max/rho_bulk)*grid_pt->pi_b[trk_flag]);
         revert_flag = 1;
     }
 
@@ -448,6 +459,11 @@ int Advance::QuestRevert(double tau, Grid *grid_pt, int rk_flag,
 //! in the dilute region to stablize numerical simulations
 int Advance::QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
                              InitData *DATA) {
+
+    int trk_flag = rk_flag + 1;
+    if (rk_flag == 1) {
+        trk_flag = 0;
+    }
     int revert_flag = 0;
     const double energy_density_warning = 0.01;  // GeV/fm^3, T~100 MeV
     double eps_scale = 1.0;   // in 1/fm^4
@@ -457,7 +473,7 @@ int Advance::QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
     for (int i = 0; i < 4; i++) {
         // copy the value from the grid
         int idx_1d = util->map_2d_idx_to_1d(4, i);
-        q_mu_local[i] = grid_pt->Wmunu[rk_flag+1][idx_1d];
+        q_mu_local[i] = grid_pt->Wmunu[trk_flag][idx_1d];
     }
 
     // calculate the size of q^\mu
@@ -475,7 +491,7 @@ int Advance::QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
         cout << "Reset it to zero!!!!" << endl;
         for (int i = 0; i < 4; i++) {
             int idx_1d = util->map_2d_idx_to_1d(4, i);
-            grid_pt->Wmunu[rk_flag+1][idx_1d] = 0.0;
+            grid_pt->Wmunu[trk_flag][idx_1d] = 0.0;
         }
         revert_flag = 1;
     }
@@ -492,7 +508,7 @@ int Advance::QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
         }
         for (int i = 0; i < 4; i++) {
             int idx_1d = util->map_2d_idx_to_1d(4, i);
-            grid_pt->Wmunu[rk_flag+1][idx_1d] =
+            grid_pt->Wmunu[trk_flag][idx_1d] =
                                 (rho_q_max/rho_q)*q_mu_local[i];
         }
         revert_flag = 1;
@@ -503,7 +519,7 @@ int Advance::QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
 
 //! This function computes the rhs array. It computes the spatial
 //! derivatives of T^\mu\nu using the KT algorithm
-void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi, double *rhs,
+void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
                           int rk_flag) {
     double delta[4];
     delta[1] = DATA_ptr->delta_x;
@@ -518,15 +534,16 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi, double *rhs,
             + \partial_y tau Tyx = 0 */
 
     // tau*Tmu0
+    double rhs[5];
     for (int alpha = 0; alpha < 5; alpha++) {
         qi[alpha] = get_TJb(grid_pt, rk_flag, alpha, 0)*tau;
+        rhs[alpha] = 0.0;
     }/* get qi first */
 
     double *qiphL = new double[5];
     double *qiphR = new double[5];
     double *qimhL = new double[5];
     double *qimhR = new double[5];
-    double **DFmmp = util->mtx_malloc(5, 4);
     
     Grid grid_phL, grid_phR, grid_mhL, grid_mhR;
     grid_phL.u = util->mtx_malloc(1, 4);
@@ -578,23 +595,30 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi, double *rhs,
         double aiph = maxi(aiphL, aiphR);
         double aimh = maxi(aimhL, aimhR);
 
-        double FiphL[5], FiphR[5], FimhL[5], FimhR[5];
-        double Fiph[5], Fimh[5];
         for (int alpha = 0; alpha < 5; alpha++) {
-            FiphL[alpha] = get_TJb(&grid_phL, 0, alpha, direc)*tau_fac;
-            FiphR[alpha] = get_TJb(&grid_phR, 0, alpha, direc)*tau_fac;
-            FimhL[alpha] = get_TJb(&grid_mhL, 0, alpha, direc)*tau_fac;
-            FimhR[alpha] = get_TJb(&grid_mhR, 0, alpha, direc)*tau_fac;
+            double FiphL = get_TJb(&grid_phL, 0, alpha, direc)*tau_fac;
+            double FiphR = get_TJb(&grid_phR, 0, alpha, direc)*tau_fac;
+            double FimhL = get_TJb(&grid_mhL, 0, alpha, direc)*tau_fac;
+            double FimhR = get_TJb(&grid_mhR, 0, alpha, direc)*tau_fac;
             
             // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
             //                  - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
-            Fiph[alpha] = 0.5*(FiphL[alpha] + FiphR[alpha]);
-            Fiph[alpha] -= 0.5*aiph*(qiphR[alpha] - qiphL[alpha]);
-            Fimh[alpha] = 0.5*(FimhL[alpha] + FimhR[alpha]);
-            Fimh[alpha] -= 0.5*aimh*(qimhR[alpha] - qimhL[alpha]);
-            
-            DFmmp[alpha][direc] = Fimh[alpha] - Fiph[alpha];
+            double Fiph = 0.5*((FiphL + FiphR)
+                               - aiph*(qiphR[alpha] - qiphL[alpha]));
+            double Fimh = 0.5*((FimhL + FimhR)
+                               - aimh*(qimhR[alpha] - qimhL[alpha]));
+            double DFmmp = (Fimh - Fiph)/delta[direc];
+        
+            rhs[alpha] += DFmmp*(DATA_ptr->delta_tau);
         }
+    }
+
+    // geometric terms
+    rhs[0] -= get_TJb(grid_pt, rk_flag, 3, 3)*DATA_ptr->delta_tau;
+    rhs[3] -= get_TJb(grid_pt, rk_flag, 3, 0)*DATA_ptr->delta_tau;
+
+    for (int i = 0; i < 5; i++) {
+        qi[i] += rhs[i];
     }
     
     delete[] qiphL;
@@ -606,23 +630,6 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi, double *rhs,
     util->mtx_free(grid_phR.u, 1, 4);
     util->mtx_free(grid_mhL.u, 1, 4);
     util->mtx_free(grid_mhR.u, 1, 4);
-   
-    for (int alpha = 0; alpha < 5; alpha++) {
-        double sumf = 0.0; 
-        for (int i = 1; i <= 3; i++) {
-            sumf += DFmmp[alpha][i]/delta[i];
-        } /* i */
-        if (alpha == 0) {
-            sumf -= get_TJb(grid_pt, rk_flag, 3, 3);
-        } else if(alpha==3) {
-            sumf -= get_TJb(grid_pt, rk_flag, 3, 0);
-        }
-        rhs[alpha] = sumf*(DATA_ptr->delta_tau);
-    }/* alpha */
-    
-    util->mtx_free(DFmmp, 5, 4);
-
-    return;
 }/* MakeDeltaQI */
 
 
@@ -663,7 +670,7 @@ double Advance::MaxSpeed(double tau, int direc, Grid *grid_p) {
         num = utau*ux*(1. - vs2) + sqrt(num_temp_sqrt);
     } else {
         double dpde = eos->p_e_func(eps, rhob);
-        double p = grid_p->p;
+        double p = eos->get_pressure(eps, rhob);
         double h = p+eps;
         if (dpde < 0.001) {
             num = (sqrt(-(h*dpde*h*(dpde*(-1.0 + ut2mux2) - ut2mux2))) 

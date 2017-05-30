@@ -155,8 +155,8 @@ void Grid_info::OutputEvolutionDataXYEta(Grid ***arena, InitData *DATA,
         for (iy = 0; iy <= DATA->ny; iy += n_skip_y) {
             for (ix = 0; ix <= DATA->nx; ix += n_skip_x) {
                 double e_local = arena[ieta][ix][iy].epsilon;  // 1/fm^4
-                double p_local = arena[ieta][ix][iy].p;        // 1/fm^4
                 double rhob_local = arena[ieta][ix][iy].rhob;  // 1/fm^3
+                double p_local = eos_ptr->get_pressure(e_local, rhob_local);
                 double utau = arena[ieta][ix][iy].u[0][0];
                 double ux = arena[ieta][ix][iy].u[0][1];
                 double uy = arena[ieta][ix][iy].u[0][2];
@@ -304,8 +304,8 @@ void Grid_info::OutputEvolutionDataXYEta_chun(Grid ***arena, InitData *DATA,
         for (int iy = 0; iy <= DATA->ny; iy += n_skip_y) {
             for (int ix = 0; ix <= DATA->nx; ix += n_skip_x) {
                 double e_local = arena[ieta][ix][iy].epsilon;  // 1/fm^4
-                double p_local = arena[ieta][ix][iy].p;        // 1/fm^4
                 double rhob_local = arena[ieta][ix][iy].rhob;  // 1/fm^3
+                double p_local = eos_ptr->get_pressure(e_local, rhob_local);
 
                 double ux = arena[ieta][ix][iy].u[0][1];
                 double uy = arena[ieta][ix][iy].u[0][2];
@@ -540,11 +540,62 @@ void Grid_info::check_velocity_shear_tensor(Grid ***arena, double tau) {
 }
 
 void Grid_info::Gubser_flow_check_file(Grid ***arena, double tau) {
+    double unit_convert = 0.19733;  // hbarC
+    if (tau > 1.) {
+        ostringstream filename_analytic;
+        filename_analytic << "tests/Gubser_flow/y=x_tau="
+                          << tau << "_SemiAnalytic.dat";
+
+        double T_analytic[201], ux_analytic[201], uy_analytic[201];
+        double pixx_analytic[201], pixy_analytic[201];
+        double piyy_analytic[201], pizz_analytic[201];
+        double dummy;
+        ifstream input_file(filename_analytic.str().c_str());
+        for (int i = 0; i < 201; i++) {
+            input_file >> dummy >> dummy >> T_analytic[i] >> ux_analytic[i]
+                       >> uy_analytic[i] >> pixx_analytic[i]
+                       >> piyy_analytic[i] >> pixy_analytic[i]
+                       >> pizz_analytic[i];
+        }
+        input_file.close();
+
+        double T_diff = 0.0;
+        double ux_diff = 0.0;
+        double uy_diff = 0.0;
+        double pixx_diff = 0.0;
+        double pixy_diff = 0.0;
+        double piyy_diff = 0.0;
+        double pizz_diff = 0.0;
+        for (int i = 0; i < 201; i++) {
+            double e_local = arena[0][i][i].epsilon;
+            double T_local = (
+                    eos_ptr->get_temperature(e_local, 0.0)*unit_convert);
+            T_diff += fabs(T_analytic[i] - T_local);
+            ux_diff += fabs(ux_analytic[i] - arena[0][i][i].u[0][1]);
+            uy_diff += fabs(uy_analytic[i] - arena[0][i][i].u[0][2]);
+            pixx_diff += (fabs(pixx_analytic[i]
+                               - arena[0][i][i].Wmunu[0][4]*unit_convert));
+            pixy_diff += (fabs(pixx_analytic[i]
+                               - arena[0][i][i].Wmunu[0][5]*unit_convert));
+            piyy_diff += (fabs(piyy_analytic[i]
+                               - arena[0][i][i].Wmunu[0][7]*unit_convert));
+            pizz_diff += (fabs(pizz_analytic[i]
+                               - arena[0][i][i].Wmunu[0][9]*unit_convert));
+        }
+        cout << "Autocheck: T_diff = " << T_diff/201.
+             << ", ux_diff = " << ux_diff/201.
+             << ", uy_diff = " << uy_diff/201.
+             << ", pixx_diff = " << pixx_diff/201.
+             << ", pixy_diff = " << pixy_diff/201.
+             << ", piyy_diff = " << piyy_diff/201.
+             << ", pizz_diff = " << pizz_diff/201.
+             << endl;
+    }
+
     ostringstream filename;
     filename << "Gubser_flow_check_tau_" << tau << ".dat";
     ofstream output_file(filename.str().c_str());
 
-    double unit_convert = 0.19733;  // hbarC
     double dx = DATA_ptr->delta_x;
     double x_min = -DATA_ptr->x_size/2.;
     double dy = DATA_ptr->delta_y;
