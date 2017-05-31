@@ -44,14 +44,17 @@ class Advance {
     void update_grid_array_from_grid_cell(Grid *grid_p, double *grid_array,
                                           int rk_flag);
     void update_grid_cell_from_grid_array(Grid *grid_p, double *grid_array);
-    void UpdateTJbRK(Grid *grid_rk, Grid *grid_pt, int rk_flag);
+    //void UpdateTJbRK(Grid *grid_rk, Grid *grid_pt, int rk_flag);
+    void UpdateTJbRK(double *grid_array, Grid *grid_pt, int rk_flag);
     int QuestRevert(double tau, Grid *grid_pt, int rk_flag, InitData *DATA);
     int QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
                         InitData *DATA);
 
     void MakeDeltaQI(double tau, Grid *grid_pt, double *qi, int rk_flag);
-    double MaxSpeed(double tau, int direc, Grid *grid_p);
+    //double MaxSpeed(double tau, int direc, Grid *grid_p);
+    double MaxSpeed(double tau, int direc, double *grid_array);
     double get_TJb(Grid *grid_p, int rk_flag, int mu, int nu);
+    double get_TJb_new(double *grid_array, int mu, int nu);
 };
 
 #endif  // SRC_ADVANCE_H_
