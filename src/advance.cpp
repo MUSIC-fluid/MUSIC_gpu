@@ -134,9 +134,19 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
     int flag = 0;
     Grid grid_rk_t;
     grid_rk_t.u = util->mtx_malloc(1, 4);
-    flag = reconst_ptr->ReconstIt_shell(&grid_rk_t, tau_next, qi, grid_pt,
-                                        rk_flag); 
+    //flag = reconst_ptr->ReconstIt_shell(&grid_rk_t, tau_next, qi, grid_pt,
+    //                                    rk_flag); 
 
+    double *grid_array = new double[5];
+    double *grid_array_p = new double[5];
+    update_grid_array_from_grid_cell(grid_pt, grid_array_p, rk_flag);
+    flag = reconst_ptr->ReconstIt_shell(
+                        grid_array, tau_next, qi, grid_array_p);
+    update_grid_cell_from_grid_array(&grid_rk_t, grid_array);
+
+    delete[] grid_array;
+    delete[] grid_array_p;
+    
     delete[] qi;
 
     if (flag != 0) {
@@ -384,7 +394,34 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
         return(1);
 }/* FirstRKStepW */
 
-// update results after RK evolution to grid_pt
+
+void Advance::update_grid_array_from_grid_cell(
+                Grid *grid_p, double *grid_array, int rk_flag) {
+    if (rk_flag == 0) {
+        grid_array[0] = grid_p->epsilon;
+        grid_array[4] = grid_p->rhob;
+    } else {
+        grid_array[0] = grid_p->epsilon_t;
+        grid_array[4] = grid_p->rhob_t;
+    }
+    grid_array[1] = grid_p->u[rk_flag][1]/grid_p->u[rk_flag][0];
+    grid_array[2] = grid_p->u[rk_flag][2]/grid_p->u[rk_flag][0];
+    grid_array[3] = grid_p->u[rk_flag][3]/grid_p->u[rk_flag][0];
+}
+
+void Advance::update_grid_cell_from_grid_array(Grid *grid_p,
+                                               double *grid_array) {
+    grid_p->epsilon = grid_array[0];
+    grid_p->rhob = grid_array[4];
+    grid_p->u[0][0] = 1./sqrt(1. - grid_array[1]*grid_array[1]
+                                 - grid_array[2]*grid_array[2]
+                                 - grid_array[3]*grid_array[3]);
+    grid_p->u[0][1] = grid_p->u[0][0]*grid_array[1];
+    grid_p->u[0][2] = grid_p->u[0][0]*grid_array[2];
+    grid_p->u[0][3] = grid_p->u[0][0]*grid_array[3];
+}
+
+//! update results after RK evolution to grid_pt
 void Advance::UpdateTJbRK(Grid *grid_rk, Grid *grid_pt, int rk_flag) {
     int trk_flag = rk_flag + 1;
     if (rk_flag == 1) {
@@ -604,14 +641,33 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
         }
         // for each direction, reconstruct half-way cells
         // reconstruct e, rhob, and u[4] for half way cells
+        //int flag = reconst_ptr->ReconstIt_shell(
+        //                            &grid_phL, tau, qiphL, grid_pt, 0);
+        //flag *= reconst_ptr->ReconstIt_shell(
+        //                            &grid_phR, tau, qiphR, grid_pt, 0); 
+        //flag *= reconst_ptr->ReconstIt_shell(
+        //                            &grid_mhL, tau, qimhL, grid_pt, 0);
+        //flag *= reconst_ptr->ReconstIt_shell(
+        //                            &grid_mhR, tau, qimhR, grid_pt, 0);
+
+        double *grid_array = new double[5];
+        double *grid_array_p = new double[5];
+        update_grid_array_from_grid_cell(grid_pt, grid_array_p, rk_flag);
         int flag = reconst_ptr->ReconstIt_shell(
-                                    &grid_phL, tau, qiphL, grid_pt, 0);
+                                    grid_array, tau, qiphL, grid_array_p);
+        update_grid_cell_from_grid_array(&grid_phL, grid_array);
         flag *= reconst_ptr->ReconstIt_shell(
-                                    &grid_phR, tau, qiphR, grid_pt, 0); 
+                                    grid_array, tau, qiphR, grid_array_p); 
+        update_grid_cell_from_grid_array(&grid_phR, grid_array);
         flag *= reconst_ptr->ReconstIt_shell(
-                                    &grid_mhL, tau, qimhL, grid_pt, 0);
+                                    grid_array, tau, qimhL, grid_array_p);
+        update_grid_cell_from_grid_array(&grid_mhL, grid_array);
         flag *= reconst_ptr->ReconstIt_shell(
-                                    &grid_mhR, tau, qimhR, grid_pt, 0);
+                                    grid_array, tau, qimhR, grid_array_p);
+        update_grid_cell_from_grid_array(&grid_mhR, grid_array);
+        delete[] grid_array_p;
+        delete[] grid_array;
+
         double aiphL = MaxSpeed(tau, direc, &grid_phL);
         double aiphR = MaxSpeed(tau, direc, &grid_phR);
         double aimhL = MaxSpeed(tau, direc, &grid_mhL);

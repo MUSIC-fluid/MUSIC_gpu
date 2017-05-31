@@ -40,6 +40,10 @@ class Advance {
                      int rk_flag, double theta_local, double* a_local,
                      double *sigma_local);
 
+    
+    void update_grid_array_from_grid_cell(Grid *grid_p, double *grid_array,
+                                          int rk_flag);
+    void update_grid_cell_from_grid_array(Grid *grid_p, double *grid_array);
     void UpdateTJbRK(Grid *grid_rk, Grid *grid_pt, int rk_flag);
     int QuestRevert(double tau, Grid *grid_pt, int rk_flag, InitData *DATA);
     int QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,

@@ -41,7 +41,7 @@ int Reconst::ReconstIt_shell(double *grid_array, double tau, double *uq,
         revert_grid(grid_array, grid_array_p);
     } else if (flag == -2) {
         if (uq[0]/tau < abs_err) {
-            regulate_grid(grid_array, abs_err, 0);
+            regulate_grid(grid_array, abs_err);
         } else {
             regulate_grid(grid_array, uq[0]/tau);
         }
@@ -119,7 +119,8 @@ int Reconst::ReconstIt(double *grid_array, double tau, double *uq,
     double temperr = 0.0;
     double err = 1.0;
     double epsilon_prev, rhob_prev, p_prev;
-    for (int iter = 0; iter < max_iter; iter++) {
+    int iter = 0;
+    for (iter = 0; iter < max_iter; iter++) {
         if (err < (RECONST_PRECISION)*0.01) {
             if (isnan(epsilon_next)) {
                 exit(-1);
@@ -168,9 +169,10 @@ int Reconst::ReconstIt(double *grid_array, double tau, double *uq,
     }  // if iteration is unsuccessful, revert
 
     // update
-    double epsilon = grid_array[0] = epsilon_next;
+    double epsilon = epsilon_next;
+    grid_array[0] = epsilon_next;
     double p = p_next;
-    double grid_array[4] = rhob_next;
+    grid_array[4] = rhob_next;
     double h = p+epsilon;
 
     /* q[0] = Ttautau/tau, q[1] = Ttaux, q[2] = Ttauy, q[3] = Ttaueta,
@@ -188,7 +190,7 @@ int Reconst::ReconstIt(double *grid_array, double tau, double *uq,
                           << "its value at previous time step";
             cout << "e = " << grid_array_p[0]
                           << ", u[0] = " << u[0]
-                          << ", prev_u[0] = " << prev_u0;
+                          << ", prev_u[0] = " << prev_u0 << endl;
         }
         return(-1);
     }
@@ -196,10 +198,10 @@ int Reconst::ReconstIt(double *grid_array, double tau, double *uq,
     if (epsilon > eos_eps_max) {
         if (echo_level > 5) {
             cout << "Reconst velocity: e = " << epsilon
-                          << " > e_max in the EoS table.";
-	        cout << "e_max = " << eos_eps_max << " [1/fm^4]";
+                          << " > e_max in the EoS table." << endl;
+	        cout << "e_max = " << eos_eps_max << " [1/fm^4]" << endl;
 	        cout << "previous epsilon = " << grid_array_p[0]
-                          << " [1/fm^4]";
+                          << " [1/fm^4]" << endl;
         }
         return(-1);
     }
@@ -295,7 +297,7 @@ int Reconst::ReconstIt_velocity_iteration(
         // remember that uq are eigher halfway cells or the final q_next 
         // at this point, the original values in grid_pt->TJb are not touched. 
         if (echo_level > 9) {
-            cout << "T00 = " << T00 << ", K00 = " << K00;
+            cout << "T00 = " << T00 << ", K00 = " << K00 << endl;
         }
         return(-2);
     }/* if t00-k00/t00 < 0.0 */
@@ -326,7 +328,7 @@ int Reconst::ReconstIt_velocity_iteration(
     } else {
         if (echo_level > 5) {
             cout << iter << "   [" << v_prev << ",  " << v_next
-                          << "]  " << abs_error_v << "  " << rel_error_v;
+                 << "]  " << abs_error_v << "  " << rel_error_v << endl;
         }
         return(-1);
     }/* if iteration is unsuccessful, revert */
@@ -357,7 +359,7 @@ int Reconst::ReconstIt_velocity_iteration(
         } else {
             if (echo_level > 5) {
                 cout << iter << "   [" << u0_prev << ",  " << u0_next
-                              << "]  " << abs_error_u0 << "  " << rel_error_u0;
+                     << "]  " << abs_error_u0 << "  " << rel_error_u0 << endl;
             }
             return(-1);
         } /* if iteration is unsuccessful, revert */
@@ -384,7 +386,7 @@ int Reconst::ReconstIt_velocity_iteration(
                           << "its value at previous time step";
             cout << "e = " << grid_array_p[0]
                           << ", u[0] = " << u[0]
-                          << ", prev_u[0] = " << prev_u0;
+                          << ", prev_u[0] = " << prev_u0 << endl;
         }
         return(-1);
     }
@@ -395,7 +397,7 @@ int Reconst::ReconstIt_velocity_iteration(
                           << " > e_max in the EoS table.";
 	        cout << "e_max = " << eos_eps_max << " [1/fm^4]";
 	        cout << "previous epsilon = " << grid_array_p[0]
-                          << " [1/fm^4]";
+                          << " [1/fm^4]" << endl;
         }
         return(-1);
     }
@@ -412,7 +414,7 @@ int Reconst::ReconstIt_velocity_iteration(
         if (echo_level > 5) {
             cout << "Reconst velocity: u[0] = " << u[0]
                           << " is too large!"
-                          << "epsilon = " << grid_array_p[0]
+                          << "epsilon = " << grid_array_p[0] << endl;
         }
         return(-1);
     } else {
@@ -430,19 +432,19 @@ int Reconst::ReconstIt_velocity_iteration(
         // If the deviation is too large, exit MUSIC
         if (fabs(temp_usq - 1.0) > 0.1*u[0]) {
             cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
-                          << temp_usq - 1.0;
+                          << temp_usq - 1.0 << endl;
             cout << "u[0]=" << u[0] << ", u[1]=" << u[1]
-                          << ", u[2]=" << u[2] << ", u[3]=" << u[3];
+                          << ", u[2]=" << u[2] << ", u[3]=" << u[3] << endl;
             cout << "e=" << epsilon << ", rhob=" << rhob
-                          << ", p=" << pressure;
+                          << ", p=" << pressure << endl;
             cout << "with q1 = " << q[1] << ", q2 = " << q[2]
-                          << ", q3 = " << q[3];
+                          << ", q3 = " << q[3] << endl;
             exit(0);
         } else if (fabs(temp_usq - 1.0) > sqrt(abs_err)*u[0]
                                                 && echo_level > 5) {
             // Warn only when the deviation from 1 is relatively large
             cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
-                          << temp_usq - 1.0;
+                          << temp_usq - 1.0 << endl;
             double f_res;
             if (v_solution < v_critical)
                 f_res = fabs(v_solution
@@ -451,13 +453,13 @@ int Reconst::ReconstIt_velocity_iteration(
                 f_res = fabs(u0_solution
                              - reconst_u0_f(u0_solution, T00, K00, M, J0));
             cout << "with v = " << v_solution << ", u[0] = " << u[0]
-                          << ", res = " << f_res;
+                          << ", res = " << f_res << endl;
             cout << "with u[1] = " << u[1]
                           << "with u[2] = " << u[2]
-                          << "with u[3] = " << u[3];
-            cout << "with T00 = " << T00 << ", K = " << K00;
+                          << "with u[3] = " << u[3] << endl;
+            cout << "with T00 = " << T00 << ", K = " << K00 << endl;
             cout << "with q1 = " << q[1] << ", q2 = " << q[2]
-                          << ", q3 = " << q[3];
+                          << ", q3 = " << q[3] << endl;
         }
         // Rescaling spatial components of velocity so that unitarity 
         // is exactly satisfied (u[0] is not modified)
@@ -512,7 +514,7 @@ int Reconst::ReconstIt_velocity_Newton(
         // remember that uq are eigher halfway cells or the final q_next 
         // at this point, the original values in grid_pt->TJb are not touched. 
         if (echo_level > 9) {
-            cout << "T00 = " << T00 << ", K00 = " << K00;
+            cout << "T00 = " << T00 << ", K00 = " << K00 << endl;
         }
         return(-2);
     }/* if t00-k00/t00 < 0.0 */
@@ -556,7 +558,7 @@ int Reconst::ReconstIt_velocity_Newton(
     } else {
         if (echo_level > 5) {
             cout << iter << "   [" << v_prev << ",  " << v_next
-                          << "]  " << abs_error_v << "  " << rel_error_v;
+                 << "]  " << abs_error_v << "  " << rel_error_v << endl;
         }
         return(-1);
     }/* if iteration is unsuccessful, revert */
@@ -588,7 +590,8 @@ int Reconst::ReconstIt_velocity_Newton(
         } else {
             if (echo_level > 5) {
                 cout << iter << "   [" << u0_prev << ",  " << u0_next
-                              << "]  " << abs_error_u0 << "  " << rel_error_u0;
+                     << "]  " << abs_error_u0 << "  " << rel_error_u0
+                     << endl;
             }
             return(-1);
         }  // if iteration is unsuccessful, revert
@@ -612,7 +615,7 @@ int Reconst::ReconstIt_velocity_Newton(
                           << "its value at previous time step";
             cout << "e = " << grid_array_p[0]
                           << ", u[0] = " << u[0]
-                          << ", prev_u[0] = " << u0_guess;
+                          << ", prev_u[0] = " << u0_guess << endl;
         }
         return(-1);
     }
@@ -623,7 +626,7 @@ int Reconst::ReconstIt_velocity_Newton(
                           << " > e_max in the EoS table.";
 	        cout << "e_max = " << eos_eps_max << " [1/fm^4]";
 	        cout << "previous epsilon = " << grid_array_p[0]
-                          << " [1/fm^4]";
+                          << " [1/fm^4]" << endl;
         }
         return(-1);
     }
@@ -659,32 +662,32 @@ int Reconst::ReconstIt_velocity_Newton(
         // If the deviation is too large, exit MUSIC
         if (fabs(temp_usq - 1.0) > 0.1*u[0]) {
             cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
-                          << temp_usq - 1.0;
+                          << temp_usq - 1.0 << endl;
             cout << "u[0]=" << u[0] << ", u[1]=" << u[1]
-                          << ", u[2]=" << u[2] << ", u[3]=" << u[3];
+                          << ", u[2]=" << u[2] << ", u[3]=" << u[3] << endl;
             cout << "e=" << epsilon << ", rhob=" << rhob
-                          << ", p=" << pressure;
+                          << ", p=" << pressure << endl;
             cout << "with q1 = " << q[1] << ", q2 = " << q[2]
-                          << ", q3 = " << q[3];
+                          << ", q3 = " << q[3] << endl;
             exit(0);
         } else if (fabs(temp_usq - 1.0) > sqrt(abs_err)*u[0]
                                                 && echo_level > 5) {
             // Warn only when the deviation from 1 is relatively large
             cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
-                          << temp_usq - 1.0;
+                 << temp_usq - 1.0 << endl;
             double f_res;
             if (v_solution < v_critical)
                 f_res = reconst_velocity_f_Newton(v_solution, T00, M, J0);
             else
                 f_res = reconst_u0_f_Newton(u0_solution, T00, K00, M, J0);
             cout << "with v = " << v_solution << ", u[0] = " << u[0]
-                          << ", res = " << f_res;
+                          << ", res = " << f_res << endl;
             cout << "with u[1] = " << u[1]
                           << "with u[2] = " << u[2]
-                          << "with u[3] = " << u[3];
-            cout << "with T00 = " << T00 << ", K = " << K00;
+                          << "with u[3] = " << u[3] << endl;
+            cout << "with T00 = " << T00 << ", K = " << K00 << endl;
             cout << "with q1 = " << q[1] << ", q2 = " << q[2]
-                          << ", q3 = " << q[3];
+                          << ", q3 = " << q[3] << endl;
         }
         // Rescaling spatial components of velocity so that unitarity 
         // is exactly satisfied (u[0] is not modified)
