@@ -31,6 +31,7 @@ Advance::~Advance() {
     delete diss;
     delete reconst_ptr;
     delete minmod;
+    delete u_derivative_ptr;
 }
 
 

@@ -273,7 +273,6 @@ double Diss::Make_uWSource(double tau, Grid *grid_pt, int mu, int nu,
 
     // full term is
     tempf = (
-        //- (1.0 + transport_coefficient2*(grid_pt->theta_u[0]))
         - (1.0 + transport_coefficient2*theta_local)
         *(Wmunu[mu][nu]));
 
@@ -312,9 +311,7 @@ double Diss::Make_uWSource(double tau, Grid *grid_pt, int mu, int nu,
                     + ueta*ueta/tau/2.
                       *(DATA->gmunu[a][0]*grid_pt->u[rk_flag][b]
                          - DATA->gmunu[b][0]*grid_pt->u[rk_flag][a])
-                    //+ (grid_pt->u[rk_flag][a]*grid_pt->a[0][b]
                     + (grid_pt->u[rk_flag][a]*a_local[b]
-                       //- grid_pt->u[rk_flag][b]*grid_pt->a[0][a])/2.);
                        - grid_pt->u[rk_flag][b]*a_local[a])/2.);
             }
         }
@@ -563,7 +560,6 @@ int Diss::Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs,
             /* add a source term -u^tau Wmn/tau
                due to the coordinate change to tau-eta */
             sum += (- (grid_pt->u[rk_flag][0]*Wmunu_local[mu][nu])/tau
-                    //+ (grid_pt->theta_u[0]*Wmunu_local[mu][nu]));
                     + (theta_local*Wmunu_local[mu][nu]));
 
             /* this is from udW = d(uW) - Wdu = RHS */
@@ -589,10 +585,8 @@ int Diss::Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs,
                 ic_fac = (ic == 0 ? -1.0 : 1.0);
                 tempf += (
                       (Wmunu_local[ic][nu])*(grid_pt->u[rk_flag][mu])
-                       //*(grid_pt->a[0][ic])*ic_fac
                        *(a_local[ic])*ic_fac
                     + (Wmunu_local[ic][mu])*(grid_pt->u[rk_flag][nu])
-                       //*(grid_pt->a[0][ic])*ic_fac);
                        *(a_local[ic])*ic_fac);
             }
             sum += tempf;
@@ -655,8 +649,25 @@ int Diss::Make_uPRHS(double tau, Grid *grid_pt, double *p_rhs, InitData *DATA,
             taufactor = 1.0;
 
         /* Get_uPis */
-        Get_uPis(tau, grid_pt, direc, &g, &f, &gp1, &fp1, &gp2, &fp2, 
-                 &gm1, &fm1, &gm2, &fm2, DATA, rk_flag);
+        g = grid_pt->pi_b[rk_flag];
+        f = g*grid_pt->u[rk_flag][direc];
+        g *= grid_pt->u[rk_flag][0];
+
+        gp2 = grid_pt->nbr_p_2[direc]->pi_b[rk_flag];
+        fp2 = gp2*grid_pt->nbr_p_2[direc]->u[rk_flag][direc];
+        gp2 *= grid_pt->nbr_p_2[direc]->u[rk_flag][0];
+        
+        gp1 = grid_pt->nbr_p_1[direc]->pi_b[rk_flag];
+        fp1 = gp1*grid_pt->nbr_p_1[direc]->u[rk_flag][direc];
+        gp1 *= grid_pt->nbr_p_1[direc]->u[rk_flag][0];
+        
+        gm1 = grid_pt->nbr_m_1[direc]->pi_b[rk_flag];
+        fm1 = gm1*grid_pt->nbr_m_1[direc]->u[rk_flag][direc];
+        gm1 *= grid_pt->nbr_m_1[direc]->u[rk_flag][0];
+        
+        gm2 = grid_pt->nbr_m_2[direc]->pi_b[rk_flag];
+        fm2 = gm2*grid_pt->nbr_m_2[direc]->u[rk_flag][direc];
+        gm2 *= grid_pt->nbr_m_2[direc]->u[rk_flag][0];
 
         /*  Make upi Halfs */
         /* uPi */
@@ -696,52 +707,11 @@ int Diss::Make_uPRHS(double tau, Grid *grid_pt, double *p_rhs, InitData *DATA,
        
      /* add a source term due to the coordinate change to tau-eta */
      sum -= (grid_pt->pi_b[rk_flag])*(grid_pt->u[rk_flag][0])/tau;
-     //sum += (grid_pt->pi_b[rk_flag])*(grid_pt->theta_u[0]);
      sum += (grid_pt->pi_b[rk_flag])*theta_local;
      *p_rhs = sum*(DATA->delta_tau)*bulk_on;
 
      return 1; /* if successful */
 }/* Make_uPRHS */
-
-
-void Diss::Get_uPis(double tau, Grid *grid_pt, int direc, double *g, double *f,
-                    double *gp1, double *fp1, double *gp2, double *fp2, 
-                    double *gm1, double *fm1, double *gm2, double *fm2, 
-                    InitData *DATA, int rk_flag) {
-    double tf, tg, tgp1, tfp1, tgp2, tfp2, tgm1, tfm1, tgm2, tfm2;
-    /* Get_uPis */
-
-    tg = grid_pt->pi_b[rk_flag];
-    tf = tg*grid_pt->u[rk_flag][direc];
-    tg *=   grid_pt->u[rk_flag][0];
-
-    tgp2 = grid_pt->nbr_p_2[direc]->pi_b[rk_flag];
-    tfp2 = tgp2*grid_pt->nbr_p_2[direc]->u[rk_flag][direc];
-    tgp2 *=     grid_pt->nbr_p_2[direc]->u[rk_flag][0];
-    
-    tgp1 = grid_pt->nbr_p_1[direc]->pi_b[rk_flag];
-    tfp1 = tgp1*grid_pt->nbr_p_1[direc]->u[rk_flag][direc];
-    tgp1 *=     grid_pt->nbr_p_1[direc]->u[rk_flag][0];
-    
-    tgm1 = grid_pt->nbr_m_1[direc]->pi_b[rk_flag];
-    tfm1 = tgm1*grid_pt->nbr_m_1[direc]->u[rk_flag][direc];
-    tgm1 *=     grid_pt->nbr_m_1[direc]->u[rk_flag][0];
-    
-    tgm2 = grid_pt->nbr_m_2[direc]->pi_b[rk_flag];
-    tfm2 = tgm2*grid_pt->nbr_m_2[direc]->u[rk_flag][direc];
-    tgm2 *=     grid_pt->nbr_m_2[direc]->u[rk_flag][0];
-
-    *g = tg;
-    *f = tf;
-    *gp1 = tgp1;
-    *fp1 = tfp1;
-    *gm1 = tgm1;
-    *fm1 = tfm1;
-    *gp2 = tgp2;
-    *fp2 = tfp2;
-    *gm2 = tgm2;
-    *fm2 = tfm2;
-}/* Get_uPis */
 
 
 double Diss::Make_uPiSource(double tau, Grid *grid_pt, InitData *DATA,
@@ -792,13 +762,11 @@ double Diss::Make_uPiSource(double tau, Grid *grid_pt, InitData *DATA,
     transport_coeff2_s = 0.;  // not known;  put 0
 
     // Computing Navier-Stokes term (-bulk viscosity * theta)
-    //NS_term = -bulk*(grid_pt->theta_u[0]);
     NS_term = -bulk*theta_local;
 
     // Computing relaxation term and nonlinear term:
     // - Bulk - transport_coeff1*Bulk*theta
     tempf = (-(grid_pt->pi_b[rk_flag])
-             //- transport_coeff1*(grid_pt->theta_u[0])
              - transport_coeff1*theta_local
                *(grid_pt->pi_b[rk_flag]));
 
@@ -916,14 +884,12 @@ double Diss::Make_uqSource(double tau, Grid *grid_pt, int nu, InitData *DATA,
     // + kappa u[a] u[b]g[b][c]DmuB/T[c])
     // a = nu 
     double NS = kappa*(grid_pt->dUsup[0][4][nu] 
-                           //+ grid_pt->u[rk_flag][nu]*grid_pt->a[0][4]);
                            + grid_pt->u[rk_flag][nu]*a_local[4]);
     if (isnan(NS)) {
         cout << "Navier Stock term is nan! " << endl;
         cout << q[nu] << endl;
         // derivative already upper index
         cout << grid_pt->dUsup[0][4][nu] << endl;
-        //cout << grid_pt->a[0][4] << endl;
         cout << a_local[4] << endl;
         cout << tau_rho << endl;
         cout << kappa << endl;
@@ -932,7 +898,6 @@ double Diss::Make_uqSource(double tau, Grid *grid_pt, int nu, InitData *DATA,
   
     // add a new non-linear term (- q \theta)
     double transport_coeff = 1.0*tau_rho;   // from conformal kinetic theory
-    //double Nonlinear1 = -transport_coeff*(q[nu]*grid_pt->theta_u[0]);
     double Nonlinear1 = -transport_coeff*q[nu]*theta_local;
 
     // add a new non-linear term (-q^\mu \sigma_\mu\nu)
@@ -960,7 +925,6 @@ double Diss::Make_uqSource(double tau, Grid *grid_pt, int nu, InitData *DATA,
 
     // all other geometric terms....
     // + theta q[a] - q[a] u^\tau/tau
-    //SW += (grid_pt->theta_u[0] - grid_pt->u[rk_flag][0]/tau)*q[nu];
     SW += (theta_local - grid_pt->u[rk_flag][0]/tau)*q[nu];
  
     if (isnan(SW)) {
@@ -983,7 +947,6 @@ double Diss::Make_uqSource(double tau, Grid *grid_pt, int nu, InitData *DATA,
     //-u[a] u[b]g[b][e] Dq[e] -> u[a] (q[e] g[e][b] Du[b])
     tempf = 0.0;
     for (int i = 0; i < 4; i++) {
-        //tempf += q[i]*gmn(i)*(grid_pt->a[0][i]);
         tempf += q[i]*gmn(i)*a_local[i];
     }
     SW += (grid_pt->u[rk_flag][nu])*tempf;
