@@ -765,69 +765,190 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
     
     // implement Kurganov-Tadmor scheme
     // here computes the half way T^\tau\mu currents
-    for (int direc = 1; direc < 4; direc++) {
-        double tau_fac = tau;
-        if (direc == 3) {
-            tau_fac = 1.0;
-        }
-        for (int alpha = 0; alpha < 5; alpha++) {
-            double gphL = qi[alpha];
-            double gphR = (
-                    tau*get_TJb(grid_pt->nbr_p_1[direc], rk_flag, alpha, 0));
-            double gmhL = (
-                    tau*get_TJb(grid_pt->nbr_m_1[direc], rk_flag, alpha, 0));
-            double gmhR = qi[alpha];
-            double fphL = 0.5*minmod->minmod_dx(gphR, qi[alpha], gmhL);
-            double fphR = -0.5*minmod->minmod_dx(
-                    tau*get_TJb(grid_pt->nbr_p_2[direc], rk_flag, alpha, 0),
-                    gphR, qi[alpha]);
-            double fmhL = 0.5*minmod->minmod_dx(qi[alpha], gmhL,
-                    tau*get_TJb(grid_pt->nbr_m_2[direc], rk_flag, alpha, 0));
-            double fmhR = -0.5*minmod->minmod_dx(gphR, qi[alpha], gmhL);
-            qiphL[alpha] = gphL + fphL;
-            qiphR[alpha] = gphR + fphR;
-            qimhL[alpha] = gmhL + fmhL;
-            qimhR[alpha] = gmhR + fmhR;
-        }
-        // for each direction, reconstruct half-way cells
-        // reconstruct e, rhob, and u[4] for half way cells
-        int flag = reconst_ptr->ReconstIt_shell(
-                                    grid_array_hL, tau, qiphL, grid_array_p);
-        double aiphL = MaxSpeed(tau, direc, grid_array_hL);
+    // x-direction
+    int direc = 1;
+    double tau_fac = tau;
+    for (int alpha = 0; alpha < 5; alpha++) {
+        double gphL = qi[alpha];
+        double gphR = (
+                tau*get_TJb(grid_pt->nbr_p_1[direc], rk_flag, alpha, 0));
+        double gmhL = (
+                tau*get_TJb(grid_pt->nbr_m_1[direc], rk_flag, alpha, 0));
+        double gmhR = qi[alpha];
+        double fphL = 0.5*minmod->minmod_dx(gphR, qi[alpha], gmhL);
+        double fphR = -0.5*minmod->minmod_dx(
+                tau*get_TJb(grid_pt->nbr_p_2[direc], rk_flag, alpha, 0),
+                gphR, qi[alpha]);
+        double fmhL = 0.5*minmod->minmod_dx(qi[alpha], gmhL,
+                tau*get_TJb(grid_pt->nbr_m_2[direc], rk_flag, alpha, 0));
+        double fmhR = -0.5*minmod->minmod_dx(gphR, qi[alpha], gmhL);
+        qiphL[alpha] = gphL + fphL;
+        qiphR[alpha] = gphR + fphR;
+        qimhL[alpha] = gmhL + fmhL;
+        qimhR[alpha] = gmhR + fmhR;
+    }
+    // for each direction, reconstruct half-way cells
+    // reconstruct e, rhob, and u[4] for half way cells
+    int flag = reconst_ptr->ReconstIt_shell(
+                                grid_array_hL, tau, qiphL, grid_array_p);
+    double aiphL = MaxSpeed(tau, direc, grid_array_hL);
 
-        flag *= reconst_ptr->ReconstIt_shell(
-                                    grid_array_hR, tau, qiphR, grid_array_p); 
-        double aiphR = MaxSpeed(tau, direc, grid_array_hR);
-        double aiph = maxi(aiphL, aiphR);
-        for (int alpha = 0; alpha < 5; alpha++) {
-            double FiphL = get_TJb_new(grid_array_hL, alpha, direc)*tau_fac;
-            double FiphR = get_TJb_new(grid_array_hR, alpha, direc)*tau_fac;
-            // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
-            //                  - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
-            double Fiph = 0.5*((FiphL + FiphR)
-                               - aiph*(qiphR[alpha] - qiphL[alpha]));
+    flag *= reconst_ptr->ReconstIt_shell(
+                                grid_array_hR, tau, qiphR, grid_array_p); 
+    double aiphR = MaxSpeed(tau, direc, grid_array_hR);
+    double aiph = maxi(aiphL, aiphR);
+    for (int alpha = 0; alpha < 5; alpha++) {
+        double FiphL = get_TJb_new(grid_array_hL, alpha, direc)*tau_fac;
+        double FiphR = get_TJb_new(grid_array_hR, alpha, direc)*tau_fac;
+        // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
+        //                  - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
+        double Fiph = 0.5*((FiphL + FiphR)
+                           - aiph*(qiphR[alpha] - qiphL[alpha]));
 
-            rhs[alpha] -= Fiph/delta[direc]*DATA_ptr->delta_tau;
-        }
+        rhs[alpha] -= Fiph/delta[direc]*DATA_ptr->delta_tau;
+    }
 
-        flag *= reconst_ptr->ReconstIt_shell(
-                                    grid_array_hL, tau, qimhL, grid_array_p);
-        double aimhL = MaxSpeed(tau, direc, grid_array_hL);
+    flag *= reconst_ptr->ReconstIt_shell(
+                                grid_array_hL, tau, qimhL, grid_array_p);
+    double aimhL = MaxSpeed(tau, direc, grid_array_hL);
 
-        flag *= reconst_ptr->ReconstIt_shell(
-                                    grid_array_hR, tau, qimhR, grid_array_p);
-        double aimhR = MaxSpeed(tau, direc, grid_array_hR);
-        double aimh = maxi(aimhL, aimhR);
+    flag *= reconst_ptr->ReconstIt_shell(
+                                grid_array_hR, tau, qimhR, grid_array_p);
+    double aimhR = MaxSpeed(tau, direc, grid_array_hR);
+    double aimh = maxi(aimhL, aimhR);
 
-        for (int alpha = 0; alpha < 5; alpha++) {
-            double FimhL = get_TJb_new(grid_array_hL, alpha, direc)*tau_fac;
-            double FimhR = get_TJb_new(grid_array_hR, alpha, direc)*tau_fac;
-            // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
-            //                  - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
-            double Fimh = 0.5*((FimhL + FimhR)
-                               - aimh*(qimhR[alpha] - qimhL[alpha]));
-            rhs[alpha] += Fimh/delta[direc]*DATA_ptr->delta_tau;
-        }
+    for (int alpha = 0; alpha < 5; alpha++) {
+        double FimhL = get_TJb_new(grid_array_hL, alpha, direc)*tau_fac;
+        double FimhR = get_TJb_new(grid_array_hR, alpha, direc)*tau_fac;
+        // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
+        //                  - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
+        double Fimh = 0.5*((FimhL + FimhR)
+                           - aimh*(qimhR[alpha] - qimhL[alpha]));
+        rhs[alpha] += Fimh/delta[direc]*DATA_ptr->delta_tau;
+    }
+    
+    // y-direction
+    direc = 2;
+    tau_fac = tau;
+    for (int alpha = 0; alpha < 5; alpha++) {
+        double gphL = qi[alpha];
+        double gphR = (
+                tau*get_TJb(grid_pt->nbr_p_1[direc], rk_flag, alpha, 0));
+        double gmhL = (
+                tau*get_TJb(grid_pt->nbr_m_1[direc], rk_flag, alpha, 0));
+        double gmhR = qi[alpha];
+        double fphL = 0.5*minmod->minmod_dx(gphR, qi[alpha], gmhL);
+        double fphR = -0.5*minmod->minmod_dx(
+                tau*get_TJb(grid_pt->nbr_p_2[direc], rk_flag, alpha, 0),
+                gphR, qi[alpha]);
+        double fmhL = 0.5*minmod->minmod_dx(qi[alpha], gmhL,
+                tau*get_TJb(grid_pt->nbr_m_2[direc], rk_flag, alpha, 0));
+        double fmhR = -0.5*minmod->minmod_dx(gphR, qi[alpha], gmhL);
+        qiphL[alpha] = gphL + fphL;
+        qiphR[alpha] = gphR + fphR;
+        qimhL[alpha] = gmhL + fmhL;
+        qimhR[alpha] = gmhR + fmhR;
+    }
+    // for each direction, reconstruct half-way cells
+    // reconstruct e, rhob, and u[4] for half way cells
+    flag = reconst_ptr->ReconstIt_shell(
+                                grid_array_hL, tau, qiphL, grid_array_p);
+    aiphL = MaxSpeed(tau, direc, grid_array_hL);
+
+    flag *= reconst_ptr->ReconstIt_shell(
+                                grid_array_hR, tau, qiphR, grid_array_p); 
+    aiphR = MaxSpeed(tau, direc, grid_array_hR);
+    aiph = maxi(aiphL, aiphR);
+    for (int alpha = 0; alpha < 5; alpha++) {
+        double FiphL = get_TJb_new(grid_array_hL, alpha, direc)*tau_fac;
+        double FiphR = get_TJb_new(grid_array_hR, alpha, direc)*tau_fac;
+        // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
+        //                  - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
+        double Fiph = 0.5*((FiphL + FiphR)
+                           - aiph*(qiphR[alpha] - qiphL[alpha]));
+
+        rhs[alpha] -= Fiph/delta[direc]*DATA_ptr->delta_tau;
+    }
+
+    flag *= reconst_ptr->ReconstIt_shell(
+                                grid_array_hL, tau, qimhL, grid_array_p);
+    aimhL = MaxSpeed(tau, direc, grid_array_hL);
+
+    flag *= reconst_ptr->ReconstIt_shell(
+                                grid_array_hR, tau, qimhR, grid_array_p);
+    aimhR = MaxSpeed(tau, direc, grid_array_hR);
+    aimh = maxi(aimhL, aimhR);
+
+    for (int alpha = 0; alpha < 5; alpha++) {
+        double FimhL = get_TJb_new(grid_array_hL, alpha, direc)*tau_fac;
+        double FimhR = get_TJb_new(grid_array_hR, alpha, direc)*tau_fac;
+        // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
+        //                  - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
+        double Fimh = 0.5*((FimhL + FimhR)
+                           - aimh*(qimhR[alpha] - qimhL[alpha]));
+        rhs[alpha] += Fimh/delta[direc]*DATA_ptr->delta_tau;
+    }
+    
+    // eta-direction
+    direc = 3;
+    tau_fac = 1.0;
+    for (int alpha = 0; alpha < 5; alpha++) {
+        double gphL = qi[alpha];
+        double gphR = (
+                tau*get_TJb(grid_pt->nbr_p_1[direc], rk_flag, alpha, 0));
+        double gmhL = (
+                tau*get_TJb(grid_pt->nbr_m_1[direc], rk_flag, alpha, 0));
+        double gmhR = qi[alpha];
+        double fphL = 0.5*minmod->minmod_dx(gphR, qi[alpha], gmhL);
+        double fphR = -0.5*minmod->minmod_dx(
+                tau*get_TJb(grid_pt->nbr_p_2[direc], rk_flag, alpha, 0),
+                gphR, qi[alpha]);
+        double fmhL = 0.5*minmod->minmod_dx(qi[alpha], gmhL,
+                tau*get_TJb(grid_pt->nbr_m_2[direc], rk_flag, alpha, 0));
+        double fmhR = -0.5*minmod->minmod_dx(gphR, qi[alpha], gmhL);
+        qiphL[alpha] = gphL + fphL;
+        qiphR[alpha] = gphR + fphR;
+        qimhL[alpha] = gmhL + fmhL;
+        qimhR[alpha] = gmhR + fmhR;
+    }
+    // for each direction, reconstruct half-way cells
+    // reconstruct e, rhob, and u[4] for half way cells
+    flag = reconst_ptr->ReconstIt_shell(
+                                grid_array_hL, tau, qiphL, grid_array_p);
+    aiphL = MaxSpeed(tau, direc, grid_array_hL);
+
+    flag *= reconst_ptr->ReconstIt_shell(
+                                grid_array_hR, tau, qiphR, grid_array_p); 
+    aiphR = MaxSpeed(tau, direc, grid_array_hR);
+    aiph = maxi(aiphL, aiphR);
+    for (int alpha = 0; alpha < 5; alpha++) {
+        double FiphL = get_TJb_new(grid_array_hL, alpha, direc)*tau_fac;
+        double FiphR = get_TJb_new(grid_array_hR, alpha, direc)*tau_fac;
+        // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
+        //                  - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
+        double Fiph = 0.5*((FiphL + FiphR)
+                           - aiph*(qiphR[alpha] - qiphL[alpha]));
+
+        rhs[alpha] -= Fiph/delta[direc]*DATA_ptr->delta_tau;
+    }
+
+    flag *= reconst_ptr->ReconstIt_shell(
+                                grid_array_hL, tau, qimhL, grid_array_p);
+    aimhL = MaxSpeed(tau, direc, grid_array_hL);
+
+    flag *= reconst_ptr->ReconstIt_shell(
+                                grid_array_hR, tau, qimhR, grid_array_p);
+    aimhR = MaxSpeed(tau, direc, grid_array_hR);
+    aimh = maxi(aimhL, aimhR);
+
+    for (int alpha = 0; alpha < 5; alpha++) {
+        double FimhL = get_TJb_new(grid_array_hL, alpha, direc)*tau_fac;
+        double FimhR = get_TJb_new(grid_array_hR, alpha, direc)*tau_fac;
+        // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
+        //                  - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
+        double Fimh = 0.5*((FimhL + FimhR)
+                           - aimh*(qimhR[alpha] - qimhL[alpha]));
+        rhs[alpha] += Fimh/delta[direc]*DATA_ptr->delta_tau;
     }
 
     // geometric terms
