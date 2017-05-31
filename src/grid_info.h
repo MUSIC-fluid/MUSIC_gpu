@@ -48,7 +48,6 @@ class Grid_info {
     void get_maximum_energy_density(Grid ***arena);
 
     void check_conservation_law(Grid ***arena, InitData *DATA, double tau);
-    void check_velocity_shear_tensor(Grid ***arena, double tau);
     void output_evolution_for_movie(Grid ***arena, double tau);
     void output_average_phase_diagram_trajectory(
                 double tau, double eta_min, double eta_max, Grid ***arena);

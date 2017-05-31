@@ -41,16 +41,6 @@ class Grid {
     Grid **nbr_p_2; 
     Grid **nbr_m_2; 
         
-    /* This is u^mu partial_mu u^nu */
-    double **a;
-        
-    /* this is the expansion rate partial_mu u^mu */
-    double *theta_u;
-
-    // the velocity shear tensor
-    // only record 10 essential components in a 1-d array
-    double **sigma;
-        
     /* we need to calculate partial_tau u[mu] */
     /* dU[flag][m][n] = u^{m,n} = partial^n u^m with the rk flag */
     /* note that they are superscripted. So partial^t = -partial_t */

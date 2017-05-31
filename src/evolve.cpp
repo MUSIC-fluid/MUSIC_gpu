@@ -15,8 +15,8 @@ Evolve::Evolve(EOS *eosIn, InitData *DATA_in) {
     grid = new Grid;
     grid_info = new Grid_info(DATA_in, eosIn);
     util = new Util;
-    advance = new Advance(eosIn, DATA_in);
     u_derivative = new U_derivative(eosIn, DATA_in);
+    advance = new Advance(eosIn, DATA_in);
    
     DATA_ptr = DATA_in;
     rk_order = DATA_in->rk_order;
@@ -133,13 +133,6 @@ int Evolve::EvolveIt(InitData *DATA, Grid ***arena) {
         // all the evolution are at here !!!
         AdvanceRK(tau, DATA, arena);
         
-        // output evolution information for debug
-        if (output_hydro_debug_flag == 1) {
-            if ((it%Nskip_timestep) == 0) {
-                grid_info->check_velocity_shear_tensor(arena, tau);
-            }
-        }
-   
         //determine freeze-out surface
         int frozen = 0;
         if (freezeout_flag == 1) {
@@ -173,13 +166,10 @@ int Evolve::EvolveIt(InitData *DATA, Grid ***arena) {
         for (int ix=0; ix <= DATA->nx; ix++) {
             for (int iy=0; iy <= DATA->ny; iy++) {
                 util->cube_free(arena[ieta][ix][iy].dUsup, 1, 5, 4);
-                util->mtx_free(arena[ieta][ix][iy].sigma, 1, 10);
                 util->mtx_free(arena[ieta][ix][iy].Wmunu, rk_order, 14);
                 util->mtx_free(arena[ieta][ix][iy].prevWmunu, 1, 14);
                 util->mtx_free(arena[ieta][ix][iy].u, rk_order, 4);
-                util->mtx_free(arena[ieta][ix][iy].a, 1, 5);
                 util->mtx_free(arena[ieta][ix][iy].prev_u, 1, 4);
-                util->vector_free(arena[ieta][ix][iy].theta_u);
                 util->vector_free(arena[ieta][ix][iy].pi_b);
                 util->vector_free(arena[ieta][ix][iy].prev_pi_b);
                 

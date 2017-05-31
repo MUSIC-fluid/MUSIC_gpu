@@ -23,6 +23,7 @@ class Advance {
     Reconst *reconst_ptr;
     EOS *eos;
     Minmod *minmod;
+    U_derivative *u_derivative_ptr;
     
     int grid_nx, grid_ny, grid_neta;
     int rk_order;
@@ -40,7 +41,8 @@ class Advance {
     int FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt, int rk_flag);
 
     int FirstRKStepW(double tau_it, InitData *DATA, Grid *grid_pt,
-                     int rk_flag);
+                     int rk_flag, double theta_local, double* a_local,
+                     double *sigma_local);
 
     void UpdateTJbRK(Grid *grid_rk, Grid *grid_pt, int rk_flag);
     int QuestRevert(double tau, Grid *grid_pt, int rk_flag, InitData *DATA);
