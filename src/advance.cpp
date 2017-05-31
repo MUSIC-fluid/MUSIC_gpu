@@ -601,13 +601,12 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
     update_grid_array_from_grid_cell(grid_pt, grid_array_p, rk_flag);
 
     double *qiphL = new double[5];
-    double *grid_array_phL = new double[5];
     double *qiphR = new double[5];
-    double *grid_array_phR = new double[5];
     double *qimhL = new double[5];
-    double *grid_array_mhL = new double[5];
     double *qimhR = new double[5];
-    double *grid_array_mhR = new double[5];
+    
+    double *grid_array_hL = new double[5];
+    double *grid_array_hR = new double[5];
     
     // implement Kurganov-Tadmor scheme
     // here computes the half way T^\tau\mu currents
@@ -638,39 +637,41 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
         // for each direction, reconstruct half-way cells
         // reconstruct e, rhob, and u[4] for half way cells
         int flag = reconst_ptr->ReconstIt_shell(
-                                    grid_array_phL, tau, qiphL, grid_array_p);
-        double aiphL = MaxSpeed(tau, direc, grid_array_phL);
+                                    grid_array_hL, tau, qiphL, grid_array_p);
+        double aiphL = MaxSpeed(tau, direc, grid_array_hL);
 
         flag *= reconst_ptr->ReconstIt_shell(
-                                    grid_array_phR, tau, qiphR, grid_array_p); 
-        double aiphR = MaxSpeed(tau, direc, grid_array_phR);
-
-        flag *= reconst_ptr->ReconstIt_shell(
-                                    grid_array_mhL, tau, qimhL, grid_array_p);
-        double aimhL = MaxSpeed(tau, direc, grid_array_mhL);
-
-        flag *= reconst_ptr->ReconstIt_shell(
-                                    grid_array_mhR, tau, qimhR, grid_array_p);
-        double aimhR = MaxSpeed(tau, direc, grid_array_mhR);
-
+                                    grid_array_hR, tau, qiphR, grid_array_p); 
+        double aiphR = MaxSpeed(tau, direc, grid_array_hR);
         double aiph = maxi(aiphL, aiphR);
-        double aimh = maxi(aimhL, aimhR);
-
         for (int alpha = 0; alpha < 5; alpha++) {
-            double FiphL = get_TJb_new(grid_array_phL, alpha, direc)*tau_fac;
-            double FiphR = get_TJb_new(grid_array_phR, alpha, direc)*tau_fac;
-            double FimhL = get_TJb_new(grid_array_mhL, alpha, direc)*tau_fac;
-            double FimhR = get_TJb_new(grid_array_mhR, alpha, direc)*tau_fac;
-            
+            double FiphL = get_TJb_new(grid_array_hL, alpha, direc)*tau_fac;
+            double FiphR = get_TJb_new(grid_array_hR, alpha, direc)*tau_fac;
             // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
             //                  - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
             double Fiph = 0.5*((FiphL + FiphR)
                                - aiph*(qiphR[alpha] - qiphL[alpha]));
+
+            rhs[alpha] -= Fiph/delta[direc]*DATA_ptr->delta_tau;
+        }
+
+        flag *= reconst_ptr->ReconstIt_shell(
+                                    grid_array_hL, tau, qimhL, grid_array_p);
+        double aimhL = MaxSpeed(tau, direc, grid_array_hL);
+
+        flag *= reconst_ptr->ReconstIt_shell(
+                                    grid_array_hR, tau, qimhR, grid_array_p);
+        double aimhR = MaxSpeed(tau, direc, grid_array_hR);
+        double aimh = maxi(aimhL, aimhR);
+
+        for (int alpha = 0; alpha < 5; alpha++) {
+            double FimhL = get_TJb_new(grid_array_hL, alpha, direc)*tau_fac;
+            double FimhR = get_TJb_new(grid_array_hR, alpha, direc)*tau_fac;
+            // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
+            //                  - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
             double Fimh = 0.5*((FimhL + FimhR)
                                - aimh*(qimhR[alpha] - qimhL[alpha]));
-            double DFmmp = (Fimh - Fiph)/delta[direc];
-        
-            rhs[alpha] += DFmmp*(DATA_ptr->delta_tau);
+            rhs[alpha] += Fimh/delta[direc]*DATA_ptr->delta_tau;
         }
     }
 
@@ -687,10 +688,8 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
     delete[] qimhL;
     delete[] qimhR;
 
-    delete[] grid_array_phL;
-    delete[] grid_array_phR;
-    delete[] grid_array_mhL;
-    delete[] grid_array_mhR;
+    delete[] grid_array_hL;
+    delete[] grid_array_hR;
     
     delete[] grid_array_p;
 }/* MakeDeltaQI */
