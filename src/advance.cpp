@@ -39,7 +39,12 @@ void Advance::prepare_qi_array(
         double tau, Grid ***arena, int rk_flag, int ieta, int ix, int iy,
         int n_cell_eta, int n_cell_x, double **qi_array,
         double **qi_nbr_x, double **qi_nbr_y, double **qi_nbr_eta) {
-
+    double tau_rk;
+    if (rk_flag == 0) {
+        tau_rk = tau;
+    } else {
+        tau_rk = tau + DATA_ptr->delta_tau;
+    }
     double *grid_array_temp = new double[5];
 
     // first build qi cube n_cell_x*n_cell_x*n_cell_eta
@@ -53,7 +58,8 @@ void Advance::prepare_qi_array(
                 update_grid_array_from_grid_cell(
                                     &arena[idx_ieta][idx_ix][idx_iy],
                                     grid_array_temp, rk_flag);
-                get_qmu_from_grid_array(tau, qi_array[idx], grid_array_temp);
+                get_qmu_from_grid_array(tau_rk, qi_array[idx],
+                                        grid_array_temp);
             }
         }
     }
@@ -73,16 +79,16 @@ void Advance::prepare_qi_array(
 
             update_grid_array_from_grid_cell(&arena[idx_ieta][idx_m_2][idx_iy],
                                              grid_array_temp, rk_flag);
-            get_qmu_from_grid_array(tau, qi_nbr_x[idx], grid_array_temp);
+            get_qmu_from_grid_array(tau_rk, qi_nbr_x[idx], grid_array_temp);
             update_grid_array_from_grid_cell(&arena[idx_ieta][idx_m_1][idx_iy],
                                              grid_array_temp, rk_flag);
-            get_qmu_from_grid_array(tau, qi_nbr_x[idx+1], grid_array_temp);
+            get_qmu_from_grid_array(tau_rk, qi_nbr_x[idx+1], grid_array_temp);
             update_grid_array_from_grid_cell(&arena[idx_ieta][idx_p_1][idx_iy],
                                              grid_array_temp, rk_flag);
-            get_qmu_from_grid_array(tau, qi_nbr_x[idx+2], grid_array_temp);
+            get_qmu_from_grid_array(tau_rk, qi_nbr_x[idx+2], grid_array_temp);
             update_grid_array_from_grid_cell(&arena[idx_ieta][idx_p_2][idx_iy],
                                              grid_array_temp, rk_flag);
-            get_qmu_from_grid_array(tau, qi_nbr_x[idx+3], grid_array_temp);
+            get_qmu_from_grid_array(tau_rk, qi_nbr_x[idx+3], grid_array_temp);
         }
     }
 
@@ -100,16 +106,16 @@ void Advance::prepare_qi_array(
 
             update_grid_array_from_grid_cell(&arena[idx_ieta][idx_ix][idx_m_2],
                                              grid_array_temp, rk_flag);
-            get_qmu_from_grid_array(tau, qi_nbr_y[idx], grid_array_temp);
+            get_qmu_from_grid_array(tau_rk, qi_nbr_y[idx], grid_array_temp);
             update_grid_array_from_grid_cell(&arena[idx_ieta][idx_ix][idx_m_1],
                                              grid_array_temp, rk_flag);
-            get_qmu_from_grid_array(tau, qi_nbr_y[idx+1], grid_array_temp);
+            get_qmu_from_grid_array(tau_rk, qi_nbr_y[idx+1], grid_array_temp);
             update_grid_array_from_grid_cell(&arena[idx_ieta][idx_ix][idx_p_1],
                                              grid_array_temp, rk_flag);
-            get_qmu_from_grid_array(tau, qi_nbr_y[idx+2], grid_array_temp);
+            get_qmu_from_grid_array(tau_rk, qi_nbr_y[idx+2], grid_array_temp);
             update_grid_array_from_grid_cell(&arena[idx_ieta][idx_ix][idx_p_2],
                                              grid_array_temp, rk_flag);
-            get_qmu_from_grid_array(tau, qi_nbr_y[idx+3], grid_array_temp);
+            get_qmu_from_grid_array(tau_rk, qi_nbr_y[idx+3], grid_array_temp);
         }
     }
 
@@ -127,16 +133,16 @@ void Advance::prepare_qi_array(
 
             update_grid_array_from_grid_cell(&arena[idx_m_2][idx_ix][idx_iy],
                                              grid_array_temp, rk_flag);
-            get_qmu_from_grid_array(tau, qi_nbr_eta[idx], grid_array_temp);
+            get_qmu_from_grid_array(tau_rk, qi_nbr_eta[idx], grid_array_temp);
             update_grid_array_from_grid_cell(&arena[idx_m_1][idx_ix][idx_iy],
                                              grid_array_temp, rk_flag);
-            get_qmu_from_grid_array(tau, qi_nbr_eta[idx+1], grid_array_temp);
+            get_qmu_from_grid_array(tau_rk, qi_nbr_eta[idx+1], grid_array_temp);
             update_grid_array_from_grid_cell(&arena[idx_p_1][idx_ix][idx_iy],
                                              grid_array_temp, rk_flag);
-            get_qmu_from_grid_array(tau, qi_nbr_eta[idx+2], grid_array_temp);
+            get_qmu_from_grid_array(tau_rk, qi_nbr_eta[idx+2], grid_array_temp);
             update_grid_array_from_grid_cell(&arena[idx_p_2][idx_ix][idx_iy],
                                              grid_array_temp, rk_flag);
-            get_qmu_from_grid_array(tau, qi_nbr_eta[idx+3], grid_array_temp);
+            get_qmu_from_grid_array(tau_rk, qi_nbr_eta[idx+3], grid_array_temp);
         }
     }
     delete[] grid_array_temp;
@@ -748,12 +754,8 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
     // tau*Tmu0
     double rhs[5];
     for (int alpha = 0; alpha < 5; alpha++) {
-        qi[alpha] = get_TJb(grid_pt, rk_flag, alpha, 0)*tau;
         rhs[alpha] = 0.0;
     }/* get qi first */
-
-    //double *grid_array_p = new double[5];
-    //update_grid_array_from_grid_cell(grid_pt, grid_array_p, rk_flag);
 
     double *qiphL = new double[5];
     double *qiphR = new double[5];
