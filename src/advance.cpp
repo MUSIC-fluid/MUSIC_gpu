@@ -39,12 +39,14 @@ void Advance::prepare_qi_array(
         double tau, Grid ***arena, int rk_flag, int ieta, int ix, int iy,
         int n_cell_eta, int n_cell_x, double **qi_array,
         double **qi_nbr_x, double **qi_nbr_y, double **qi_nbr_eta) {
+
     double tau_rk;
     if (rk_flag == 0) {
         tau_rk = tau;
     } else {
         tau_rk = tau + DATA_ptr->delta_tau;
     }
+
     double *grid_array_temp = new double[5];
 
     // first build qi cube n_cell_x*n_cell_x*n_cell_eta
@@ -235,7 +237,7 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
 /* %%%%%%%%%%%%%%%%%%%%%% First steps begins here %%%%%%%%%%%%%%%%%% */
 int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
                           int rk_flag, double **qi_array, double **qi_nbr_x,
-                          double **qi_nbr_y, double **qi_nbr_eta, 
+                          double **qi_nbr_y, double **qi_nbr_eta,
                           int n_cell_eta, int n_cell_x) {
     // this advances the ideal part
     double tau_now = tau;
@@ -264,8 +266,9 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
     // (including geometric terms)
     double *qi = new double[5];
     get_qmu_from_grid_array(tau_rk, qi, grid_array_p);
-    MakeDeltaQI(tau_rk, grid_pt, qi, grid_array_p, rk_flag, qi_array,
-                qi_nbr_x, qi_nbr_y, qi_nbr_eta, n_cell_eta, n_cell_x);
+    MakeDeltaQI(tau_rk, grid_pt, qi, rk_flag, qi_array,
+                qi_nbr_x, qi_nbr_y, qi_nbr_eta,
+                n_cell_eta, n_cell_x);
 
     for (int alpha = 0; alpha < 5; alpha++) {
         // now MakeWSource returns partial_a W^{a mu}
@@ -291,17 +294,17 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
         }
     }
 
-    double *grid_array = new double[5];
+    double *grid_array_t = new double[5];
     int flag = reconst_ptr->ReconstIt_shell(
-                        grid_array, tau_next, qi, grid_array_p);
+                        grid_array_t, tau_next, qi, grid_array_p);
 
     if (flag != 0) {
-        UpdateTJbRK(grid_array, grid_pt, rk_flag); 
+        UpdateTJbRK(grid_array_t, grid_pt, rk_flag); 
     }
 
     // clean up
     delete[] qi;
-    delete[] grid_array;
+    delete[] grid_array_t;
     delete[] grid_array_p;
 
     return(flag);
@@ -735,7 +738,7 @@ int Advance::QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
 //! This function computes the rhs array. It computes the spatial
 //! derivatives of T^\mu\nu using the KT algorithm
 void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
-                          double *grid_array_p, int rk_flag, double **qi_array,
+                          int rk_flag, double **qi_array,
                           double **qi_nbr_x, double **qi_nbr_y,
                           double **qi_nbr_eta, int n_cell_eta, int n_cell_x) {
     double delta[4];
@@ -767,6 +770,7 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
     double *qimhL = new double[5];
     double *qimhR = new double[5];
     
+    double *grid_array_p = new double[5];
     double *grid_array_hL = new double[5];
     double *grid_array_hR = new double[5];
     
@@ -774,6 +778,9 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
         for (int i = 0; i < n_cell_x; i++) {
             for (int j = 0; j < n_cell_x; j++) {
                 int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+                int flag = reconst_ptr->ReconstIt_shell(
+                                grid_array_p, tau, qi, grid_array_p);
+
                 // implement Kurganov-Tadmor scheme
                 // here computes the half way T^\tau\mu currents
                 // x-direction
@@ -825,12 +832,12 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
                 }
                 // for each direction, reconstruct half-way cells
                 // reconstruct e, rhob, and u[4] for half way cells
-                int flag = reconst_ptr->ReconstIt_shell(
-                                    grid_array_hL, tau, qiphL, grid_array_p);
+                flag = reconst_ptr->ReconstIt_shell(
+                                grid_array_hL, tau, qiphL, grid_array_p);
                 double aiphL = MaxSpeed(tau, direc, grid_array_hL);
 
                 flag *= reconst_ptr->ReconstIt_shell(
-                                    grid_array_hR, tau, qiphR, grid_array_p); 
+                                grid_array_hR, tau, qiphR, grid_array_p);
                 double aiphR = MaxSpeed(tau, direc, grid_array_hR);
                 double aiph = maxi(aiphL, aiphR);
                 for (int alpha = 0; alpha < 5; alpha++) {
@@ -917,11 +924,11 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
                 // for each direction, reconstruct half-way cells
                 // reconstruct e, rhob, and u[4] for half way cells
                 flag = reconst_ptr->ReconstIt_shell(
-                                    grid_array_hL, tau, qiphL, grid_array_p);
+                                grid_array_hL, tau, qiphL, grid_array_p);
                 aiphL = MaxSpeed(tau, direc, grid_array_hL);
 
                 flag *= reconst_ptr->ReconstIt_shell(
-                                    grid_array_hR, tau, qiphR, grid_array_p); 
+                                grid_array_hR, tau, qiphR, grid_array_p);
                 aiphR = MaxSpeed(tau, direc, grid_array_hR);
                 aiph = maxi(aiphL, aiphR);
                 for (int alpha = 0; alpha < 5; alpha++) {
@@ -1008,11 +1015,11 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
                 // for each direction, reconstruct half-way cells
                 // reconstruct e, rhob, and u[4] for half way cells
                 flag = reconst_ptr->ReconstIt_shell(
-                                    grid_array_hL, tau, qiphL, grid_array_p);
+                                grid_array_hL, tau, qiphL, grid_array_p);
                 aiphL = MaxSpeed(tau, direc, grid_array_hL);
 
                 flag *= reconst_ptr->ReconstIt_shell(
-                                    grid_array_hR, tau, qiphR, grid_array_p); 
+                                grid_array_hR, tau, qiphR, grid_array_p);
                 aiphR = MaxSpeed(tau, direc, grid_array_hR);
                 aiph = maxi(aiphL, aiphR);
                 for (int alpha = 0; alpha < 5; alpha++) {
@@ -1050,8 +1057,10 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
                 }
 
                 // geometric terms
-                rhs[0] -= get_TJb_new(grid_array_p, 3, 3)*DATA_ptr->delta_tau;
-                rhs[3] -= get_TJb_new(grid_array_p, 3, 0)*DATA_ptr->delta_tau;
+                rhs[0] -= (get_TJb_new(grid_array_p, 3, 3)
+                           *DATA_ptr->delta_tau);
+                rhs[3] -= (get_TJb_new(grid_array_p, 3, 0)
+                           *DATA_ptr->delta_tau);
                 
                 for (int i = 0; i < 5; i++) {
                     qi_array[idx][i] += rhs[i];
@@ -1071,6 +1080,7 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
     delete[] qimhL;
     delete[] qimhR;
 
+    delete[] grid_array_p;
     delete[] grid_array_hL;
     delete[] grid_array_hR;
 }

@@ -28,9 +28,9 @@ Reconst::~Reconst() {
 int Reconst::ReconstIt_shell(double *grid_array, double tau, double *uq,
                              double *grid_array_p) {
     int flag = 0;
-    flag = ReconstIt_velocity_Newton(grid_array, tau, uq, grid_array_p);
+    flag = ReconstIt_velocity_iteration(grid_array, tau, uq, grid_array_p);
     if (flag < 0) {
-        flag = ReconstIt_velocity_iteration(grid_array, tau, uq, grid_array_p);
+        flag = ReconstIt_velocity_Newton(grid_array, tau, uq, grid_array_p);
     }
 
     if (flag < 0) {
