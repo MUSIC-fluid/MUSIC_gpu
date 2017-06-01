@@ -530,7 +530,7 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
                           double **velocity_array) {
 
     double tau_now = tau;
-    double tau_next = tau + (DATA->delta_tau);
+    double tau_next = tau + (DATA_ptr->delta_tau);
 
     int trk_flag = rk_flag + 1;
     if (rk_flag == 1) {
@@ -548,7 +548,7 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
 
     // Sangyong Nov 18 2014 implemented mu_max
     int mu_max;
-    if (DATA->turn_on_rhob == 1)
+    if (DATA_ptr->turn_on_rhob == 1)
         mu_max = 4;
     else 
         mu_max = 3;
@@ -566,7 +566,9 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
     double tempf, temps;
     if (rk_flag == 0) {
         diss->Make_uWRHS(tau_now, grid_pt, w_rhs, DATA, rk_flag,
-                         theta_local, a_local);
+                         theta_local, a_local,
+                         vis_array, vis_nbr_x, vis_nbr_y, vis_nbr_eta,
+                         velocity_array);
         for (int mu = 1; mu < 4; mu++) {
             for (int nu = mu; nu < 4; nu++) {
                 int idx_1d = util->map_2d_idx_to_1d(mu, nu);
@@ -583,7 +585,9 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
         }
     } else if (rk_flag > 0) {
         diss->Make_uWRHS(tau_next, grid_pt, w_rhs, DATA, rk_flag,
-                         theta_local, a_local);
+                         theta_local, a_local,
+                         vis_array, vis_nbr_x, vis_nbr_y, vis_nbr_eta,
+                         velocity_array);
         for (int mu = 1; mu < 4; mu++) {
             for (int nu = mu; nu < 4; nu++) {
                 int idx_1d = util->map_2d_idx_to_1d(mu, nu);

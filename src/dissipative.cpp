@@ -503,7 +503,11 @@ double Diss::Make_uWSource(double tau, Grid *grid_pt, int mu, int nu,
 
 int Diss::Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs,
                      InitData *DATA, int rk_flag, double theta_local,
-                     double *a_local) {
+                     double *a_local,
+                     double **vis_array, double **vis_nbr_x,
+                     double **vis_nbr_y, double **vis_nbr_eta,
+                     double **velocity_array) {
+
     for (int a = 0; a < 4; a++) {
         for (int b = 0; b < 4; b++) {
             w_rhs[a][b] = 0.0;
@@ -512,17 +516,13 @@ int Diss::Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs,
     if (DATA->turn_on_shear == 0)
         return(1);
 
-    int mu, nu, direc, ic;
-    double f, fp1, fm1, fp2, fm2;
-    double g, gp1, gm1, gp2, gm2, a, am1, ap1, ax;
-    double uWphR, uWphL, uWmhR, uWmhL, WphR, WphL, WmhR, WmhL;
-    double HWph, HWmh, taufactor, HW, ic_fac;
-    double tempf;
+    int idx = 0;
     double Wmunu_local[4][4];
     for (int aa = 0; aa < 4; aa++) {
         for (int bb = aa; bb < 4; bb++) {
             int idx_1d = util->map_2d_idx_to_1d(aa, bb);
-            Wmunu_local[aa][bb] = grid_pt->Wmunu[rk_flag][idx_1d];
+            //Wmunu_local[aa][bb] = grid_pt->Wmunu[rk_flag][idx_1d];
+            Wmunu_local[aa][bb] = vis_array[idx][idx_1d];
         }
     }
     for (int aa = 0; aa < 4; aa++) {
@@ -547,84 +547,194 @@ int Diss::Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs,
        Here fRph = ux WmnRph and ax uRph = |ux/utau|_max utau Wmn */
     /* This is the second step in the operator splitting. it uses
        rk_flag+1 as initial condition */
-    double delta[4];
-    delta[1] = DATA->delta_x;
-    delta[2] = DATA->delta_y;
-    delta[3] = DATA->delta_eta;
     
-    double sum;
-    // pi^\mu\nu is symmetric
-    for (mu = 1; mu < 4; mu++) {
-        for (nu = mu; nu < 4; nu++) {
+    double sum, taufactor;
+    double g, gp1, gm1, gp2, gm2, a, am1, ap1, ax;
+    double f, fp1, fm1, fp2, fm2;
+    double uWphR, uWphL, uWmhR, uWmhL, WphR, WphL, WmhR, WmhL;
+    double HWph, HWmh, HW;
+    double tempf;
+    for (int mu = 1; mu < 4; mu++) {
+        for (int nu = mu; nu < 4; nu++) {
+            // pi^\mu\nu is symmetric
+
             int idx_1d = util->map_2d_idx_to_1d(mu, nu);
             sum = 0.0;
-            for (direc = 1; direc <= 3; direc++) {
-                if (direc == 3)
-                    taufactor = tau;
-                else
-                    taufactor = 1.0;
 
-                /* Get_uWmns */
-                g = Wmunu_local[mu][nu];
-                f = g*grid_pt->u[rk_flag][direc];
-                g *=   grid_pt->u[rk_flag][0];
-                   
-                gp2 = grid_pt->nbr_p_2[direc]->Wmunu[rk_flag][idx_1d];
-                fp2 = gp2*grid_pt->nbr_p_2[direc]->u[rk_flag][direc];
-                gp2 *= grid_pt->nbr_p_2[direc]->u[rk_flag][0];
+            // x-direction
+            taufactor = 1.0;
+            /* Get_uWmns */
+            g = Wmunu_local[mu][nu];
+            f = g*vis_array[idx][16];
+            g *= vis_array[idx][15];
+
+            //gp2 = grid_pt->nbr_p_2[direc]->Wmunu[rk_flag][idx_1d];
+            //fp2 = gp2*grid_pt->nbr_p_2[direc]->u[rk_flag][direc];
+            //gp2 *= grid_pt->nbr_p_2[direc]->u[rk_flag][0];
+            gp2 = vis_nbr_x[3][idx_1d];
+            fp2 = gp2*vis_nbr_x[3][16];
+            gp2 *= vis_nbr_x[3][15];
+
+            //gp1 = grid_pt->nbr_p_1[direc]->Wmunu[rk_flag][idx_1d];
+            //fp1 = gp1*grid_pt->nbr_p_1[direc]->u[rk_flag][direc];
+            //gp1 *= grid_pt->nbr_p_1[direc]->u[rk_flag][0];
+            gp1 = vis_nbr_x[2][idx_1d];
+            fp1 = gp1*vis_nbr_x[2][16];
+            gp1 *= vis_nbr_x[2][15];
+
+            //gm1 = grid_pt->nbr_m_1[direc]->Wmunu[rk_flag][idx_1d];
+            //fm1 = gm1*grid_pt->nbr_m_1[direc]->u[rk_flag][direc];
+            //gm1 *= grid_pt->nbr_m_1[direc]->u[rk_flag][0];
+            gm1 = vis_nbr_x[1][idx_1d];
+            fm1 = gm1*vis_nbr_x[1][16];
+            gm1 *= vis_nbr_x[1][15];
+
+            //gm2 = grid_pt->nbr_m_2[direc]->Wmunu[rk_flag][idx_1d];
+            //fm2 = gm2*grid_pt->nbr_m_2[direc]->u[rk_flag][direc];
+            //gm2 *= grid_pt->nbr_m_2[direc]->u[rk_flag][0];
+            gm2 = vis_nbr_x[0][idx_1d];
+            fm2 = gm2*vis_nbr_x[0][16];
+            gm2 *= vis_nbr_x[0][15];
                 
-                gp1 = grid_pt->nbr_p_1[direc]->Wmunu[rk_flag][idx_1d];
-                fp1 = gp1*grid_pt->nbr_p_1[direc]->u[rk_flag][direc];
-                gp1 *= grid_pt->nbr_p_1[direc]->u[rk_flag][0];
+            // MakeuWmnHalfs uWmn
+            uWphR = fp1 - 0.5*minmod->minmod_dx(fp2, fp1, f);
+            uWphL = f + 0.5*minmod->minmod_dx(fp1, f, fm1);
+            uWmhR = f - 0.5*minmod->minmod_dx(fp1, f, fm1);
+            uWmhL = fm1 + 0.5*minmod->minmod_dx(f, fm1, fm2);
+
+            // just Wmn
+            WphR = gp1 - 0.5*minmod->minmod_dx(gp2, gp1, g);
+            WphL = g + 0.5*minmod->minmod_dx(gp1, g, gm1);
+            WmhR = g - 0.5*minmod->minmod_dx(gp1, g, gm1);
+            WmhL = gm1 + 0.5*minmod->minmod_dx(g, gm1, gm2);
+
+            //a = fabs(grid_pt->u[rk_flag][direc]);
+            a = fabs(vis_array[idx][16])/vis_array[idx][15];
+            am1 = (fabs(vis_nbr_x[1][16])/vis_nbr_x[1][15]);
+            ap1 = (fabs(vis_nbr_x[2][16])/vis_nbr_x[2][15]);
+
+            ax = maxi(a, ap1);
+            HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
+
+            ax = maxi(a, am1);
+            HWmh = ((uWmhR + uWmhL) - ax*(WmhR - WmhL))*0.5;
+            
+            HW = (HWph - HWmh)/DATA_ptr->delta_x/taufactor;
                 
-                gm1 = grid_pt->nbr_m_1[direc]->Wmunu[rk_flag][idx_1d];
-                fm1 = gm1*grid_pt->nbr_m_1[direc]->u[rk_flag][direc];
-                gm1 *= grid_pt->nbr_m_1[direc]->u[rk_flag][0];
+            // make partial_i (u^i Wmn)
+            sum += -HW;
+            
+            // y-direction
+            taufactor = 1.0;
+            /* Get_uWmns */
+            g = Wmunu_local[mu][nu];
+            f = g*vis_array[idx][17];
+            g *= vis_array[idx][15];
+
+            gp2 = vis_nbr_y[3][idx_1d];
+            fp2 = gp2*vis_nbr_y[3][17];
+            gp2 *= vis_nbr_y[3][15];
+
+            gp1 = vis_nbr_y[2][idx_1d];
+            fp1 = gp1*vis_nbr_y[2][17];
+            gp1 *= vis_nbr_y[2][15];
+
+            gm1 = vis_nbr_y[1][idx_1d];
+            fm1 = gm1*vis_nbr_y[1][17];
+            gm1 *= vis_nbr_y[1][15];
+
+            gm2 = vis_nbr_y[0][idx_1d];
+            fm2 = gm2*vis_nbr_y[0][17];
+            gm2 *= vis_nbr_y[0][15];
                 
-                gm2 = grid_pt->nbr_m_2[direc]->Wmunu[rk_flag][idx_1d];
-                fm2 = gm2*grid_pt->nbr_m_2[direc]->u[rk_flag][direc];
-                gm2 *= grid_pt->nbr_m_2[direc]->u[rk_flag][0];
+            // MakeuWmnHalfs uWmn
+            uWphR = fp1 - 0.5*minmod->minmod_dx(fp2, fp1, f);
+            uWphL = f + 0.5*minmod->minmod_dx(fp1, f, fm1);
+            uWmhR = f - 0.5*minmod->minmod_dx(fp1, f, fm1);
+            uWmhL = fm1 + 0.5*minmod->minmod_dx(f, fm1, fm2);
 
-                /* MakeuWmnHalfs */
-                /* uWmn */
-                uWphR = fp1 - 0.5*minmod->minmod_dx(fp2, fp1, f);
-                uWphL = f + 0.5*minmod->minmod_dx(fp1, f, fm1);
-                uWmhR = f - 0.5*minmod->minmod_dx(fp1, f, fm1);
-                uWmhL = fm1 + 0.5*minmod->minmod_dx(f, fm1, fm2);
+            // just Wmn
+            WphR = gp1 - 0.5*minmod->minmod_dx(gp2, gp1, g);
+            WphL = g + 0.5*minmod->minmod_dx(gp1, g, gm1);
+            WmhR = g - 0.5*minmod->minmod_dx(gp1, g, gm1);
+            WmhL = gm1 + 0.5*minmod->minmod_dx(g, gm1, gm2);
 
-                /* just Wmn */
-                WphR = gp1 - 0.5*minmod->minmod_dx(gp2, gp1, g);
-                WphL = g + 0.5*minmod->minmod_dx(gp1, g, gm1);
-                WmhR = g - 0.5*minmod->minmod_dx(gp1, g, gm1);
-                WmhL = gm1 + 0.5*minmod->minmod_dx(g, gm1, gm2);
+            a = fabs(vis_array[idx][17])/vis_array[idx][15];
+            am1 = (fabs(vis_nbr_y[1][17])/vis_nbr_x[1][15]);
+            ap1 = (fabs(vis_nbr_y[2][17])/vis_nbr_x[2][15]);
 
-                a = fabs(grid_pt->u[rk_flag][direc]);
-                a /= grid_pt->u[rk_flag][0];
-                am1 = (fabs(grid_pt->nbr_m_1[direc]->u[rk_flag][direc])
-                       /grid_pt->nbr_m_1[direc]->u[rk_flag][0]);
-                ap1 = (fabs(grid_pt->nbr_p_1[direc]->u[rk_flag][direc])
-                       /grid_pt->nbr_p_1[direc]->u[rk_flag][0]);
+            ax = maxi(a, ap1);
+            HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
 
-                ax = maxi(a, ap1);
-                HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
+            ax = maxi(a, am1);
+            HWmh = ((uWmhR + uWmhL) - ax*(WmhR - WmhL))*0.5;
+            
+            HW = (HWph - HWmh)/DATA_ptr->delta_y/taufactor;
+                
+            // make partial_i (u^i Wmn)
+            sum += -HW;
+            
+            // eta-direction
+            taufactor = tau;
+            /* Get_uWmns */
+            g = Wmunu_local[mu][nu];
+            f = g*vis_array[idx][18];
+            g *= vis_array[idx][15];
 
-                ax = maxi(a, am1);
-                HWmh = ((uWmhR + uWmhL) - ax*(WmhR - WmhL))*0.5;
+            gp2 = vis_nbr_eta[3][idx_1d];
+            fp2 = gp2*vis_nbr_eta[3][18];
+            gp2 *= vis_nbr_eta[3][15];
 
-                HW = (HWph - HWmh)/delta[direc]/taufactor;
+            gp1 = vis_nbr_eta[2][idx_1d];
+            fp1 = gp1*vis_nbr_eta[2][18];
+            gp1 *= vis_nbr_eta[2][15];
 
-                /* make partial_i (u^i Wmn) */
-                sum += -HW;
-            }/* direction */
-            /* add a source term -u^tau Wmn/tau
-               due to the coordinate change to tau-eta */
-            sum += (- (grid_pt->u[rk_flag][0]*Wmunu_local[mu][nu])/tau
-                    + (theta_local*Wmunu_local[mu][nu]));
+            gm1 = vis_nbr_eta[1][idx_1d];
+            fm1 = gm1*vis_nbr_eta[1][18];
+            gm1 *= vis_nbr_eta[1][15];
 
-            /* this is from udW = d(uW) - Wdu = RHS */
-            /* or d(uW) = udW + Wdu */
-            /* this term is being added to the rhs so that -4/3 + 1 = -1/3 */
-            /* other source terms due to the coordinate change to tau-eta */
+            gm2 = vis_nbr_eta[0][idx_1d];
+            fm2 = gm2*vis_nbr_eta[0][18];
+            gm2 *= vis_nbr_eta[0][15];
+                
+            // MakeuWmnHalfs uWmn
+            uWphR = fp1 - 0.5*minmod->minmod_dx(fp2, fp1, f);
+            uWphL = f + 0.5*minmod->minmod_dx(fp1, f, fm1);
+            uWmhR = f - 0.5*minmod->minmod_dx(fp1, f, fm1);
+            uWmhL = fm1 + 0.5*minmod->minmod_dx(f, fm1, fm2);
+
+            // just Wmn
+            WphR = gp1 - 0.5*minmod->minmod_dx(gp2, gp1, g);
+            WphL = g + 0.5*minmod->minmod_dx(gp1, g, gm1);
+            WmhR = g - 0.5*minmod->minmod_dx(gp1, g, gm1);
+            WmhL = gm1 + 0.5*minmod->minmod_dx(g, gm1, gm2);
+
+            a = fabs(vis_array[idx][18])/vis_array[idx][15];
+            am1 = (fabs(vis_nbr_eta[1][17])/vis_nbr_x[1][15]);
+            ap1 = (fabs(vis_nbr_eta[2][17])/vis_nbr_x[2][15]);
+
+            ax = maxi(a, ap1);
+            HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
+
+            ax = maxi(a, am1);
+            HWmh = ((uWmhR + uWmhL) - ax*(WmhR - WmhL))*0.5;
+            
+            HW = (HWph - HWmh)/DATA_ptr->delta_eta/taufactor;
+                
+            // make partial_i (u^i Wmn)
+            sum += -HW;
+
+            // add a source term -u^tau Wmn/tau
+            //   due to the coordinate change to tau-eta
+            //sum += (- (grid_pt->u[rk_flag][0]*Wmunu_local[mu][nu])/tau
+            //        + (theta_local*Wmunu_local[mu][nu]));
+            sum += (- (vis_array[idx][15]*Wmunu_local[mu][nu])/tau
+                    + (velocity_array[idx][0]*Wmunu_local[mu][nu]));
+
+            // this is from udW = d(uW) - Wdu = RHS
+            // or d(uW) = udW + Wdu
+            // this term is being added to the rhs so that -4/3 + 1 = -1/3
+            // other source terms due to the coordinate change to tau-eta
             tempf = 0.0;
             tempf = (
                 - (DATA->gmunu[3][mu])*(Wmunu_local[0][nu])
@@ -632,26 +742,36 @@ int Diss::Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs,
                 + (DATA->gmunu[0][mu])*(Wmunu_local[3][nu])
                 + (DATA->gmunu[0][nu])*(Wmunu_local[3][mu])
                 + (Wmunu_local[3][nu])
-                  *(grid_pt->u[rk_flag][mu])*(grid_pt->u[rk_flag][0])
+                  //*(grid_pt->u[rk_flag][mu])*(grid_pt->u[rk_flag][0])
+                  *(vis_array[idx][15+mu])*(vis_array[idx][15])
                 + (Wmunu_local[3][mu])
-                  *(grid_pt->u[rk_flag][nu])*(grid_pt->u[rk_flag][0])
+                  //*(grid_pt->u[rk_flag][nu])*(grid_pt->u[rk_flag][0])
+                  *(vis_array[idx][15+nu])*(vis_array[idx][15])
                 - (Wmunu_local[0][nu])
-                  *(grid_pt->u[rk_flag][mu])*(grid_pt->u[rk_flag][3])
+                  //*(grid_pt->u[rk_flag][mu])*(grid_pt->u[rk_flag][3])
+                  *(vis_array[idx][15+mu])*(vis_array[idx][18])
                 - (Wmunu_local[0][mu])
-                  *(grid_pt->u[rk_flag][nu])*(grid_pt->u[rk_flag][3]))
-                  *(grid_pt->u[rk_flag][3]/tau);
-            for (ic = 0; ic < 4; ic++) {
-                ic_fac = (ic == 0 ? -1.0 : 1.0);
+                  //*(grid_pt->u[rk_flag][nu])*(grid_pt->u[rk_flag][3]))
+                  //*(grid_pt->u[rk_flag][3]/tau);
+                  *(vis_array[idx][15+nu])*(vis_array[idx][18]))
+                  *(vis_array[idx][18]/tau);
+            for (int ic = 0; ic < 4; ic++) {
+                double ic_fac = (ic == 0 ? -1.0 : 1.0);
+                //tempf += (
+                //      (Wmunu_local[ic][nu])*(grid_pt->u[rk_flag][mu])
+                //       *(a_local[ic])*ic_fac
+                //    + (Wmunu_local[ic][mu])*(grid_pt->u[rk_flag][nu])
+                //       *(a_local[ic])*ic_fac);
                 tempf += (
-                      (Wmunu_local[ic][nu])*(grid_pt->u[rk_flag][mu])
-                       *(a_local[ic])*ic_fac
-                    + (Wmunu_local[ic][mu])*(grid_pt->u[rk_flag][nu])
-                       *(a_local[ic])*ic_fac);
+                      (Wmunu_local[ic][nu])*(vis_array[idx][15+mu])
+                       *(velocity_array[idx][1+ic])*ic_fac
+                    + (Wmunu_local[ic][mu])*(vis_array[idx][15+nu])
+                       *(velocity_array[idx][1+ic])*ic_fac);
             }
             sum += tempf;
             w_rhs[mu][nu] = sum*(DATA->delta_tau);
-        }  /* nu */
-    }  /* mu */
+        }
+    }
 
     // pi^\mu\nu is symmetric
     for (int mu = 1; mu < 4; mu++) {
