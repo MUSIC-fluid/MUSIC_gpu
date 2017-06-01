@@ -565,8 +565,7 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
     /* Advance uWmunu */
     double tempf, temps;
     if (rk_flag == 0) {
-        diss->Make_uWRHS(tau_now, grid_pt, w_rhs, DATA, rk_flag,
-                         theta_local, a_local,
+        diss->Make_uWRHS(tau_now, w_rhs,
                          vis_array, vis_nbr_x, vis_nbr_y, vis_nbr_eta,
                          velocity_array);
         for (int mu = 1; mu < 4; mu++) {
@@ -584,8 +583,7 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
             }
         }
     } else if (rk_flag > 0) {
-        diss->Make_uWRHS(tau_next, grid_pt, w_rhs, DATA, rk_flag,
-                         theta_local, a_local,
+        diss->Make_uWRHS(tau_next, w_rhs,
                          vis_array, vis_nbr_x, vis_nbr_y, vis_nbr_eta,
                          velocity_array);
         for (int mu = 1; mu < 4; mu++) {

@@ -24,8 +24,7 @@ class Diss {
                      double **vis_nbr_tau, double **vis_nbr_x,
                      double **vis_nbr_y, double **vis_nbr_eta);
 
-    int Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs, InitData *DATA,
-                   int rk_flag, double theta_local, double *a_local,
+    int Make_uWRHS(double tau, double **w_rhs,
                    double **vis_array, double **vis_nbr_x,
                    double **vis_nbr_y, double **vis_nbr_eta,
                    double **velocity_array);

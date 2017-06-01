@@ -501,9 +501,7 @@ double Diss::Make_uWSource(double tau, Grid *grid_pt, int mu, int nu,
 }
 
 
-int Diss::Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs,
-                     InitData *DATA, int rk_flag, double theta_local,
-                     double *a_local,
+int Diss::Make_uWRHS(double tau, double **w_rhs,
                      double **vis_array, double **vis_nbr_x,
                      double **vis_nbr_y, double **vis_nbr_eta,
                      double **velocity_array) {
@@ -513,7 +511,7 @@ int Diss::Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs,
             w_rhs[a][b] = 0.0;
         }
     }
-    if (DATA->turn_on_shear == 0)
+    if (DATA_ptr->turn_on_shear == 0)
         return(1);
 
     int idx = 0;
@@ -521,7 +519,6 @@ int Diss::Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs,
     for (int aa = 0; aa < 4; aa++) {
         for (int bb = aa; bb < 4; bb++) {
             int idx_1d = util->map_2d_idx_to_1d(aa, bb);
-            //Wmunu_local[aa][bb] = grid_pt->Wmunu[rk_flag][idx_1d];
             Wmunu_local[aa][bb] = vis_array[idx][idx_1d];
         }
     }
@@ -737,10 +734,10 @@ int Diss::Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs,
             // other source terms due to the coordinate change to tau-eta
             tempf = 0.0;
             tempf = (
-                - (DATA->gmunu[3][mu])*(Wmunu_local[0][nu])
-                - (DATA->gmunu[3][nu])*(Wmunu_local[0][mu])
-                + (DATA->gmunu[0][mu])*(Wmunu_local[3][nu])
-                + (DATA->gmunu[0][nu])*(Wmunu_local[3][mu])
+                - (DATA_ptr->gmunu[3][mu])*(Wmunu_local[0][nu])
+                - (DATA_ptr->gmunu[3][nu])*(Wmunu_local[0][mu])
+                + (DATA_ptr->gmunu[0][mu])*(Wmunu_local[3][nu])
+                + (DATA_ptr->gmunu[0][nu])*(Wmunu_local[3][mu])
                 + (Wmunu_local[3][nu])
                   //*(grid_pt->u[rk_flag][mu])*(grid_pt->u[rk_flag][0])
                   *(vis_array[idx][15+mu])*(vis_array[idx][15])
@@ -769,7 +766,7 @@ int Diss::Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs,
                        *(velocity_array[idx][1+ic])*ic_fac);
             }
             sum += tempf;
-            w_rhs[mu][nu] = sum*(DATA->delta_tau);
+            w_rhs[mu][nu] = sum*(DATA_ptr->delta_tau);
         }
     }
 
