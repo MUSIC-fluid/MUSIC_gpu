@@ -79,36 +79,87 @@ void Diss::MakeWSource(double tau, double **qi_array,
                     // use central difference to preserve
                     // the conservation law exactly
                     int idx_1d;
+                    int idx_p_1, idx_m_1;
                     double dWdx_perp = 0.0;
                     double dPidx_perp = 0.0;
+
+                    double sgp1, sgm1, bgp1, bgm1;
                     // x-direction
                     idx_1d = util->map_2d_idx_to_1d(alpha, 1);
-                    double sgp1 = vis_nbr_x[1][idx_1d];
-                    double sgm1 = vis_nbr_x[0][idx_1d];
+                    if (i + 1 < n_cell_x) {
+                        idx_p_1 = j + (i+1)*n_cell_x + k*n_cell_x*n_cell_x;
+                        sgp1 = vis_array[idx_p_1][idx_1d];
+                    } else {
+                        idx_p_1 = 4*j + k*4*n_cell_x + 2;
+                        sgp1 = vis_nbr_x[idx_p_1][idx_1d];
+                    }
+                    if (i - 1 > 0) {
+                        idx_m_1 = j + (i-1)*n_cell_x + k*n_cell_x*n_cell_x;
+                        sgm1 = vis_array[idx_m_1][idx_1d];
+                    } else {
+                        idx_m_1 = 4*j + k*4*n_cell_x + 1;
+                        sgm1 = vis_nbr_x[idx_m_1][idx_1d];
+                    }
                     dWdx_perp += (sgp1 - sgm1)/(2.*DATA_ptr->delta_x);
                     if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
                         double gfac1 = (alpha == 1 ? 1.0 : 0.0);
-                        double bgp1 = (vis_nbr_x[1][14]
-                                        *(gfac1 + vis_nbr_x[1][15+alpha]
-                                                  *vis_nbr_x[1][16]));
-                        double bgm1 = (vis_nbr_x[0][14]
-                                        *(gfac1 + vis_nbr_x[0][15+alpha]
-                                                  *vis_nbr_x[0][16]));
+                        if (i + 1 < n_cell_x) {
+                            bgp1 = (vis_array[idx_p_1][14]
+                                        *(gfac1 + vis_array[idx_p_1][15+alpha]
+                                                  *vis_nbr_x[idx_p_1][16]));
+                        } else {
+                            bgp1 = (vis_nbr_x[idx_p_1][14]
+                                        *(gfac1 + vis_nbr_x[idx_p_1][15+alpha]
+                                                  *vis_nbr_x[idx_p_1][16]));
+                        }
+                        if (i - 1 > 0) {
+                            bgm1 = (vis_array[idx_m_1][14]
+                                        *(gfac1 + vis_array[idx_m_1][15+alpha]
+                                                  *vis_array[idx_m_1][16]));
+                        } else {
+                            bgm1 = (vis_nbr_x[idx_m_1][14]
+                                        *(gfac1 + vis_nbr_x[idx_m_1][15+alpha]
+                                                  *vis_nbr_x[idx_m_1][16]));
+                        }
                         dPidx_perp += (bgp1 - bgm1)/(2.*DATA_ptr->delta_x);
                     }
                     // y-direction
                     idx_1d = util->map_2d_idx_to_1d(alpha, 2);
-                    sgp1 = vis_nbr_y[1][idx_1d];
-                    sgm1 = vis_nbr_y[0][idx_1d];
+                    if (j + 1 < n_cell_x) {
+                        idx_p_1 = j + 1 + i*n_cell_x + k*n_cell_x*n_cell_x;
+                        sgp1 = vis_array[idx_p_1][idx_1d];
+                    } else {
+                        idx_p_1 = 4*i + 4*k*n_cell_x + 2;
+                        sgp1 = vis_nbr_y[idx_p_1][idx_1d];
+                    }
+                    if (j - 1 > 0) {
+                        idx_m_1 = j - 1 + i*n_cell_x + k*n_cell_x*n_cell_x;
+                        sgm1 = vis_array[idx_m_1][idx_1d];
+                    } else {
+                        idx_m_1 = 4*i + 4*k*n_cell_x + 1;
+                        sgm1 = vis_nbr_y[idx_m_1][idx_1d];
+                    }
                     dWdx_perp += (sgp1 - sgm1)/(2.*DATA_ptr->delta_x);
                     if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
                         double gfac1 = (alpha == 2 ? 1.0 : 0.0);
-                        double bgp1 = (vis_nbr_y[1][14]
-                                        *(gfac1 + vis_nbr_y[1][15+alpha]
-                                                  *vis_nbr_y[1][17]));
-                        double bgm1 = (vis_nbr_x[0][14]
-                                        *(gfac1 + vis_nbr_y[0][15+alpha]
-                                                  *vis_nbr_y[0][17]));
+                        if (j + 1 < n_cell_x) {
+                            bgp1 = (vis_array[idx_p_1][14]
+                                        *(gfac1 + vis_nbr_y[idx_p_1][15+alpha]
+                                                  *vis_nbr_y[idx_p_1][17]));
+                        } else {
+                            bgp1 = (vis_nbr_y[idx_p_1][14]
+                                        *(gfac1 + vis_nbr_y[idx_p_1][15+alpha]
+                                                  *vis_nbr_y[idx_p_1][17]));
+                        }
+                        if (j - 1 > 0) {
+                            bgm1 = (vis_array[idx_m_1][14]
+                                        *(gfac1 + vis_array[idx_m_1][15+alpha]
+                                                  *vis_array[idx_m_1][17]));
+                        } else {
+                            bgm1 = (vis_nbr_y[idx_m_1][14]
+                                        *(gfac1 + vis_nbr_y[idx_m_1][15+alpha]
+                                                  *vis_nbr_y[idx_m_1][17]));
+                        }
                         dPidx_perp += (bgp1 - bgm1)/(2.*DATA_ptr->delta_x);
                     }
 
@@ -117,17 +168,41 @@ void Diss::MakeWSource(double tau, double **qi_array,
                     double dWdeta = 0.0;
                     double dPideta = 0.0;
                     idx_1d = util->map_2d_idx_to_1d(alpha, 3);
-                    sgp1 = vis_nbr_eta[1][idx_1d];
-                    sgm1 = vis_nbr_eta[0][idx_1d];
+                    if (k + 1 < n_cell_eta) {
+                        idx_p_1 = j + i*n_cell_x + (k+1)*n_cell_x*n_cell_x;
+                        sgp1 = vis_array[idx_p_1][idx_1d];
+                    } else {
+                        idx_p_1 = 4*i + 4*j*n_cell_x + 2;
+                        sgp1 = vis_nbr_eta[idx_p_1][idx_1d];
+                    }
+                    if (k - 1 > 0) {
+                        idx_m_1 = j + i*n_cell_x + (k-1)*n_cell_x*n_cell_x;
+                        sgm1 = vis_array[idx_m_1][idx_1d];
+                    } else {
+                        idx_m_1 = 4*i + 4*j*n_cell_x + 1;
+                        sgm1 = vis_nbr_eta[idx_m_1][idx_1d];
+                    }
                     dWdeta = (sgp1 - sgm1)/(2.*DATA_ptr->delta_eta*taufactor);
                     if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
                         double gfac3 = (alpha == 3 ? 1.0 : 0.0);
-                        double bgp1 = (vis_nbr_eta[1][14]
-                                       *(gfac3 + vis_nbr_eta[1][15+alpha]
-                                                 *vis_nbr_eta[1][18]));
-                        double bgm1 = (vis_nbr_eta[1][14]
-                                       *(gfac3 + vis_nbr_eta[0][15+alpha]
-                                                 *vis_nbr_eta[0][18]));
+                        if (k + 1 < n_cell_eta) {
+                            bgp1 = (vis_array[idx_p_1][14]
+                                       *(gfac3 + vis_array[idx_p_1][15+alpha]
+                                                 *vis_array[idx_p_1][18]));
+                        } else {
+                            bgp1 = (vis_nbr_eta[idx_p_1][14]
+                                       *(gfac3 + vis_nbr_eta[idx_p_1][15+alpha]
+                                                 *vis_nbr_eta[idx_p_1][18]));
+                        }
+                        if (k - 1 > 0) {
+                            bgm1 = (vis_array[idx_m_1][14]
+                                       *(gfac3 + vis_array[idx_m_1][15+alpha]
+                                                 *vis_array[idx_m_1][18]));
+                        } else {
+                            bgm1 = (vis_nbr_eta[idx_m_1][14]
+                                       *(gfac3 + vis_nbr_eta[idx_m_1][15+alpha]
+                                                 *vis_nbr_eta[idx_m_1][18]));
+                        }
                         dPideta = ((bgp1 - bgm1)
                                    /(2.*DATA_ptr->delta_eta*taufactor));
                     }
