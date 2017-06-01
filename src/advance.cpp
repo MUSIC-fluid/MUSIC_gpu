@@ -389,8 +389,8 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
         // now MakeWSource returns partial_a W^{a mu}
         // (including geometric terms) 
         //double dwmn = diss->MakeWSource(tau_rk, alpha, grid_pt, DATA, rk_flag);
-        double dwmn = diss->MakeWSource_new(tau_rk, alpha, vis_array,
-                 vis_nbr_tau, vis_nbr_x, vis_nbr_y, vis_nbr_eta);
+        double dwmn = diss->MakeWSource(tau_rk, alpha, n_cell_eta, n_cell_x,
+                 vis_array, vis_nbr_tau, vis_nbr_x, vis_nbr_y, vis_nbr_eta);
         /* dwmn is the only one with the minus sign */
         qi[alpha] -= dwmn*(DATA->delta_tau);
 

@@ -21,173 +21,9 @@ Diss::~Diss() {
 }
 
 
-/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% */
-/* Dissipative parts */
-/* Sangyong Nov 18 2014 */
-/* change: alpha first which is the case
-for everywhere else. also, this change is necessary
-to use Wmunu[rk_flag][4][mu] as the dissipative baryon current*/
-/* this is the only one that is being subtracted in the rhs */
-double Diss::MakeWSource(double tau, int alpha, Grid *grid_pt,
-                         InitData *DATA, int rk_flag) {
-
-    if (alpha == 4 && DATA->turn_on_diff == 0)
-        return (0.0);
-
-    double delta[4], taufactor;
-    double shear_on, bulk_on, diff_on;
-    int i;
-
-    if (DATA->turn_on_shear)
-        shear_on = 1.0;
-    else
-        shear_on = 0.0;
-
-    if (DATA->turn_on_diff)
-        diff_on = 1.0;
-    else
-        diff_on = 0.0;
-
-    if (DATA->turn_on_bulk)
-        bulk_on = 1.0;
-    else
-        bulk_on = 0.0;
-
-    /* calculate d_m (tau W^{m,alpha}) + (geom source terms) */
-    delta[1] = DATA->delta_x;
-    delta[2] = DATA->delta_y;
-    delta[3] = DATA->delta_eta;
-
-    /* partial_tau W^tau alpha */
-    /* this is partial_tau evaluated at tau */
-    /* this is the first step. so rk_flag = 0 */
-
-    /* Sangyong Nov 18 2014 */
-    /* change: alpha first which is the case
-               for everywhere else. also, this change is necessary
-               to use Wmunu[rk_flag][4][mu] as the dissipative baryon current*/
-    // dW/dtau
-    // backward time derivative (first order is more stable)
-    int idx_1d_alpha0 = util->map_2d_idx_to_1d(alpha, 0);
-    double dWdtau;
-    if (rk_flag == 0) {
-        dWdtau = (grid_pt->Wmunu[rk_flag][idx_1d_alpha0]
-                  - grid_pt->prevWmunu[0][idx_1d_alpha0])/DATA->delta_tau;
-    } else {
-        dWdtau = (grid_pt->Wmunu[rk_flag][idx_1d_alpha0]
-                  - grid_pt->Wmunu[0][idx_1d_alpha0])/DATA->delta_tau;
-    }
-
-    /* bulk pressure term */
-    double dPidtau = 0.0;
-    double Pi_alpha0 = 0.0;
-    if (alpha < 4 && DATA->turn_on_bulk == 1) {
-        double gfac = (alpha == 0 ? -1.0 : 0.0);
-        Pi_alpha0 = (
-            grid_pt->pi_b[rk_flag]*(gfac + grid_pt->u[rk_flag][alpha]
-                                           *grid_pt->u[rk_flag][0]));
-        if (rk_flag == 0) {
-            dPidtau = (Pi_alpha0 - grid_pt->prev_pi_b[0]
-                                   *(gfac + grid_pt->prev_u[0][alpha]
-                                            *grid_pt->prev_u[0][0]));
-        } else {
-            dPidtau = (Pi_alpha0 - grid_pt->pi_b[0]
-                                   *(gfac + grid_pt->u[0][alpha]
-                                            *grid_pt->u[0][0]));
-        }
-    }
-
-    // use central difference to preserve conservation law exactly
-    int idx_1d;
-    double dWdx_perp = 0.0;
-    double dPidx_perp = 0.0;
-    for (i = 1; i <= 2; i++) {  // x and y
-        idx_1d = util->map_2d_idx_to_1d(alpha, i);
-        // double sg = grid_pt->Wmunu[rk_flag][alpha][i];
-        double sgp1 = grid_pt->nbr_p_1[i]->Wmunu[rk_flag][idx_1d];
-        double sgm1 = grid_pt->nbr_m_1[i]->Wmunu[rk_flag][idx_1d];
-        // dWdx_perp += minmod->minmod_dx(sgp1, sg, sgm1)/delta[i];
-        dWdx_perp += (sgp1 - sgm1)/(2.*delta[i]);
-        if (alpha < 4 && DATA->turn_on_bulk == 1) {
-            double gfac1 = (alpha == i ? 1.0 : 0.0);
-            double bgp1 = (grid_pt->nbr_p_1[i]->pi_b[rk_flag]
-                           *(gfac1 + grid_pt->nbr_p_1[i]->u[rk_flag][alpha]
-                                     *grid_pt->nbr_p_1[i]->u[rk_flag][i]));
-            double bgm1 = (grid_pt->nbr_m_1[i]->pi_b[rk_flag]
-                           *(gfac1 + grid_pt->nbr_m_1[i]->u[rk_flag][alpha]
-                                     *grid_pt->nbr_m_1[i]->u[rk_flag][i]));
-            // dPidx_perp += minmod->minmod_dx(bgp1, bg, bgm1)/delta[i];
-            dPidx_perp += (bgp1 - bgm1)/(2.*delta[i]);
-        }
-    }  /* i */
-
-    // eta
-    i = 3;
-    taufactor = tau;
-    double dWdeta = 0.0;
-    double dPideta = 0.0;
-    // double sg = grid_pt->Wmunu[rk_flag][alpha][i];
-    idx_1d = util->map_2d_idx_to_1d(alpha, i);
-    double sgp1 = grid_pt->nbr_p_1[i]->Wmunu[rk_flag][idx_1d];
-    double sgm1 = grid_pt->nbr_m_1[i]->Wmunu[rk_flag][idx_1d];
-    // dWdeta = minmod->minmod_dx(sgp1, sg, sgm1)/delta[i]/taufactor;
-    dWdeta = (sgp1 - sgm1)/(2.*delta[i]*taufactor);
-    if (alpha < 4 && DATA->turn_on_bulk == 1) {
-        // double bg = grid_pt->Pimunu[rk_flag][alpha][i];
-        double gfac3 = (alpha == i ? 1.0 : 0.0);
-        double bgp1 = (grid_pt->nbr_p_1[i]->pi_b[rk_flag]
-                       *(gfac3 + grid_pt->nbr_p_1[i]->u[rk_flag][alpha]
-                                 *grid_pt->nbr_p_1[i]->u[rk_flag][i]));
-        double bgm1 = (grid_pt->nbr_m_1[i]->pi_b[rk_flag]
-                       *(gfac3 + grid_pt->nbr_m_1[i]->u[rk_flag][alpha]
-                                 *grid_pt->nbr_m_1[i]->u[rk_flag][i]));
-        // dPideta = minmod->minmod_dx(bgp1, bg, bgm1)/delta[i]/taufactor;
-        dPideta = (bgp1 - bgm1)/(2.*delta[i]*taufactor);
-    }
-
-    /* partial_m (tau W^mn) = W^0n + tau partial_m W^mn */
-    double sf = (tau*(dWdtau + dWdx_perp + dWdeta)
-                 + grid_pt->Wmunu[rk_flag][idx_1d_alpha0]);
-    double bf = (tau*(dPidtau + dPidx_perp + dPideta)
-                 + Pi_alpha0);
-
-    /* sources due to coordinate transform this is added to partial_m W^mn */
-    if (alpha == 0) {
-        sf += grid_pt->Wmunu[rk_flag][9];
-        bf += grid_pt->pi_b[rk_flag]*(1.0 + grid_pt->u[rk_flag][3]
-                                            *grid_pt->u[rk_flag][3]);
-    }
-    if (alpha == 3) {
-        sf += grid_pt->Wmunu[rk_flag][3];
-        bf += grid_pt->pi_b[rk_flag]*(grid_pt->u[rk_flag][0]
-                                      *grid_pt->u[rk_flag][3]);
-    }
-
-    // final result
-    double result = 0.0;
-    if (alpha < 4)
-        result = (sf*shear_on + bf*bulk_on);
-    else if (alpha == 4)
-        result = sf*diff_on;
-
-    if (isnan(result)) {
-        cout << "[Error]Diss::MakeWSource: " << endl;
-        cout << "rk_flag = " << rk_flag << endl;
-        cout << "sf=" << sf << " bf=" << bf
-             << " Wmunu[" << rk_flag << "]="
-             << grid_pt->Wmunu[rk_flag][alpha]
-             << " pi_b[" << rk_flag << "]="
-             << grid_pt->pi_b[rk_flag]
-             << " prev_pi_b=" << grid_pt->prev_pi_b[rk_flag] << endl;
-    }
-    return(result);
-}/* MakeWSource */
-/* MakeWSource is for Tmunu */
-
-
-double Diss::MakeWSource_new(double tau, int alpha, double **vis_array,
-        double **vis_nbr_tau, double **vis_nbr_x, double **vis_nbr_y,
-        double **vis_nbr_eta) {
+double Diss::MakeWSource(double tau, int alpha, int n_cell_eta, int n_cell_x,
+        double **vis_array, double **vis_nbr_tau, double **vis_nbr_x,
+        double **vis_nbr_y, double **vis_nbr_eta) {
 //! calculate d_m (tau W^{m,alpha}) + (geom source terms)
 //! partial_tau W^tau alpha
 //! this is partial_tau evaluated at tau
@@ -199,132 +35,126 @@ double Diss::MakeWSource_new(double tau, int alpha, double **vis_array,
     if (alpha == 4 && DATA_ptr->turn_on_diff == 0)
         return (0.0);
 
-    double shear_on, bulk_on, diff_on;
+    double shear_on, bulk_on;
     if (DATA_ptr->turn_on_shear)
         shear_on = 1.0;
     else
         shear_on = 0.0;
-
-    if (DATA_ptr->turn_on_diff)
-        diff_on = 1.0;
-    else
-        diff_on = 0.0;
 
     if (DATA_ptr->turn_on_bulk)
         bulk_on = 1.0;
     else
         bulk_on = 0.0;
 
-    int idx = 0;
-    // dW/dtau
-    // backward time derivative (first order is more stable)
-    int idx_1d_alpha0 = util->map_2d_idx_to_1d(alpha, 0);
-    double dWdtau;
-    dWdtau = (vis_array[idx][idx_1d_alpha0]
-              - vis_nbr_tau[idx][idx_1d_alpha0])/DATA_ptr->delta_tau;
-
-    // bulk pressure term
-    double dPidtau = 0.0;
-    double Pi_alpha0 = 0.0;
-    if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
-        double gfac = (alpha == 0 ? -1.0 : 0.0);
-        Pi_alpha0 = (vis_array[idx][14]*(gfac
-                            + vis_array[idx][15+alpha]*vis_array[idx][15]));
-
-        dPidtau = (Pi_alpha0 - vis_nbr_tau[idx][14]*(gfac 
-                        + vis_nbr_tau[idx][alpha+15]*vis_nbr_tau[idx][15]));
-    }
-
-    // use central difference to preserve conservation law exactly
-    int idx_1d;
-    double dWdx_perp = 0.0;
-    double dPidx_perp = 0.0;
-    // x-direction
-    idx_1d = util->map_2d_idx_to_1d(alpha, 1);
-    //double sgp1 = grid_pt->nbr_p_1[i]->Wmunu[rk_flag][idx_1d];
-    //double sgm1 = grid_pt->nbr_m_1[i]->Wmunu[rk_flag][idx_1d];
-    double sgp1 = vis_nbr_x[1][idx_1d];
-    double sgm1 = vis_nbr_x[0][idx_1d];
-    // dWdx_perp += minmod->minmod_dx(sgp1, sg, sgm1)/delta[i];
-    dWdx_perp += (sgp1 - sgm1)/(2.*DATA_ptr->delta_x);
-    if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
-        double gfac1 = (alpha == 1 ? 1.0 : 0.0);
-        double bgp1 = (vis_nbr_x[1][14]
-                        *(gfac1 + vis_nbr_x[1][15+alpha]*vis_nbr_x[1][16]));
-        double bgm1 = (vis_nbr_x[0][14]
-                        *(gfac1 + vis_nbr_x[0][15+alpha]*vis_nbr_x[0][16]));
-        // dPidx_perp += minmod->minmod_dx(bgp1, bg, bgm1)/delta[i];
-        dPidx_perp += (bgp1 - bgm1)/(2.*DATA_ptr->delta_x);
-    }
-    // y-direction
-    idx_1d = util->map_2d_idx_to_1d(alpha, 2);
-    //double sgp1 = grid_pt->nbr_p_1[i]->Wmunu[rk_flag][idx_1d];
-    //double sgm1 = grid_pt->nbr_m_1[i]->Wmunu[rk_flag][idx_1d];
-    sgp1 = vis_nbr_y[1][idx_1d];
-    sgm1 = vis_nbr_y[0][idx_1d];
-    // dWdx_perp += minmod->minmod_dx(sgp1, sg, sgm1)/delta[i];
-    dWdx_perp += (sgp1 - sgm1)/(2.*DATA_ptr->delta_x);
-    if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
-        double gfac1 = (alpha == 2 ? 1.0 : 0.0);
-        double bgp1 = (vis_nbr_y[1][14]
-                        *(gfac1 + vis_nbr_y[1][15+alpha]*vis_nbr_y[1][17]));
-        double bgm1 = (vis_nbr_x[0][14]
-                        *(gfac1 + vis_nbr_y[0][15+alpha]*vis_nbr_y[0][17]));
-        // dPidx_perp += minmod->minmod_dx(bgp1, bg, bgm1)/delta[i];
-        dPidx_perp += (bgp1 - bgm1)/(2.*DATA_ptr->delta_x);
-    }
-
-    // eta-direction
-    double taufactor = tau;
-    double dWdeta = 0.0;
-    double dPideta = 0.0;
-    // double sg = grid_pt->Wmunu[rk_flag][alpha][i];
-    idx_1d = util->map_2d_idx_to_1d(alpha, 3);
-    sgp1 = vis_nbr_eta[1][idx_1d];
-    sgm1 = vis_nbr_eta[0][idx_1d];
-    // dWdeta = minmod->minmod_dx(sgp1, sg, sgm1)/delta[i]/taufactor;
-    dWdeta = (sgp1 - sgm1)/(2.*DATA_ptr->delta_eta*taufactor);
-    if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
-        // double bg = grid_pt->Pimunu[rk_flag][alpha][i];
-        double gfac3 = (alpha == 3 ? 1.0 : 0.0);
-        double bgp1 = (vis_nbr_eta[1][14]
-                       *(gfac3 + vis_nbr_eta[1][15+alpha]*vis_nbr_eta[1][18]));
-        double bgm1 = (vis_nbr_eta[1][14]
-                       *(gfac3 + vis_nbr_eta[0][15+alpha]*vis_nbr_eta[0][18]));
-        // dPideta = minmod->minmod_dx(bgp1, bg, bgm1)/delta[i]/taufactor;
-        dPideta = (bgp1 - bgm1)/(2.*DATA_ptr->delta_eta*taufactor);
-    }
-
-    // partial_m (tau W^mn) = W^0n + tau partial_m W^mn
-    double sf = (tau*(dWdtau + dWdx_perp + dWdeta)
-                 //+ grid_pt->Wmunu[rk_flag][idx_1d_alpha0]);
-                 + vis_array[idx][idx_1d_alpha0]);
-    double bf = (tau*(dPidtau + dPidx_perp + dPideta)
-                 + Pi_alpha0);
-
-    // sources due to coordinate transform this is added to partial_m W^mn
-    if (alpha == 0) {
-        //sf += grid_pt->Wmunu[rk_flag][9];
-        //bf += grid_pt->pi_b[rk_flag]*(1.0 + grid_pt->u[rk_flag][3]
-        //                                    *grid_pt->u[rk_flag][3]);
-        sf += vis_array[idx][9];
-        bf += vis_array[idx][14]*(1.0 + vis_array[idx][18]*vis_array[idx][18]);
-    }
-    if (alpha == 3) {
-        //sf += grid_pt->Wmunu[rk_flag][3];
-        //bf += grid_pt->pi_b[rk_flag]*(grid_pt->u[rk_flag][0]
-        //                              *grid_pt->u[rk_flag][3]);
-        sf += vis_array[idx][3];
-        bf += vis_array[idx][14]*(vis_array[idx][15]*vis_array[idx][18]);
-    }
-
-    // final result
     double result = 0.0;
-    if (alpha < 4)
-        result = (sf*shear_on + bf*bulk_on);
-    else if (alpha == 4)
-        result = sf*diff_on;
+    for (int k = 0; k < n_cell_eta; k++) {
+        for (int i = 0; i < n_cell_x; i++) {
+            for (int j = 0; j < n_cell_x; j++) {
+                int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+                // dW/dtau
+                // backward time derivative (first order is more stable)
+                int idx_1d_alpha0 = util->map_2d_idx_to_1d(alpha, 0);
+                double dWdtau;
+                dWdtau = ((vis_array[idx][idx_1d_alpha0]
+                           - vis_nbr_tau[idx][idx_1d_alpha0])
+                          /DATA_ptr->delta_tau);
 
+                // bulk pressure term
+                double dPidtau = 0.0;
+                double Pi_alpha0 = 0.0;
+                if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
+                    double gfac = (alpha == 0 ? -1.0 : 0.0);
+                    Pi_alpha0 = (vis_array[idx][14]
+                                 *(gfac + vis_array[idx][15+alpha]
+                                          *vis_array[idx][15]));
+
+                    dPidtau = (Pi_alpha0
+                               - vis_nbr_tau[idx][14]
+                                 *(gfac + vis_nbr_tau[idx][alpha+15]
+                                          *vis_nbr_tau[idx][15]));
+                }
+
+                // use central difference to preserve conservation law exactly
+                int idx_1d;
+                double dWdx_perp = 0.0;
+                double dPidx_perp = 0.0;
+                // x-direction
+                idx_1d = util->map_2d_idx_to_1d(alpha, 1);
+                double sgp1 = vis_nbr_x[1][idx_1d];
+                double sgm1 = vis_nbr_x[0][idx_1d];
+                dWdx_perp += (sgp1 - sgm1)/(2.*DATA_ptr->delta_x);
+                if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
+                    double gfac1 = (alpha == 1 ? 1.0 : 0.0);
+                    double bgp1 = (vis_nbr_x[1][14]
+                                    *(gfac1 + vis_nbr_x[1][15+alpha]
+                                              *vis_nbr_x[1][16]));
+                    double bgm1 = (vis_nbr_x[0][14]
+                                    *(gfac1 + vis_nbr_x[0][15+alpha]
+                                              *vis_nbr_x[0][16]));
+                    dPidx_perp += (bgp1 - bgm1)/(2.*DATA_ptr->delta_x);
+                }
+                // y-direction
+                idx_1d = util->map_2d_idx_to_1d(alpha, 2);
+                sgp1 = vis_nbr_y[1][idx_1d];
+                sgm1 = vis_nbr_y[0][idx_1d];
+                dWdx_perp += (sgp1 - sgm1)/(2.*DATA_ptr->delta_x);
+                if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
+                    double gfac1 = (alpha == 2 ? 1.0 : 0.0);
+                    double bgp1 = (vis_nbr_y[1][14]
+                                    *(gfac1 + vis_nbr_y[1][15+alpha]
+                                              *vis_nbr_y[1][17]));
+                    double bgm1 = (vis_nbr_x[0][14]
+                                    *(gfac1 + vis_nbr_y[0][15+alpha]
+                                              *vis_nbr_y[0][17]));
+                    dPidx_perp += (bgp1 - bgm1)/(2.*DATA_ptr->delta_x);
+                }
+
+                // eta-direction
+                double taufactor = tau;
+                double dWdeta = 0.0;
+                double dPideta = 0.0;
+                idx_1d = util->map_2d_idx_to_1d(alpha, 3);
+                sgp1 = vis_nbr_eta[1][idx_1d];
+                sgm1 = vis_nbr_eta[0][idx_1d];
+                dWdeta = (sgp1 - sgm1)/(2.*DATA_ptr->delta_eta*taufactor);
+                if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
+                    double gfac3 = (alpha == 3 ? 1.0 : 0.0);
+                    double bgp1 = (vis_nbr_eta[1][14]
+                                   *(gfac3 + vis_nbr_eta[1][15+alpha]
+                                             *vis_nbr_eta[1][18]));
+                    double bgm1 = (vis_nbr_eta[1][14]
+                                   *(gfac3 + vis_nbr_eta[0][15+alpha]
+                                             *vis_nbr_eta[0][18]));
+                    dPideta = (bgp1 - bgm1)/(2.*DATA_ptr->delta_eta*taufactor);
+                }
+
+                // partial_m (tau W^mn) = W^0n + tau partial_m W^mn
+                double sf = (tau*(dWdtau + dWdx_perp + dWdeta)
+                             + vis_array[idx][idx_1d_alpha0]);
+                double bf = (tau*(dPidtau + dPidx_perp + dPideta)
+                             + Pi_alpha0);
+
+                // sources due to coordinate transform
+                // this is added to partial_m W^mn
+                if (alpha == 0) {
+                    sf += vis_array[idx][9];
+                    bf += vis_array[idx][14]*(1.0 + vis_array[idx][18]
+                                                    *vis_array[idx][18]);
+                }
+                if (alpha == 3) {
+                    sf += vis_array[idx][3];
+                    bf += vis_array[idx][14]*(vis_array[idx][15]
+                                              *vis_array[idx][18]);
+                }
+
+                if (alpha < 4) {
+                    result = (sf*shear_on + bf*bulk_on);
+                } else if (alpha == 4) {
+                    result = sf;
+                }
+            }
+        }
+    }
     return(result);
 }
 

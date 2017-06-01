@@ -19,11 +19,9 @@ class Diss {
     Diss(EOS *eosIn, InitData* DATA_in);
     ~Diss();
   
-    double MakeWSource(double tau, int alpha, Grid *grid_pt, InitData *DATA,
-                       int rk_flag);
-    double MakeWSource_new(double tau, int alpha, double **vis_array,
-        double **vis_nbr_tau, double **vis_nbr_x, double **vis_nbr_y,
-        double **vis_nbr_eta);
+    double MakeWSource(double tau, int alpha, int n_cell_eta, int n_cell_x,
+            double **vis_array, double **vis_nbr_tau, double **vis_nbr_x,
+            double **vis_nbr_y, double **vis_nbr_eta);
 
     int Make_uWRHS(double tau, Grid *grid_pt, double **w_rhs, InitData *DATA,
                    int rk_flag, double theta_local, double *a_local);
