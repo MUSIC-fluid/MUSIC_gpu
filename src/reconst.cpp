@@ -28,9 +28,9 @@ Reconst::~Reconst() {
 int Reconst::ReconstIt_shell(double *grid_array, double tau, double *uq,
                              double *grid_array_p) {
     int flag = 0;
-    flag = ReconstIt_velocity_iteration(grid_array, tau, uq, grid_array_p);
+    flag = ReconstIt_velocity_Newton(grid_array, tau, uq, grid_array_p);
     if (flag < 0) {
-        flag = ReconstIt_velocity_Newton(grid_array, tau, uq, grid_array_p);
+        flag = ReconstIt_velocity_iteration(grid_array, tau, uq, grid_array_p);
     }
 
     if (flag < 0) {
@@ -334,47 +334,47 @@ int Reconst::ReconstIt_velocity_iteration(
     }/* if iteration is unsuccessful, revert */
    
     // for large velocity, solve u0
-    double u0_solution = 1.0;
-    if (v_solution > v_critical) {
-        double u0_prev = 1./sqrt(1. - v_solution*v_solution);
-        int u0_status = 1;
-        iter = 0;
-        double u0_next;
-        double abs_error_u0 = 1.0;
-        double rel_error_u0 = 1.0;
-        do {
-            iter++;
-            u0_next = reconst_u0_f(u0_prev, T00, K00, M, J0);
-            abs_error_u0 = fabs(u0_next - u0_prev);
-            rel_error_u0 = 2.*abs_error_u0/(u0_next + u0_prev + 1e-15);
-            u0_prev = u0_next;
-            if (iter > max_iter) {
-                u0_status = 0;
-                break;
-            }
-        } while (abs_error_u0 > abs_err && rel_error_u0 > rel_err);
+    //double u0_solution = 1.0;
+    //if (v_solution > v_critical) {
+    //    double u0_prev = 1./sqrt(1. - v_solution*v_solution);
+    //    int u0_status = 1;
+    //    iter = 0;
+    //    double u0_next;
+    //    double abs_error_u0 = 1.0;
+    //    double rel_error_u0 = 1.0;
+    //    do {
+    //        iter++;
+    //        u0_next = reconst_u0_f(u0_prev, T00, K00, M, J0);
+    //        abs_error_u0 = fabs(u0_next - u0_prev);
+    //        rel_error_u0 = 2.*abs_error_u0/(u0_next + u0_prev + 1e-15);
+    //        u0_prev = u0_next;
+    //        if (iter > max_iter) {
+    //            u0_status = 0;
+    //            break;
+    //        }
+    //    } while (abs_error_u0 > abs_err && rel_error_u0 > rel_err);
 
-        if (u0_status == 1) {
-            u0_solution = u0_next;
-        } else {
-            if (echo_level > 5) {
-                cout << iter << "   [" << u0_prev << ",  " << u0_next
-                     << "]  " << abs_error_u0 << "  " << rel_error_u0 << endl;
-            }
-            return(-1);
-        } /* if iteration is unsuccessful, revert */
-    }
+    //    if (u0_status == 1) {
+    //        u0_solution = u0_next;
+    //    } else {
+    //        if (echo_level > 5) {
+    //            cout << iter << "   [" << u0_prev << ",  " << u0_next
+    //                 << "]  " << abs_error_u0 << "  " << rel_error_u0 << endl;
+    //        }
+    //        return(-1);
+    //    } /* if iteration is unsuccessful, revert */
+    //}
 
     // successfully found velocity, now update everything else
-    if (v_solution < v_critical) {
+    //if (v_solution < v_critical) {
         u[0] = 1./(sqrt(1. - v_solution*v_solution) + v_solution*abs_err);
         epsilon = T00 - v_solution*sqrt(K00);
         rhob = J0/u[0];
-    } else {
-        u[0] = u0_solution;
-        epsilon = T00 - sqrt((1. - 1./(u0_solution*u0_solution))*K00);
-        rhob = J0/u0_solution;
-    }
+    //} else {
+    //    u[0] = u0_solution;
+    //    epsilon = T00 - sqrt((1. - 1./(u0_solution*u0_solution))*K00);
+    //    rhob = J0/u0_solution;
+    //}
     
     double prev_u0 = 1./sqrt(1. - grid_array_p[1]*grid_array_p[1]
                              - grid_array_p[2]*grid_array_p[2]
@@ -446,12 +446,12 @@ int Reconst::ReconstIt_velocity_iteration(
             cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
                           << temp_usq - 1.0 << endl;
             double f_res;
-            if (v_solution < v_critical)
+            //if (v_solution < v_critical)
                 f_res = fabs(v_solution
                              - reconst_velocity_f(v_solution, T00, M, J0));
-            else
-                f_res = fabs(u0_solution
-                             - reconst_u0_f(u0_solution, T00, K00, M, J0));
+            //else
+            //    f_res = fabs(u0_solution
+            //                 - reconst_u0_f(u0_solution, T00, K00, M, J0));
             cout << "with v = " << v_solution << ", u[0] = " << u[0]
                           << ", res = " << f_res << endl;
             cout << "with u[1] = " << u[1]

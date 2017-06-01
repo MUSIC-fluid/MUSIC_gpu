@@ -39,9 +39,18 @@ class Advance {
         int n_cell_eta, int n_cell_x, double **qi_array,
         double **qi_nbr_x, double **qi_nbr_y, double **qi_nbr_eta);
 
+    void prepare_vis_array(
+        Grid ***arena, int rk_flag, int ieta, int ix, int iy,
+        int n_cell_eta, int n_cell_x, double **vis_array, double **vis_nbr_tau,
+        double **vis_nbr_x, double **vis_nbr_y, double **vis_nbr_eta,
+        double **u_nbr_tau);
+
     int FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt, int rk_flag,
                      double **qi_array, double **qi_nbr_x, double **qi_nbr_y,
-                     double **qi_nbr_eta, int n_cell_eta, int n_cell_x);
+                     double **qi_nbr_eta, int n_cell_eta, int n_cell_x,
+                     double **vis_array, double **vis_nbr_tau,
+                     double **vis_nbr_x, double **vis_nbr_y,
+                     double **vis_nbr_eta, double **u_nbr_tau);
 
     int FirstRKStepW(double tau_it, InitData *DATA, Grid *grid_pt,
                      int rk_flag, double theta_local, double* a_local,
@@ -51,6 +60,11 @@ class Advance {
     void update_grid_array_from_grid_cell(Grid *grid_p, double *grid_array,
                                           int rk_flag);
     void update_grid_cell_from_grid_array(Grid *grid_p, double *grid_array);
+
+    void update_vis_array_from_grid_cell(Grid *grid_p, double *vis_array,
+                                         int rk_flag);
+    void update_vis_prev_tau_from_grid_cell(Grid *grid_p, double *vis_array,
+                                            double *u_array, int rk_flag);
 
     void UpdateTJbRK(double *grid_array, Grid *grid_pt, int rk_flag);
     int QuestRevert(double tau, Grid *grid_pt, int rk_flag, InitData *DATA);
