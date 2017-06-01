@@ -21,9 +21,10 @@ Diss::~Diss() {
 }
 
 
-void Diss::MakeWSource(double tau, double **qi_array, int n_cell_eta,
-        int n_cell_x, double **vis_array, double **vis_nbr_tau,
-        double **vis_nbr_x, double **vis_nbr_y, double **vis_nbr_eta) {
+void Diss::MakeWSource(double tau, double **qi_array,
+                       int n_cell_eta, int n_cell_x, double **vis_array,
+                       double **vis_nbr_tau, double **vis_nbr_x,
+                       double **vis_nbr_y, double **vis_nbr_eta) {
 //! calculate d_m (tau W^{m,alpha}) + (geom source terms)
 //! partial_tau W^tau alpha
 //! this is partial_tau evaluated at tau

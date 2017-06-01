@@ -45,7 +45,7 @@ class Advance {
         int n_cell_eta, int n_cell_x, double **vis_array, double **vis_nbr_tau,
         double **vis_nbr_x, double **vis_nbr_y, double **vis_nbr_eta);
 
-    int FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt, int rk_flag,
+    int FirstRKStepT(double tau, Grid *grid_pt, int rk_flag,
                      double **qi_array, double **qi_nbr_x, double **qi_nbr_y,
                      double **qi_nbr_eta, int n_cell_eta, int n_cell_x,
                      double **vis_array, double **vis_nbr_tau,
@@ -68,13 +68,18 @@ class Advance {
                                             int rk_flag);
 
     void UpdateTJbRK(double *grid_array, Grid *grid_pt, int rk_flag);
+
+    void update_grid_cell(double **grid_array, Grid ***arena, int rk_flag,
+                          int ieta, int ix, int iy,
+                          int n_cell_eta, int n_cell_x);
+
     int QuestRevert(double tau, Grid *grid_pt, int rk_flag, InitData *DATA);
     int QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
                         InitData *DATA);
 
     void MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                      double **qi_nbr_y, double **qi_nbr_eta,
-                     int n_cell_eta, int n_cell_x);
+                     int n_cell_eta, int n_cell_x, double **grid_array);
 
     double MaxSpeed(double tau, int direc, double *grid_array);
 
