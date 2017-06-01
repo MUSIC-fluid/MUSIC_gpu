@@ -260,6 +260,42 @@ void Advance::prepare_vis_array(
         }
     }
 }
+                        
+void Advance::prepare_velocity_array(double tau_rk, Grid ***arena,
+                                     int ieta, int ix, int iy, int rk_flag,
+                                     int n_cell_eta, int n_cell_x,
+                                     double **velocity_array) {
+    double theta_local;
+    double *a_local = new double[5];
+    double *sigma_local = new double[10];
+    for (int k = 0; k < n_cell_eta; k++) {
+        int idx_ieta = min(ieta + k, DATA_ptr->neta - 1);
+        for (int i = 0; i < n_cell_x; i++) {
+            int idx_ix = min(ix + i, DATA_ptr->nx);
+            for (int j = 0; j < n_cell_x; j++) {
+                int idx_iy = min(iy + j, DATA_ptr->nx);
+                int idx = j + n_cell_x*i + n_cell_x*n_cell_x*k;
+                theta_local = u_derivative_ptr->calculate_expansion_rate(
+                            tau_rk, arena, idx_ieta, idx_ix, idx_iy, rk_flag);
+                u_derivative_ptr->calculate_Du_supmu(tau_rk, arena, idx_ieta,
+                                                     idx_ix, idx_iy, rk_flag,
+                                                     a_local);
+                u_derivative_ptr->calculate_velocity_shear_tensor(
+                            tau_rk, arena, idx_ieta, idx_ix, idx_iy, rk_flag,
+                            a_local, sigma_local);
+                velocity_array[idx][0] = theta_local;
+                for (int alpha = 0; alpha < 5; alpha++) {
+                    velocity_array[idx][1+alpha] = a_local[alpha];
+                }
+                for (int alpha = 0; alpha < 10; alpha++) {
+                    velocity_array[idx][6+alpha] = sigma_local[alpha];
+                }
+            }
+        }
+    }
+    delete[] a_local;
+    delete[] sigma_local;
+}
 
 
 // evolve Runge-Kutta step in tau
@@ -274,6 +310,7 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
         {
             #pragma omp for
             for (ix = 0; ix <= grid_nx; ix += n_cell_x) {
+
                 double **qi_array = new double* [n_cell_x*n_cell_x*n_cell_eta];
                 double **qi_rk0 = new double* [n_cell_x*n_cell_x*n_cell_eta];
                 double **grid_array = (
@@ -297,9 +334,12 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                                 new double* [n_cell_x*n_cell_x*n_cell_eta];
                 double **vis_nbr_tau =
                                 new double* [n_cell_x*n_cell_x*n_cell_eta];
+                double **velocity_array =
+                                new double* [n_cell_x*n_cell_x*n_cell_eta];
                 for (int i = 0; i < n_cell_x*n_cell_x*n_cell_eta; i++) {
                     vis_array[i] = new double[19];
                     vis_nbr_tau[i] = new double[19];
+                    velocity_array[i] = new double[16];
                 }
                 double **vis_nbr_x = new double* [4*n_cell_x*n_cell_eta];
                 double **vis_nbr_y = new double* [4*n_cell_x*n_cell_eta];
@@ -311,6 +351,7 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                 for (int i = 0; i < 4*n_cell_x*n_cell_x; i++) {
                     vis_nbr_eta[i] = new double[19];
                 }
+
                 for (int iy = 0; iy <= grid_ny; iy += n_cell_x) {
                     prepare_qi_array(tau, arena, rk_flag, ieta, ix, iy,
                                      n_cell_eta, n_cell_x, qi_array,
@@ -333,6 +374,7 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                         if (rk_flag == 1) {
                             tau_rk = tau + DATA_ptr->delta_tau;
                         }
+
                         double theta_local = (
                                 u_derivative_ptr->calculate_expansion_rate(
                                     tau_rk, arena, ieta, ix, iy, rk_flag));
@@ -343,10 +385,15 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                         u_derivative_ptr->calculate_velocity_shear_tensor(
                                 tau_rk, arena, ieta, ix, iy, rk_flag, a_local,
                                 sigma_local);
+                        prepare_velocity_array(tau_rk, arena, ieta, ix, iy,
+                                               rk_flag, n_cell_eta, n_cell_x,
+                                               velocity_array);
 
                         FirstRKStepW(tau, DATA, &(arena[ieta][ix][iy]),
                                      rk_flag, theta_local, a_local,
-                                     sigma_local);
+                                     sigma_local, vis_array, vis_nbr_tau,
+                                     vis_nbr_x, vis_nbr_y, vis_nbr_eta,
+                                     velocity_array);
 
                         delete[] a_local;
                         delete[] sigma_local;
@@ -360,12 +407,14 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                     delete[] grid_array[i];
                     delete[] vis_array[i];
                     delete[] vis_nbr_tau[i];
+                    delete[] velocity_array[i];
                 }
                 delete[] qi_array;
                 delete[] qi_rk0;
                 delete[] grid_array;
                 delete[] vis_array;
                 delete[] vis_nbr_tau;
+                delete[] velocity_array;
                 for (int i = 0; i < 4*n_cell_x*n_cell_eta; i++) {
                     delete[] qi_nbr_x[i];
                     delete[] qi_nbr_y[i];
@@ -475,7 +524,11 @@ int Advance::FirstRKStepT(double tau, Grid *grid_pt, int rk_flag,
 
 int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
                           int rk_flag, double theta_local, double* a_local,
-                          double *sigma_local) {
+                          double *sigma_local, double **vis_array,
+                          double **vis_nbr_tau, double **vis_nbr_x,
+                          double **vis_nbr_y, double **vis_nbr_eta,
+                          double **velocity_array) {
+
     double tau_now = tau;
     double tau_next = tau + (DATA->delta_tau);
 
