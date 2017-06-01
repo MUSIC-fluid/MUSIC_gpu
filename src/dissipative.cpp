@@ -21,9 +21,9 @@ Diss::~Diss() {
 }
 
 
-double Diss::MakeWSource(double tau, int alpha, int n_cell_eta, int n_cell_x,
-        double **vis_array, double **vis_nbr_tau, double **vis_nbr_x,
-        double **vis_nbr_y, double **vis_nbr_eta) {
+void Diss::MakeWSource(double tau, double **qi_array, int n_cell_eta,
+        int n_cell_x, double **vis_array, double **vis_nbr_tau,
+        double **vis_nbr_x, double **vis_nbr_y, double **vis_nbr_eta) {
 //! calculate d_m (tau W^{m,alpha}) + (geom source terms)
 //! partial_tau W^tau alpha
 //! this is partial_tau evaluated at tau
@@ -31,9 +31,6 @@ double Diss::MakeWSource(double tau, int alpha, int n_cell_eta, int n_cell_x,
 //! change: alpha first which is the case
 //!         for everywhere else. also, this change is necessary
 //!         to use Wmunu[rk_flag][4][mu] as the dissipative baryon current
-
-    if (alpha == 4 && DATA_ptr->turn_on_diff == 0)
-        return (0.0);
 
     double shear_on, bulk_on;
     if (DATA_ptr->turn_on_shear)
@@ -46,116 +43,124 @@ double Diss::MakeWSource(double tau, int alpha, int n_cell_eta, int n_cell_x,
     else
         bulk_on = 0.0;
 
-    double result = 0.0;
+    int alpha_max = 5;
+    if (DATA_ptr->turn_on_diff == 0) {
+        alpha_max = 4;
+    }
     for (int k = 0; k < n_cell_eta; k++) {
         for (int i = 0; i < n_cell_x; i++) {
             for (int j = 0; j < n_cell_x; j++) {
                 int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
-                // dW/dtau
-                // backward time derivative (first order is more stable)
-                int idx_1d_alpha0 = util->map_2d_idx_to_1d(alpha, 0);
-                double dWdtau;
-                dWdtau = ((vis_array[idx][idx_1d_alpha0]
-                           - vis_nbr_tau[idx][idx_1d_alpha0])
-                          /DATA_ptr->delta_tau);
+                for (int alpha = 0; alpha < alpha_max; alpha++) {
+                    // dW/dtau
+                    // backward time derivative (first order is more stable)
+                    int idx_1d_alpha0 = util->map_2d_idx_to_1d(alpha, 0);
+                    double dWdtau;
+                    dWdtau = ((vis_array[idx][idx_1d_alpha0]
+                               - vis_nbr_tau[idx][idx_1d_alpha0])
+                              /DATA_ptr->delta_tau);
 
-                // bulk pressure term
-                double dPidtau = 0.0;
-                double Pi_alpha0 = 0.0;
-                if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
-                    double gfac = (alpha == 0 ? -1.0 : 0.0);
-                    Pi_alpha0 = (vis_array[idx][14]
-                                 *(gfac + vis_array[idx][15+alpha]
-                                          *vis_array[idx][15]));
+                    // bulk pressure term
+                    double dPidtau = 0.0;
+                    double Pi_alpha0 = 0.0;
+                    if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
+                        double gfac = (alpha == 0 ? -1.0 : 0.0);
+                        Pi_alpha0 = (vis_array[idx][14]
+                                     *(gfac + vis_array[idx][15+alpha]
+                                              *vis_array[idx][15]));
 
-                    dPidtau = (Pi_alpha0
-                               - vis_nbr_tau[idx][14]
-                                 *(gfac + vis_nbr_tau[idx][alpha+15]
-                                          *vis_nbr_tau[idx][15]));
-                }
+                        dPidtau = (Pi_alpha0
+                                   - vis_nbr_tau[idx][14]
+                                     *(gfac + vis_nbr_tau[idx][alpha+15]
+                                              *vis_nbr_tau[idx][15]));
+                    }
 
-                // use central difference to preserve conservation law exactly
-                int idx_1d;
-                double dWdx_perp = 0.0;
-                double dPidx_perp = 0.0;
-                // x-direction
-                idx_1d = util->map_2d_idx_to_1d(alpha, 1);
-                double sgp1 = vis_nbr_x[1][idx_1d];
-                double sgm1 = vis_nbr_x[0][idx_1d];
-                dWdx_perp += (sgp1 - sgm1)/(2.*DATA_ptr->delta_x);
-                if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
-                    double gfac1 = (alpha == 1 ? 1.0 : 0.0);
-                    double bgp1 = (vis_nbr_x[1][14]
-                                    *(gfac1 + vis_nbr_x[1][15+alpha]
-                                              *vis_nbr_x[1][16]));
-                    double bgm1 = (vis_nbr_x[0][14]
-                                    *(gfac1 + vis_nbr_x[0][15+alpha]
-                                              *vis_nbr_x[0][16]));
-                    dPidx_perp += (bgp1 - bgm1)/(2.*DATA_ptr->delta_x);
-                }
-                // y-direction
-                idx_1d = util->map_2d_idx_to_1d(alpha, 2);
-                sgp1 = vis_nbr_y[1][idx_1d];
-                sgm1 = vis_nbr_y[0][idx_1d];
-                dWdx_perp += (sgp1 - sgm1)/(2.*DATA_ptr->delta_x);
-                if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
-                    double gfac1 = (alpha == 2 ? 1.0 : 0.0);
-                    double bgp1 = (vis_nbr_y[1][14]
-                                    *(gfac1 + vis_nbr_y[1][15+alpha]
-                                              *vis_nbr_y[1][17]));
-                    double bgm1 = (vis_nbr_x[0][14]
-                                    *(gfac1 + vis_nbr_y[0][15+alpha]
-                                              *vis_nbr_y[0][17]));
-                    dPidx_perp += (bgp1 - bgm1)/(2.*DATA_ptr->delta_x);
-                }
+                    // use central difference to preserve
+                    // the conservation law exactly
+                    int idx_1d;
+                    double dWdx_perp = 0.0;
+                    double dPidx_perp = 0.0;
+                    // x-direction
+                    idx_1d = util->map_2d_idx_to_1d(alpha, 1);
+                    double sgp1 = vis_nbr_x[1][idx_1d];
+                    double sgm1 = vis_nbr_x[0][idx_1d];
+                    dWdx_perp += (sgp1 - sgm1)/(2.*DATA_ptr->delta_x);
+                    if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
+                        double gfac1 = (alpha == 1 ? 1.0 : 0.0);
+                        double bgp1 = (vis_nbr_x[1][14]
+                                        *(gfac1 + vis_nbr_x[1][15+alpha]
+                                                  *vis_nbr_x[1][16]));
+                        double bgm1 = (vis_nbr_x[0][14]
+                                        *(gfac1 + vis_nbr_x[0][15+alpha]
+                                                  *vis_nbr_x[0][16]));
+                        dPidx_perp += (bgp1 - bgm1)/(2.*DATA_ptr->delta_x);
+                    }
+                    // y-direction
+                    idx_1d = util->map_2d_idx_to_1d(alpha, 2);
+                    sgp1 = vis_nbr_y[1][idx_1d];
+                    sgm1 = vis_nbr_y[0][idx_1d];
+                    dWdx_perp += (sgp1 - sgm1)/(2.*DATA_ptr->delta_x);
+                    if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
+                        double gfac1 = (alpha == 2 ? 1.0 : 0.0);
+                        double bgp1 = (vis_nbr_y[1][14]
+                                        *(gfac1 + vis_nbr_y[1][15+alpha]
+                                                  *vis_nbr_y[1][17]));
+                        double bgm1 = (vis_nbr_x[0][14]
+                                        *(gfac1 + vis_nbr_y[0][15+alpha]
+                                                  *vis_nbr_y[0][17]));
+                        dPidx_perp += (bgp1 - bgm1)/(2.*DATA_ptr->delta_x);
+                    }
 
-                // eta-direction
-                double taufactor = tau;
-                double dWdeta = 0.0;
-                double dPideta = 0.0;
-                idx_1d = util->map_2d_idx_to_1d(alpha, 3);
-                sgp1 = vis_nbr_eta[1][idx_1d];
-                sgm1 = vis_nbr_eta[0][idx_1d];
-                dWdeta = (sgp1 - sgm1)/(2.*DATA_ptr->delta_eta*taufactor);
-                if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
-                    double gfac3 = (alpha == 3 ? 1.0 : 0.0);
-                    double bgp1 = (vis_nbr_eta[1][14]
-                                   *(gfac3 + vis_nbr_eta[1][15+alpha]
-                                             *vis_nbr_eta[1][18]));
-                    double bgm1 = (vis_nbr_eta[1][14]
-                                   *(gfac3 + vis_nbr_eta[0][15+alpha]
-                                             *vis_nbr_eta[0][18]));
-                    dPideta = (bgp1 - bgm1)/(2.*DATA_ptr->delta_eta*taufactor);
-                }
+                    // eta-direction
+                    double taufactor = tau;
+                    double dWdeta = 0.0;
+                    double dPideta = 0.0;
+                    idx_1d = util->map_2d_idx_to_1d(alpha, 3);
+                    sgp1 = vis_nbr_eta[1][idx_1d];
+                    sgm1 = vis_nbr_eta[0][idx_1d];
+                    dWdeta = (sgp1 - sgm1)/(2.*DATA_ptr->delta_eta*taufactor);
+                    if (alpha < 4 && DATA_ptr->turn_on_bulk == 1) {
+                        double gfac3 = (alpha == 3 ? 1.0 : 0.0);
+                        double bgp1 = (vis_nbr_eta[1][14]
+                                       *(gfac3 + vis_nbr_eta[1][15+alpha]
+                                                 *vis_nbr_eta[1][18]));
+                        double bgm1 = (vis_nbr_eta[1][14]
+                                       *(gfac3 + vis_nbr_eta[0][15+alpha]
+                                                 *vis_nbr_eta[0][18]));
+                        dPideta = ((bgp1 - bgm1)
+                                   /(2.*DATA_ptr->delta_eta*taufactor));
+                    }
 
-                // partial_m (tau W^mn) = W^0n + tau partial_m W^mn
-                double sf = (tau*(dWdtau + dWdx_perp + dWdeta)
-                             + vis_array[idx][idx_1d_alpha0]);
-                double bf = (tau*(dPidtau + dPidx_perp + dPideta)
-                             + Pi_alpha0);
+                    // partial_m (tau W^mn) = W^0n + tau partial_m W^mn
+                    double sf = (tau*(dWdtau + dWdx_perp + dWdeta)
+                                 + vis_array[idx][idx_1d_alpha0]);
+                    double bf = (tau*(dPidtau + dPidx_perp + dPideta)
+                                 + Pi_alpha0);
 
-                // sources due to coordinate transform
-                // this is added to partial_m W^mn
-                if (alpha == 0) {
-                    sf += vis_array[idx][9];
-                    bf += vis_array[idx][14]*(1.0 + vis_array[idx][18]
-                                                    *vis_array[idx][18]);
-                }
-                if (alpha == 3) {
-                    sf += vis_array[idx][3];
-                    bf += vis_array[idx][14]*(vis_array[idx][15]
-                                              *vis_array[idx][18]);
-                }
+                    // sources due to coordinate transform
+                    // this is added to partial_m W^mn
+                    if (alpha == 0) {
+                        sf += vis_array[idx][9];
+                        bf += vis_array[idx][14]*(1.0 + vis_array[idx][18]
+                                                        *vis_array[idx][18]);
+                    }
+                    if (alpha == 3) {
+                        sf += vis_array[idx][3];
+                        bf += vis_array[idx][14]*(vis_array[idx][15]
+                                                  *vis_array[idx][18]);
+                    }
 
-                if (alpha < 4) {
-                    result = (sf*shear_on + bf*bulk_on);
-                } else if (alpha == 4) {
-                    result = sf;
+                    double result = 0.0;
+                    if (alpha < 4) {
+                        result = (sf*shear_on + bf*bulk_on);
+                    } else if (alpha == 4) {
+                        result = sf;
+                    }
+                    qi_array[idx][alpha] -= result*(DATA_ptr->delta_tau);
                 }
             }
         }
     }
-    return(result);
 }
 
 
