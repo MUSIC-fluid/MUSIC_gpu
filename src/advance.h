@@ -48,7 +48,8 @@ class Advance {
     void prepare_velocity_array(double tau_rk, Grid ***arena,
                                 int ieta, int ix, int iy, int rk_flag,
                                 int n_cell_eta, int n_cell_x,
-                                double **velocity_array);
+                                double **velocity_array,
+                                double **grid_array);
 
     int FirstRKStepT(double tau, Grid *grid_pt, int rk_flag,
                      double **qi_array, double **qi_nbr_x, double **qi_nbr_y,
@@ -63,7 +64,7 @@ class Advance {
                      double *sigma_local, double **vis_array,
                      double **vis_nbr_tau, double **vis_nbr_x,
                      double **vis_nbr_y, double **vis_nbr_eta,
-                     double **velocity_array);
+                     double **velocity_array, double **grid_array);
 
     
     void update_grid_array_from_grid_cell(Grid *grid_p, double *grid_array,

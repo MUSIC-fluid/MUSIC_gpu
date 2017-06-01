@@ -242,7 +242,9 @@ void Diss::MakeWSource(double tau, double **qi_array,
 
 double Diss::Make_uWSource(double tau, Grid *grid_pt, int mu, int nu,
                            InitData *DATA, int rk_flag, double theta_local,
-                           double *a_local, double *sigma_1d) {
+                           double *a_local, double *sigma_1d,
+                           double **vis_array, double **velocity_array,
+                           double **grid_array) {
     if (DATA->turn_on_shear == 0)
         return 0.0;
 

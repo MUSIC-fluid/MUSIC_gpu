@@ -31,7 +31,9 @@ class Diss {
 
     double Make_uWSource(double tau, Grid *grid_pt, int mu, int nu,
                          InitData *DATA, int rk_flag, double theta_local,
-                         double *a_local, double *sigma_1d);
+                         double *a_local, double *sigma_1d,
+                         double **vis_array, double **velocity_array,
+                         double **grid_array);
     
     int Make_uPRHS(double tau, Grid *grid_pt, double *p_rhs, InitData *DATA,
                    int rk_flag, double theta_local);
