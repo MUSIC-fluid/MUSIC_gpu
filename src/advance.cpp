@@ -37,8 +37,9 @@ Advance::~Advance() {
 
 void Advance::prepare_qi_array(
         double tau, Grid ***arena, int rk_flag, int ieta, int ix, int iy,
-        int n_cell_eta, int n_cell_x, double **qi_array,
-        double **qi_nbr_x, double **qi_nbr_y, double **qi_nbr_eta) {
+        int n_cell_eta, int n_cell_x, double **qi_array, double **qi_nbr_x,
+        double **qi_nbr_y, double **qi_nbr_eta,
+        double **qi_rk0, double **grid_array) {
 
     double tau_rk;
     if (rk_flag == 0) {
@@ -46,8 +47,6 @@ void Advance::prepare_qi_array(
     } else {
         tau_rk = tau + DATA_ptr->delta_tau;
     }
-
-    double *grid_array_temp = new double[5];
 
     // first build qi cube n_cell_x*n_cell_x*n_cell_eta
     for (int k = 0; k < n_cell_eta; k++) {
@@ -59,9 +58,28 @@ void Advance::prepare_qi_array(
                 int idx = j + n_cell_x*i + n_cell_x*n_cell_x*k;
                 update_grid_array_from_grid_cell(
                                     &arena[idx_ieta][idx_ix][idx_iy],
-                                    grid_array_temp, rk_flag);
+                                    grid_array[idx], rk_flag);
                 get_qmu_from_grid_array(tau_rk, qi_array[idx],
-                                        grid_array_temp);
+                                        grid_array[idx]);
+            }
+        }
+    }
+
+    double *grid_array_temp = new double[5];
+    if (rk_flag == 1) {
+        for (int k = 0; k < n_cell_eta; k++) {
+            int idx_ieta = min(ieta + k, DATA_ptr->neta - 1);
+            for (int i = 0; i < n_cell_x; i++) {
+                int idx_ix = min(ix + i, DATA_ptr->nx);
+                for (int j = 0; j < n_cell_x; j++) {
+                    int idx_iy = min(iy + j, DATA_ptr->nx);
+                    int idx = j + n_cell_x*i + n_cell_x*n_cell_x*k;
+                    update_grid_array_from_grid_cell(
+                                        &arena[idx_ieta][idx_ix][idx_iy],
+                                        grid_array_temp, 0);
+                    get_qmu_from_grid_array(tau, qi_rk0[idx],
+                                            grid_array_temp);
+                }
             }
         }
     }
@@ -239,8 +257,13 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
             #pragma omp for
             for (ix = 0; ix <= grid_nx; ix += n_cell_x) {
                 double **qi_array = new double* [n_cell_x*n_cell_x*n_cell_eta];
+                double **qi_rk0 = new double* [n_cell_x*n_cell_x*n_cell_eta];
+                double **grid_array = (
+                                new double* [n_cell_x*n_cell_x*n_cell_eta]);
                 for (int i = 0; i < n_cell_x*n_cell_x*n_cell_eta; i++) {
                     qi_array[i] = new double[5];
+                    qi_rk0[i] = new double[5];
+                    grid_array[i] = new double[5];
                 }
                 double **qi_nbr_x = new double* [4*n_cell_x*n_cell_eta];
                 double **qi_nbr_y = new double* [4*n_cell_x*n_cell_eta];
@@ -273,7 +296,8 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                 for (int iy = 0; iy <= grid_ny; iy += n_cell_x) {
                     prepare_qi_array(tau, arena, rk_flag, ieta, ix, iy,
                                      n_cell_eta, n_cell_x, qi_array,
-                                     qi_nbr_x, qi_nbr_y, qi_nbr_eta);
+                                     qi_nbr_x, qi_nbr_y, qi_nbr_eta,
+                                     qi_rk0, grid_array);
                     prepare_vis_array(arena, rk_flag, ieta, ix, iy,
                                       n_cell_eta, n_cell_x, vis_array,
                                       vis_nbr_tau, vis_nbr_x, vis_nbr_y,
@@ -281,7 +305,8 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                     FirstRKStepT(tau, DATA, &(arena[ieta][ix][iy]), rk_flag,
                                  qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
                                  n_cell_eta, n_cell_x, vis_array, vis_nbr_tau,
-                                 vis_nbr_x, vis_nbr_y, vis_nbr_eta);
+                                 vis_nbr_x, vis_nbr_y, vis_nbr_eta,
+                                 qi_rk0, grid_array);
                     if (DATA_ptr->viscosity_flag == 1) {
                         double tau_rk = tau;
                         if (rk_flag == 1) {
@@ -309,10 +334,14 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                 //clean up
                 for (int i = 0; i < n_cell_x*n_cell_x*n_cell_eta; i++) {
                     delete[] qi_array[i];
+                    delete[] qi_rk0[i];
+                    delete[] grid_array[i];
                     delete[] vis_array[i];
                     delete[] vis_nbr_tau[i];
                 }
                 delete[] qi_array;
+                delete[] qi_rk0;
+                delete[] grid_array;
                 delete[] vis_array;
                 delete[] vis_nbr_tau;
                 for (int i = 0; i < 4*n_cell_x*n_cell_eta; i++) {
@@ -348,11 +377,13 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
 
 /* %%%%%%%%%%%%%%%%%%%%%% First steps begins here %%%%%%%%%%%%%%%%%% */
 int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
-                          int rk_flag, double **qi_array, double **qi_nbr_x,
+                          int rk_flag,
+                          double **qi_array, double **qi_nbr_x,
                           double **qi_nbr_y, double **qi_nbr_eta,
                           int n_cell_eta, int n_cell_x, double **vis_array,
                           double **vis_nbr_tau, double **vis_nbr_x,
-                          double **vis_nbr_y, double **vis_nbr_eta) {
+                          double **vis_nbr_y, double **vis_nbr_eta,
+                          double **qi_rk0, double **grid_array) {
 
     // this advances the ideal part
     double tau_now = tau;
@@ -369,6 +400,8 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
 
     double *grid_array_p = new double[5];
     update_grid_array_from_grid_cell(grid_pt, grid_array_p, rk_flag);
+    double *qi = new double[5];
+    get_qmu_from_grid_array(tau_rk, qi, grid_array_p);
 
     // Solve partial_a T^{a mu} = -partial_a W^{a mu}
     // Update T^{mu nu}
@@ -379,8 +412,6 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
     // rhs[alpha] is what MakeDeltaQI outputs. 
     // It is the spatial derivative part of partial_a T^{a mu}
     // (including geometric terms)
-    double *qi = new double[5];
-    get_qmu_from_grid_array(tau_rk, qi, grid_array_p);
     MakeDeltaQI(tau_rk, grid_pt, qi, rk_flag, qi_array,
                 qi_nbr_x, qi_nbr_y, qi_nbr_eta,
                 n_cell_eta, n_cell_x);
@@ -391,26 +422,37 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
                       vis_array, vis_nbr_tau, vis_nbr_x, vis_nbr_y,
                       vis_nbr_eta);
 
-    for (int alpha = 0; alpha < 5; alpha++) {
+    if (rk_flag == 1) {
+        for (int k = 0; k < n_cell_eta; k++) {
+            for (int i = 0; i < n_cell_x; i++) {
+                for (int j = 0; j < n_cell_x; j++) {
+                    int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+                    for (int alpha = 0; alpha < 5; alpha++) {
+                        //qi[alpha] = qi_array[0][alpha];
 
-        /* dwmn is the only one with the minus sign */
-        //qi[alpha] -= dwmn*(DATA->delta_tau);
-        qi[alpha] = qi_array[0][alpha];
-
-        /* if rk_flag > 0, we now have q0 + k1 + k2. 
-         * So add q0 and multiply by 1/2 */
-        if (rk_flag > 0) {
-            qi[alpha] += get_TJb(grid_pt, 0, alpha, 0)*tau_now;
-            qi[alpha] *= 0.5;
+                        // if rk_flag > 0, we now have q0 + k1 + k2. 
+                        // So add q0 and multiply by 1/2
+                        //qi[alpha] += get_TJb(grid_pt, 0, alpha, 0)*tau_now;
+                        qi_array[idx][alpha] += qi_rk0[idx][alpha];
+                        qi_array[idx][alpha] *= 0.5;
+                    }
+                }
+            }
         }
     }
 
     double *grid_array_t = new double[5];
-    int flag = reconst_ptr->ReconstIt_shell(
-                        grid_array_t, tau_next, qi, grid_array_p);
-
-    if (flag != 0) {
-        UpdateTJbRK(grid_array_t, grid_pt, rk_flag); 
+    for (int k = 0; k < n_cell_eta; k++) {
+        for (int i = 0; i < n_cell_x; i++) {
+            for (int j = 0; j < n_cell_x; j++) {
+                int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+                int flag = reconst_ptr->ReconstIt_shell(
+                        grid_array_t, tau_next, qi_array[idx], grid_array[idx]);
+                if (flag != 0) {
+                    UpdateTJbRK(grid_array_t, grid_pt, rk_flag); 
+                }
+            }
+        }
     }
 
     // clean up
@@ -418,7 +460,7 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
     delete[] grid_array_t;
     delete[] grid_array_p;
 
-    return(flag);
+    return(0);
 }
 
 

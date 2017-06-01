@@ -37,7 +37,8 @@ class Advance {
     void prepare_qi_array(
         double tau, Grid ***arena, int rk_flag, int ieta, int ix, int iy,
         int n_cell_eta, int n_cell_x, double **qi_array,
-        double **qi_nbr_x, double **qi_nbr_y, double **qi_nbr_eta);
+        double **qi_nbr_x, double **qi_nbr_y, double **qi_nbr_eta,
+        double **qi_rk0, double **grid_array);
 
     void prepare_vis_array(
         Grid ***arena, int rk_flag, int ieta, int ix, int iy,
@@ -49,7 +50,8 @@ class Advance {
                      double **qi_nbr_eta, int n_cell_eta, int n_cell_x,
                      double **vis_array, double **vis_nbr_tau,
                      double **vis_nbr_x, double **vis_nbr_y,
-                     double **vis_nbr_eta);
+                     double **vis_nbr_eta,
+                     double **qi_rk0, double **grid_array);
 
     int FirstRKStepW(double tau_it, InitData *DATA, Grid *grid_pt,
                      int rk_flag, double theta_local, double* a_local,
