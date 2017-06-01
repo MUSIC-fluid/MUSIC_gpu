@@ -153,8 +153,7 @@ void Advance::prepare_qi_array(
 void Advance::prepare_vis_array(
         Grid ***arena, int rk_flag, int ieta, int ix, int iy,
         int n_cell_eta, int n_cell_x, double **vis_array, double **vis_nbr_tau,
-        double **vis_nbr_x, double **vis_nbr_y, double **vis_nbr_eta,
-        double **u_nbr_tau) {
+        double **vis_nbr_x, double **vis_nbr_y, double **vis_nbr_eta) {
 
     // first build qi cube n_cell_x*n_cell_x*n_cell_eta
     for (int k = 0; k < n_cell_eta; k++) {
@@ -168,7 +167,7 @@ void Advance::prepare_vis_array(
                     &arena[idx_ieta][idx_ix][idx_iy], vis_array[idx], rk_flag);
                 update_vis_prev_tau_from_grid_cell(
                     &arena[idx_ieta][idx_ix][idx_iy], vis_nbr_tau[idx],
-                    u_nbr_tau[idx], rk_flag);
+                    rk_flag);
             }
         }
     }
@@ -257,22 +256,19 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                                 new double* [n_cell_x*n_cell_x*n_cell_eta];
                 double **vis_nbr_tau =
                                 new double* [n_cell_x*n_cell_x*n_cell_eta];
-                double **u_nbr_tau =
-                                new double* [n_cell_x*n_cell_x*n_cell_eta];
                 for (int i = 0; i < n_cell_x*n_cell_x*n_cell_eta; i++) {
-                    vis_array[i] = new double[15];
-                    vis_nbr_tau[i] = new double[15];
-                    u_nbr_tau[i] = new double[4];
+                    vis_array[i] = new double[19];
+                    vis_nbr_tau[i] = new double[19];
                 }
                 double **vis_nbr_x = new double* [2*n_cell_x*n_cell_eta];
                 double **vis_nbr_y = new double* [2*n_cell_x*n_cell_eta];
                 for (int i = 0; i < 2*n_cell_x*n_cell_eta; i++) {
-                    vis_nbr_x[i] = new double[15];
-                    vis_nbr_y[i] = new double[15];
+                    vis_nbr_x[i] = new double[19];
+                    vis_nbr_y[i] = new double[19];
                 }
                 double **vis_nbr_eta = new double* [2*n_cell_x*n_cell_x];
                 for (int i = 0; i < 2*n_cell_x*n_cell_x; i++) {
-                    vis_nbr_eta[i] = new double[15];
+                    vis_nbr_eta[i] = new double[19];
                 }
                 for (int iy = 0; iy <= grid_ny; iy += n_cell_x) {
                     prepare_qi_array(tau, arena, rk_flag, ieta, ix, iy,
@@ -281,11 +277,11 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                     prepare_vis_array(arena, rk_flag, ieta, ix, iy,
                                       n_cell_eta, n_cell_x, vis_array,
                                       vis_nbr_tau, vis_nbr_x, vis_nbr_y,
-                                      vis_nbr_eta, u_nbr_tau);
+                                      vis_nbr_eta);
                     FirstRKStepT(tau, DATA, &(arena[ieta][ix][iy]), rk_flag,
                                  qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
                                  n_cell_eta, n_cell_x, vis_array, vis_nbr_tau,
-                                 vis_nbr_x, vis_nbr_y, vis_nbr_eta, u_nbr_tau);
+                                 vis_nbr_x, vis_nbr_y, vis_nbr_eta);
                     if (DATA_ptr->viscosity_flag == 1) {
                         double tau_rk = tau;
                         if (rk_flag == 1) {
@@ -315,12 +311,10 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                     delete[] qi_array[i];
                     delete[] vis_array[i];
                     delete[] vis_nbr_tau[i];
-                    delete[] u_nbr_tau[i];
                 }
                 delete[] qi_array;
                 delete[] vis_array;
                 delete[] vis_nbr_tau;
-                delete[] u_nbr_tau;
                 for (int i = 0; i < 4*n_cell_x*n_cell_eta; i++) {
                     delete[] qi_nbr_x[i];
                     delete[] qi_nbr_y[i];
@@ -358,8 +352,7 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
                           double **qi_nbr_y, double **qi_nbr_eta,
                           int n_cell_eta, int n_cell_x, double **vis_array,
                           double **vis_nbr_tau, double **vis_nbr_x,
-                          double **vis_nbr_y, double **vis_nbr_eta,
-                          double **u_nbr_tau) {
+                          double **vis_nbr_y, double **vis_nbr_eta) {
 
     // this advances the ideal part
     double tau_now = tau;
@@ -395,7 +388,9 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
     for (int alpha = 0; alpha < 5; alpha++) {
         // now MakeWSource returns partial_a W^{a mu}
         // (including geometric terms) 
-        double dwmn = diss->MakeWSource(tau_rk, alpha, grid_pt, DATA, rk_flag);
+        //double dwmn = diss->MakeWSource(tau_rk, alpha, grid_pt, DATA, rk_flag);
+        double dwmn = diss->MakeWSource_new(tau_rk, alpha, vis_array,
+                 vis_nbr_tau, vis_nbr_x, vis_nbr_y, vis_nbr_eta);
         /* dwmn is the only one with the minus sign */
         qi[alpha] -= dwmn*(DATA->delta_tau);
 
@@ -677,16 +672,19 @@ void Advance::update_grid_array_from_grid_cell(
 }
 
 
-void Advance::update_vis_array_from_grid_cell(
-                Grid *grid_p, double *vis_array, int rk_flag) {
+void Advance::update_vis_array_from_grid_cell(Grid *grid_p, double *vis_array,
+                                              int rk_flag) {
     for (int i = 0; i < 14; i++) {
         vis_array[i] = grid_p->Wmunu[rk_flag][i];
     }
     vis_array[14] = grid_p->pi_b[rk_flag];
+    for (int i = 0; i < 4; i++) {
+        vis_array[15+i] = grid_p->u[rk_flag][i];
+    }
 }
 
 void Advance::update_vis_prev_tau_from_grid_cell(
-            Grid *grid_p, double *vis_array, double *u_array, int rk_flag) {
+                    Grid *grid_p, double *vis_array,int rk_flag) {
     for (int i = 0; i < 14; i++) {
         if (rk_flag == 0) {
             vis_array[i] = grid_p->prevWmunu[0][i];
@@ -694,17 +692,17 @@ void Advance::update_vis_prev_tau_from_grid_cell(
             vis_array[i] = grid_p->Wmunu[0][i];
         }
     }
-    for (int i = 0; i < 4; i++) {
-        if (rk_flag == 0) {
-            u_array[i] = grid_p->prev_u[0][i];
-        } else {
-            u_array[i] = grid_p->u[0][i];
-        }
-    }
     if (rk_flag == 0) {
         vis_array[14] = grid_p->prev_pi_b[0];
     } else {
         vis_array[14] = grid_p->pi_b[0];
+    }
+    for (int i = 0; i < 4; i++) {
+        if (rk_flag == 0) {
+            vis_array[15+i] = grid_p->prev_u[0][i];
+        } else {
+            vis_array[15+i] = grid_p->u[0][i];
+        }
     }
 }
 
