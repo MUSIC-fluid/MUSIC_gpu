@@ -398,11 +398,6 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
         exit(0);
     }
 
-    double *grid_array_p = new double[5];
-    update_grid_array_from_grid_cell(grid_pt, grid_array_p, rk_flag);
-    double *qi = new double[5];
-    get_qmu_from_grid_array(tau_rk, qi, grid_array_p);
-
     // Solve partial_a T^{a mu} = -partial_a W^{a mu}
     // Update T^{mu nu}
 
@@ -412,8 +407,7 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
     // rhs[alpha] is what MakeDeltaQI outputs. 
     // It is the spatial derivative part of partial_a T^{a mu}
     // (including geometric terms)
-    MakeDeltaQI(tau_rk, grid_pt, qi, rk_flag, qi_array,
-                qi_nbr_x, qi_nbr_y, qi_nbr_eta,
+    MakeDeltaQI(tau_rk, qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
                 n_cell_eta, n_cell_x);
 
     // now MakeWSource returns partial_a W^{a mu}
@@ -428,11 +422,9 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
                 for (int j = 0; j < n_cell_x; j++) {
                     int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
                     for (int alpha = 0; alpha < 5; alpha++) {
-                        //qi[alpha] = qi_array[0][alpha];
 
                         // if rk_flag > 0, we now have q0 + k1 + k2. 
                         // So add q0 and multiply by 1/2
-                        //qi[alpha] += get_TJb(grid_pt, 0, alpha, 0)*tau_now;
                         qi_array[idx][alpha] += qi_rk0[idx][alpha];
                         qi_array[idx][alpha] *= 0.5;
                     }
@@ -456,9 +448,7 @@ int Advance::FirstRKStepT(double tau, InitData *DATA, Grid *grid_pt,
     }
 
     // clean up
-    delete[] qi;
     delete[] grid_array_t;
-    delete[] grid_array_p;
 
     return(0);
 }
@@ -925,10 +915,9 @@ int Advance::QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
 
 //! This function computes the rhs array. It computes the spatial
 //! derivatives of T^\mu\nu using the KT algorithm
-void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
-                          int rk_flag, double **qi_array,
-                          double **qi_nbr_x, double **qi_nbr_y,
-                          double **qi_nbr_eta, int n_cell_eta, int n_cell_x) {
+void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
+                          double **qi_nbr_y, double **qi_nbr_eta,
+                          int n_cell_eta, int n_cell_x) {
     double delta[4];
     delta[1] = DATA_ptr->delta_x;
     delta[2] = DATA_ptr->delta_y;
@@ -1257,11 +1246,6 @@ void Advance::MakeDeltaQI(double tau, Grid *grid_pt, double *qi,
         }
     }
 
-
-    for (int i = 0; i < 5; i++) {
-        qi[i] = qi_array[0][i];
-    }
-    
     // clean up
     delete[] qiphL;
     delete[] qiphR;
