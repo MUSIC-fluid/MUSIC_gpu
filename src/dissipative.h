@@ -29,9 +29,7 @@ class Diss {
                    double **vis_nbr_y, double **vis_nbr_eta,
                    double **velocity_array);
 
-    double Make_uWSource(double tau, Grid *grid_pt, int mu, int nu,
-                         InitData *DATA, int rk_flag, double theta_local,
-                         double *a_local, double *sigma_1d,
+    double Make_uWSource(double tau, int mu, int nu,
                          double **vis_array, double **velocity_array,
                          double **grid_array);
     
@@ -45,7 +43,7 @@ class Diss {
     double Make_uqSource(double tau, Grid *grid_pt, int nu, InitData *DATA,
                          int rk_flag, double theta_local, double *a_local,
                          double *sigma_1d); 
-    double get_temperature_dependent_eta_s(InitData *DATA, double T);
+    double get_temperature_dependent_eta_s(double T);
     double get_temperature_dependent_zeta_s(double temperature);
 };
 

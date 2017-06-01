@@ -581,9 +581,7 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
                 //tempf = ((grid_pt->Wmunu[rk_flag][idx_1d])
                 //         *(grid_pt->u[rk_flag][0]));
                 tempf = vis_array[idx][idx_1d]*vis_array[idx][15];
-                temps = diss->Make_uWSource(tau_now, grid_pt, mu, nu, DATA,
-                                            rk_flag, theta_local, a_local,
-                                            sigma_local,
+                temps = diss->Make_uWSource(tau_now, mu, nu,
                                             vis_array, velocity_array,
                                             grid_array); 
                 tempf += temps*(DATA_ptr->delta_tau);
@@ -600,9 +598,7 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
             for (int nu = mu; nu < 4; nu++) {
                 int idx_1d = util->map_2d_idx_to_1d(mu, nu);
                 tempf = (grid_pt->Wmunu[0][idx_1d])*(grid_pt->prev_u[0][0]);
-                temps = diss->Make_uWSource(tau_next, grid_pt, mu, nu, DATA,
-                                            rk_flag, theta_local, a_local,
-                                            sigma_local,
+                temps = diss->Make_uWSource(tau_next, mu, nu,
                                             vis_array, velocity_array,
                                             grid_array); 
                 tempf += temps*(DATA_ptr->delta_tau);
