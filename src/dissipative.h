@@ -33,16 +33,20 @@ class Diss {
                          double **vis_array, double **velocity_array,
                          double **grid_array);
     
-    int Make_uPRHS(double tau, Grid *grid_pt, double *p_rhs, InitData *DATA,
-                   int rk_flag, double theta_local);
+    int Make_uPRHS(double tau, double *p_rhs, double **vis_array,
+                   double **vis_nbr_x, double **vis_nbr_y,
+                   double **vis_nbr_eta, double **velocity_array);
 
-    double Make_uPiSource(double tau, Grid *grid_pt, InitData *DATA,
-                          int rk_flag, double theta_local, double *sigma_1d);
-    int Make_uqRHS(double tau, Grid *grid_pt, double **w_rhs, InitData *DATA,
-                   int rk_flag);
-    double Make_uqSource(double tau, Grid *grid_pt, int nu, InitData *DATA,
-                         int rk_flag, double theta_local, double *a_local,
-                         double *sigma_1d); 
+    double Make_uPiSource(double tau, double **vis_array,
+                          double **velocity_array, double **grid_array);
+
+    int Make_uqRHS(double tau, double **w_rhs, double **vis_array,
+                   double **vis_nbr_x, double **vis_nbr_y,
+                   double **vis_nbr_eta);
+
+    double Make_uqSource(double tau, int nu, double **vis_array,
+                         double **velocity_array, double **grid_array);
+
     double get_temperature_dependent_eta_s(double T);
     double get_temperature_dependent_zeta_s(double temperature);
 };

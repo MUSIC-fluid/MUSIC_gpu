@@ -266,6 +266,10 @@ void Advance::prepare_velocity_array(double tau_rk, Grid ***arena,
                                      int n_cell_eta, int n_cell_x,
                                      double **velocity_array, 
                                      double **grid_array) {
+    int trk_flag = rk_flag + 1;
+    if (rk_flag == 1) {
+        trk_flag = 0;
+    }
     double theta_local;
     double *a_local = new double[5];
     double *sigma_local = new double[10];
@@ -278,7 +282,7 @@ void Advance::prepare_velocity_array(double tau_rk, Grid ***arena,
                 int idx = j + n_cell_x*i + n_cell_x*n_cell_x*k;
                 update_grid_array_from_grid_cell(
                                     &arena[idx_ieta][idx_ix][idx_iy],
-                                    grid_array[idx], rk_flag);
+                                    grid_array[idx], trk_flag);
                 theta_local = u_derivative_ptr->calculate_expansion_rate(
                             tau_rk, arena, idx_ieta, idx_ix, idx_iy, rk_flag);
                 u_derivative_ptr->calculate_Du_supmu(tau_rk, arena, idx_ieta,
@@ -293,6 +297,10 @@ void Advance::prepare_velocity_array(double tau_rk, Grid ***arena,
                 }
                 for (int alpha = 0; alpha < 10; alpha++) {
                     velocity_array[idx][6+alpha] = sigma_local[alpha];
+                }
+                for (int alpha = 0; alpha < 4; alpha++) {
+                    velocity_array[idx][16+alpha] = (
+                        arena[idx_ieta][idx_ix][idx_iy].dUsup[0][4][alpha]);
                 }
             }
         }
@@ -343,7 +351,7 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                 for (int i = 0; i < n_cell_x*n_cell_x*n_cell_eta; i++) {
                     vis_array[i] = new double[19];
                     vis_nbr_tau[i] = new double[19];
-                    velocity_array[i] = new double[16];
+                    velocity_array[i] = new double[20];
                 }
                 double **vis_nbr_x = new double* [4*n_cell_x*n_cell_eta];
                 double **vis_nbr_y = new double* [4*n_cell_x*n_cell_eta];
@@ -571,6 +579,9 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
     /* Advance uWmunu */
     double tempf, temps;
     int idx = 0;
+    double u0 = 1./sqrt(1. - grid_array[idx][1]*grid_array[idx][1]
+                        - grid_array[idx][2]*grid_array[idx][2]
+                        - grid_array[idx][3]*grid_array[idx][3]);
     if (rk_flag == 0) {
         diss->Make_uWRHS(tau_now, w_rhs,
                          vis_array, vis_nbr_x, vis_nbr_y, vis_nbr_eta,
@@ -586,8 +597,7 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
                                             grid_array); 
                 tempf += temps*(DATA_ptr->delta_tau);
                 tempf += w_rhs[mu][nu];
-                grid_pt->Wmunu[trk_flag][idx_1d] = (
-                                    tempf/(grid_pt->u[trk_flag][0]));
+                grid_pt->Wmunu[trk_flag][idx_1d] = tempf/u0;
             }
         }
     } else if (rk_flag > 0) {
@@ -597,20 +607,18 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
         for (int mu = 1; mu < 4; mu++) {
             for (int nu = mu; nu < 4; nu++) {
                 int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                tempf = (grid_pt->Wmunu[0][idx_1d])*(grid_pt->prev_u[0][0]);
+                //tempf = (grid_pt->Wmunu[0][idx_1d])*(grid_pt->prev_u[0][0]);
+                tempf = vis_nbr_tau[idx][idx_1d]*vis_nbr_tau[idx][15];
                 temps = diss->Make_uWSource(tau_next, mu, nu,
                                             vis_array, velocity_array,
                                             grid_array); 
                 tempf += temps*(DATA_ptr->delta_tau);
                 tempf += w_rhs[mu][nu];
 
-                //tempf += ((grid_pt->Wmunu[rk_flag][idx_1d])
-                //          *(grid_pt->u[rk_flag][0]));
                 tempf += vis_array[idx][idx_1d]*vis_array[idx][15];
                 tempf *= 0.5;
        
-                grid_pt->Wmunu[trk_flag][idx_1d] = (
-                                            tempf/(grid_pt->u[trk_flag][0]));
+                grid_pt->Wmunu[trk_flag][idx_1d] = tempf/u0;
             }
         }
     } /* rk_flag > 0 */
@@ -620,31 +628,38 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
         double p_rhs;
         if (rk_flag == 0) {
             /* calculate delta u^0 pi */
-            diss->Make_uPRHS(tau_now, grid_pt, &p_rhs, DATA, rk_flag,
-                             theta_local);
+            diss->Make_uPRHS(tau_now, &p_rhs, vis_array,
+                             vis_nbr_x, vis_nbr_y, vis_nbr_eta,
+                             velocity_array);
    
-            tempf = (grid_pt->pi_b[rk_flag])*(grid_pt->u[rk_flag][0]);
-            temps = diss->Make_uPiSource(tau_now, grid_pt, DATA, rk_flag,
-                                         theta_local, sigma_local);
-            tempf += temps*(DATA->delta_tau);
+            //tempf = (grid_pt->pi_b[rk_flag])*(grid_pt->u[rk_flag][0]);
+            tempf = vis_array[idx][14]*vis_array[idx][15];
+            temps = diss->Make_uPiSource(tau_now, vis_array,
+                                         velocity_array, grid_array);
+            tempf += temps*(DATA_ptr->delta_tau);
             tempf += p_rhs;
    
-            grid_pt->pi_b[trk_flag] = tempf/(grid_pt->u[trk_flag][0]);
+            //grid_pt->pi_b[trk_flag] = tempf/(grid_pt->u[trk_flag][0]);
+            grid_pt->pi_b[trk_flag] = tempf/u0;
         } else if (rk_flag > 0) {
             /* calculate delta u^0 pi */
-            diss->Make_uPRHS(tau_next, grid_pt, &p_rhs, DATA, rk_flag,
-                             theta_local);
+            diss->Make_uPRHS(tau_next, &p_rhs, vis_array,
+                             vis_nbr_x, vis_nbr_y, vis_nbr_eta,
+                             velocity_array);
    
-            tempf = (grid_pt->pi_b[0])*(grid_pt->prev_u[0][0]);
-            temps = diss->Make_uPiSource(tau_next, grid_pt, DATA, rk_flag,
-                                         theta_local, sigma_local);
-            tempf += temps*(DATA->delta_tau);
+            //tempf = (grid_pt->pi_b[0])*(grid_pt->prev_u[0][0]);
+            tempf = vis_nbr_tau[idx][14]*vis_nbr_tau[idx][15];
+            temps = diss->Make_uPiSource(tau_next, vis_array,
+                                         velocity_array, grid_array);
+            tempf += temps*(DATA_ptr->delta_tau);
             tempf += p_rhs;
   
-            tempf += (grid_pt->pi_b[1])*(grid_pt->u[0][0]);
+            //tempf += (grid_pt->pi_b[1])*(grid_pt->u[0][0]);
+            tempf += vis_array[idx][14]*vis_array[idx][15];
             tempf *= 0.5;
 
-            grid_pt->pi_b[trk_flag] = tempf/(grid_pt->u[trk_flag][0]);
+            //grid_pt->pi_b[trk_flag] = tempf/(grid_pt->u[trk_flag][0]);
+            grid_pt->pi_b[trk_flag] = tempf/u0;
         }
     } else {
             grid_pt->pi_b[trk_flag] = 0.0;
@@ -653,41 +668,44 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
     // CShen: add source term for baryon diffusion
     if (DATA->turn_on_diff == 1) {
         if (rk_flag == 0) {
-            diss->Make_uqRHS(tau_now, grid_pt, w_rhs, DATA, rk_flag);
+            diss->Make_uqRHS(tau_now, w_rhs, vis_array, vis_nbr_x,
+                             vis_nbr_y, vis_nbr_eta);
             int mu = 4;
             for (int nu = 1; nu < 4; nu++) {
                 int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                tempf = ((grid_pt->Wmunu[rk_flag][idx_1d])
-                         *(grid_pt->u[rk_flag][0]));
-                temps = diss->Make_uqSource(tau_now, grid_pt, nu, DATA,
-                                            rk_flag, theta_local, a_local,
-                                            sigma_local); 
-                tempf += temps*(DATA->delta_tau);
+                //tempf = ((grid_pt->Wmunu[rk_flag][idx_1d])
+                //         *(grid_pt->u[rk_flag][0]));
+                tempf = vis_array[idx][idx_1d]*vis_array[idx][15];
+                temps = diss->Make_uqSource(tau_now, nu, vis_array,
+                                            velocity_array, grid_array);
+                tempf += temps*(DATA_ptr->delta_tau);
                 tempf += w_rhs[mu][nu];
 
-                grid_pt->Wmunu[trk_flag][idx_1d] = (
-                                            tempf/(grid_pt->u[trk_flag][0]));
+                grid_pt->Wmunu[trk_flag][idx_1d] = tempf/u0;
+                                            //tempf/(grid_pt->u[trk_flag][0]));
             }
         } else if (rk_flag > 0) {
-            diss->Make_uqRHS(tau_next, grid_pt, w_rhs, DATA, rk_flag);
+            diss->Make_uqRHS(tau_next, w_rhs, vis_array, vis_nbr_x, vis_nbr_y,
+                             vis_nbr_eta);
             int mu = 4;
             for (int nu = 1; nu < 4; nu++) {
                 int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                tempf = (grid_pt->Wmunu[0][idx_1d])*(grid_pt->prev_u[0][0]);
-                temps = diss->Make_uqSource(tau_next, grid_pt, nu, DATA,
-                                            rk_flag, theta_local, a_local,
-                                            sigma_local); 
-                tempf += temps*(DATA->delta_tau);
+                //tempf = (grid_pt->Wmunu[0][idx_1d])*(grid_pt->prev_u[0][0]);
+                tempf = vis_nbr_tau[idx][idx_1d]*vis_nbr_tau[idx][15];
+                temps = diss->Make_uqSource(tau_next, nu, vis_array,
+                                            velocity_array, grid_array);
+                tempf += temps*(DATA_ptr->delta_tau);
                 tempf += w_rhs[mu][nu];
 
-                tempf += ((grid_pt->Wmunu[rk_flag][idx_1d])
-                          *(grid_pt->u[rk_flag][0]));
+                //tempf += ((grid_pt->Wmunu[rk_flag][idx_1d])
+                //          *(grid_pt->u[rk_flag][0]));
+                tempf += vis_array[idx][idx_1d]*vis_array[idx][15];
                 tempf *= 0.5;
        
-                grid_pt->Wmunu[trk_flag][idx_1d] = (
-                                        tempf/(grid_pt->u[trk_flag][0]));
+                grid_pt->Wmunu[trk_flag][idx_1d] = tempf/u0;
+                                        //tempf/(grid_pt->u[trk_flag][0]));
             }
-        } /* rk_flag > 0 */
+        }
     } else {
         for (int nu = 0; nu < 4; nu++) {
             int idx_1d = util->map_2d_idx_to_1d(4, nu);
