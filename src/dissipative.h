@@ -22,7 +22,8 @@ class Diss {
     void MakeWSource(double tau, double **qi_array,
                      int n_cell_eta, int n_cell_x, double **vis_array,
                      double **vis_nbr_tau, double **vis_nbr_x,
-                     double **vis_nbr_y, double **vis_nbr_eta);
+                     double **vis_nbr_y, double **vis_nbr_eta,
+                     double **qi_array_new);
 
     int Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                      double **vis_array, double **vis_nbr_x,

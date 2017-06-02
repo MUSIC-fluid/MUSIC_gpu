@@ -341,11 +341,13 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
             for (ix = 0; ix <= grid_nx; ix += n_cell_x) {
 
                 double **qi_array = new double* [n_cell_x*n_cell_x*n_cell_eta];
+                double **qi_array_new = new double* [n_cell_x*n_cell_x*n_cell_eta];
                 double **qi_rk0 = new double* [n_cell_x*n_cell_x*n_cell_eta];
                 double **grid_array = (
                                 new double* [n_cell_x*n_cell_x*n_cell_eta]);
                 for (int i = 0; i < n_cell_x*n_cell_x*n_cell_eta; i++) {
                     qi_array[i] = new double[5];
+                    qi_array_new[i] = new double[5];
                     qi_rk0[i] = new double[5];
                     grid_array[i] = new double[5];
                 }
@@ -399,7 +401,7 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                                  qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
                                  n_cell_eta, n_cell_x, vis_array, vis_nbr_tau,
                                  vis_nbr_x, vis_nbr_y, vis_nbr_eta,
-                                 qi_rk0, grid_array);
+                                 qi_rk0, qi_array_new, grid_array);
 
                     update_grid_cell(grid_array, arena, rk_flag, ieta, ix, iy,
                                      n_cell_eta, n_cell_x);
@@ -430,6 +432,7 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                 //clean up
                 for (int i = 0; i < n_cell_x*n_cell_x*n_cell_eta; i++) {
                     delete[] qi_array[i];
+                    delete[] qi_array_new[i];
                     delete[] qi_rk0[i];
                     delete[] grid_array[i];
                     delete[] vis_array[i];
@@ -438,6 +441,7 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                     delete[] vis_array_new[i];
                 }
                 delete[] qi_array;
+                delete[] qi_array_new;
                 delete[] qi_rk0;
                 delete[] grid_array;
                 delete[] vis_array;
@@ -477,7 +481,8 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
                           int n_cell_eta, int n_cell_x, double **vis_array,
                           double **vis_nbr_tau, double **vis_nbr_x,
                           double **vis_nbr_y, double **vis_nbr_eta,
-                          double **qi_rk0, double **grid_array) {
+                          double **qi_rk0, double **qi_array_new,
+                          double **grid_array) {
 
     // this advances the ideal part
     double tau_next = tau + (DATA_ptr->delta_tau);
@@ -498,13 +503,13 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
     // It is the spatial derivative part of partial_a T^{a mu}
     // (including geometric terms)
     MakeDeltaQI(tau_rk, qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
-                n_cell_eta, n_cell_x, grid_array);
+                n_cell_eta, n_cell_x, qi_array_new, grid_array);
 
     // now MakeWSource returns partial_a W^{a mu}
     // (including geometric terms) 
     diss->MakeWSource(tau_rk, qi_array, n_cell_eta, n_cell_x,
                       vis_array, vis_nbr_tau, vis_nbr_x, vis_nbr_y,
-                      vis_nbr_eta);
+                      vis_nbr_eta, qi_array_new);
 
     if (rk_flag == 1) {
         // if rk_flag == 1, we now have q0 + k1 + k2. 
@@ -514,8 +519,8 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
                 for (int j = 0; j < n_cell_x; j++) {
                     int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
                     for (int alpha = 0; alpha < 5; alpha++) {
-                        qi_array[idx][alpha] += qi_rk0[idx][alpha];
-                        qi_array[idx][alpha] *= 0.5;
+                        qi_array_new[idx][alpha] += qi_rk0[idx][alpha];
+                        qi_array_new[idx][alpha] *= 0.5;
                     }
                 }
             }
@@ -528,7 +533,8 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
             for (int j = 0; j < n_cell_x; j++) {
                 int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
                 reconst_ptr->ReconstIt_shell(grid_array_t, tau_next,
-                                             qi_array[idx], grid_array[idx]);
+                                             qi_array_new[idx],
+                                             grid_array[idx]);
 
                 // update the grid_array
                 for (int alpha = 0; alpha < 5; alpha++) {
@@ -906,7 +912,8 @@ int Advance::QuestRevert_qmu(double tau, double *vis_array,
 //! derivatives of T^\mu\nu using the KT algorithm
 void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                           double **qi_nbr_y, double **qi_nbr_eta,
-                          int n_cell_eta, int n_cell_x, double **grid_array) {
+                          int n_cell_eta, int n_cell_x, double **qi_array_new,
+                          double **grid_array) {
     /* \partial_tau (tau Ttautau) + \partial_eta Tetatau 
             + \partial_x (tau Txtau) + \partial_y (tau Tytau) + Tetaeta = 0 */
     /* \partial_tau (tau Ttaueta) + \partial_eta Teteta 
@@ -938,6 +945,8 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
         for (int i = 0; i < n_cell_x; i++) {
             for (int j = 0; j < n_cell_x; j++) {
                 int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+                //cout << "check idx = " << idx << " i= " << i
+                //     << " j= " << j <<  " k = " << k << endl;
 
                 // implement Kurganov-Tadmor scheme
                 // here computes the half way T^\tau\mu currents
@@ -957,7 +966,7 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                         int idx_p_1 = 4*j + k*4*n_cell_x + 2;
                         gphR = qi_nbr_x[idx_p_1][alpha];
                     }
-                    if (i - 1 > 0) {
+                    if (i - 1 >= 0) {
                         int idx_m_1 = j + (i-1)*n_cell_x + k*n_cell_x*n_cell_x;
                         gmhL = qi_array[idx_m_1][alpha];
                     } else {
@@ -971,7 +980,7 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                         int idx_p_2 = 4*j + k*4*n_cell_x + 3;
                         gphR2 = qi_nbr_x[idx_p_2][alpha];
                     }
-                    if (i - 2 > 0) {
+                    if (i - 2 >= 0) {
                         int idx_m_2 = j + (i-2)*n_cell_x + k*n_cell_x*n_cell_x;
                         gmhL2 = qi_array[idx_m_2][alpha];
                     } else {
@@ -1031,6 +1040,7 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                                         - aimh*(qimhR[alpha] - qimhL[alpha]));
                     rhs[alpha] += Fimh/DATA_ptr->delta_x*DATA_ptr->delta_tau;
                 }
+                //cout << "x-direction" << endl;
                 
                 // y-direction
                 direc = 2;
@@ -1048,7 +1058,7 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                         int idx_p_1 = 4*i + 4*k*n_cell_x + 2;
                         gphR = qi_nbr_y[idx_p_1][alpha];
                     }
-                    if (j - 1 > 0) {
+                    if (j - 1 >= 0) {
                         int idx_m_1 = j - 1 + i*n_cell_x + k*n_cell_x*n_cell_x;
                         gmhL = qi_array[idx_m_1][alpha];
                     } else {
@@ -1062,7 +1072,7 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                         int idx_p_2 = 4*i + 4*k*n_cell_x + 3;
                         gphR2 = qi_nbr_y[idx_p_2][alpha];
                     }
-                    if (j - 2 > 0) {
+                    if (j - 2 >= 0) {
                         int idx_m_2 = j - 2 + i*n_cell_x + k*n_cell_x*n_cell_x;
                         gmhL2 = qi_array[idx_m_2][alpha];
                     } else {
@@ -1122,6 +1132,7 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                                         - aimh*(qimhR[alpha] - qimhL[alpha]));
                     rhs[alpha] += Fimh/DATA_ptr->delta_y*DATA_ptr->delta_tau;
                 }
+                //cout << "y-direction" << endl;
                 
                 // eta-direction
                 direc = 3;
@@ -1139,7 +1150,7 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                         int idx_p_1 = 4*i + 4*j*n_cell_x + 2;
                         gphR = qi_nbr_eta[idx_p_1][alpha];
                     }
-                    if (k - 1 > 0) {
+                    if (k - 1 >= 0) {
                         int idx_m_1 = j + i*n_cell_x + (k-1)*n_cell_x*n_cell_x;
                         gmhL = qi_array[idx_m_1][alpha];
                     } else {
@@ -1153,7 +1164,7 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                         int idx_p_2 = 4*i + 4*j*n_cell_x + 3;
                         gphR2 = qi_nbr_eta[idx_p_2][alpha];
                     }
-                    if (k - 2 > 0) {
+                    if (k - 2 >= 0) {
                         int idx_m_2 = j + i*n_cell_x + (k-2)*n_cell_x*n_cell_x;
                         gmhL2 = qi_array[idx_m_2][alpha];
                     } else {
@@ -1213,6 +1224,7 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                                         - aimh*(qimhR[alpha] - qimhL[alpha]));
                     rhs[alpha] += Fimh/DATA_ptr->delta_eta*DATA_ptr->delta_tau;
                 }
+                //cout << "eta-direction" << endl;
 
                 // geometric terms
                 rhs[0] -= (get_TJb_new(grid_array[idx], 3, 3)
@@ -1220,8 +1232,8 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                 rhs[3] -= (get_TJb_new(grid_array[idx], 3, 0)
                            *DATA_ptr->delta_tau);
                 
-                for (int i = 0; i < 5; i++) {
-                    qi_array[idx][i] += rhs[i];
+                for (int alpha = 0; alpha < 5; alpha++) {
+                    qi_array_new[idx][alpha] = qi_array[idx][alpha] + rhs[alpha];
                 }
             }
         }

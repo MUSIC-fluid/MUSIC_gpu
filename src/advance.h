@@ -56,8 +56,8 @@ class Advance {
                      double **qi_nbr_eta, int n_cell_eta, int n_cell_x,
                      double **vis_array, double **vis_nbr_tau,
                      double **vis_nbr_x, double **vis_nbr_y,
-                     double **vis_nbr_eta,
-                     double **qi_rk0, double **grid_array);
+                     double **vis_nbr_eta, double **qi_rk0,
+                     double **qi_array_new, double **grid_array);
 
     int FirstRKStepW(double tau_it, int rk_flag, int n_cell_eta, int n_cell_x,
                      double **vis_array,
@@ -90,7 +90,8 @@ class Advance {
 
     void MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                      double **qi_nbr_y, double **qi_nbr_eta,
-                     int n_cell_eta, int n_cell_x, double **grid_array);
+                     int n_cell_eta, int n_cell_x, double **qi_array_new,
+                     double **grid_array);
 
     double MaxSpeed(double tau, int direc, double *grid_array);
 
