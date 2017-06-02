@@ -805,9 +805,11 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
     int revert_flag = 0;
     int revert_q_flag = 0;
     if (DATA->Initial_profile != 0) {
-        revert_flag = QuestRevert(tau, grid_pt, rk_flag, DATA);
+        revert_flag = QuestRevert(tau, grid_pt, rk_flag,
+                                  vis_array_new, grid_array);
         if (DATA->turn_on_diff == 1) {
-            revert_q_flag = QuestRevert_qmu(tau, grid_pt, rk_flag, DATA);
+            revert_q_flag = QuestRevert_qmu(tau, grid_pt, rk_flag,
+                                            vis_array_new, grid_array);
         }
     }
 
@@ -910,7 +912,8 @@ void Advance::UpdateTJbRK(double *grid_array, Grid *grid_pt, int rk_flag) {
 //! this function reduce the size of shear stress tensor and bulk pressure
 //! in the dilute region to stablize numerical simulations
 int Advance::QuestRevert(double tau, Grid *grid_pt, int rk_flag,
-                         InitData *DATA) {
+                         double **vis_array, double **grid_array) {
+    int idx = 0;
     int revert_flag = 0;
     const double energy_density_warning = 0.01;  // GeV/fm^3, T~100 MeV
 
@@ -920,28 +923,41 @@ int Advance::QuestRevert(double tau, Grid *grid_pt, int rk_flag,
     }
 
     double eps_scale = 1.0;  // 1/fm^4
-    double factor = 300.*tanh(grid_pt->epsilon/eps_scale);
+    double e_local = grid_array[idx][0];
+    double factor = 300.*tanh(e_local/eps_scale);
 
-    double pi_00 = grid_pt->Wmunu[trk_flag][0];
-    double pi_01 = grid_pt->Wmunu[trk_flag][1];
-    double pi_02 = grid_pt->Wmunu[trk_flag][2];
-    double pi_03 = grid_pt->Wmunu[trk_flag][3];
-    double pi_11 = grid_pt->Wmunu[trk_flag][4];
-    double pi_12 = grid_pt->Wmunu[trk_flag][5];
-    double pi_13 = grid_pt->Wmunu[trk_flag][6];
-    double pi_22 = grid_pt->Wmunu[trk_flag][7];
-    double pi_23 = grid_pt->Wmunu[trk_flag][8];
-    double pi_33 = grid_pt->Wmunu[trk_flag][9];
+    //double pi_00 = grid_pt->Wmunu[trk_flag][0];
+    //double pi_01 = grid_pt->Wmunu[trk_flag][1];
+    //double pi_02 = grid_pt->Wmunu[trk_flag][2];
+    //double pi_03 = grid_pt->Wmunu[trk_flag][3];
+    //double pi_11 = grid_pt->Wmunu[trk_flag][4];
+    //double pi_12 = grid_pt->Wmunu[trk_flag][5];
+    //double pi_13 = grid_pt->Wmunu[trk_flag][6];
+    //double pi_22 = grid_pt->Wmunu[trk_flag][7];
+    //double pi_23 = grid_pt->Wmunu[trk_flag][8];
+    //double pi_33 = grid_pt->Wmunu[trk_flag][9];
+    
+    double pi_00 = vis_array[idx][0];
+    double pi_01 = vis_array[idx][1];
+    double pi_02 = vis_array[idx][2];
+    double pi_03 = vis_array[idx][3];
+    double pi_11 = vis_array[idx][4];
+    double pi_12 = vis_array[idx][5];
+    double pi_13 = vis_array[idx][6];
+    double pi_22 = vis_array[idx][7];
+    double pi_23 = vis_array[idx][8];
+    double pi_33 = vis_array[idx][9];
 
     double pisize = (pi_00*pi_00 + pi_11*pi_11 + pi_22*pi_22 + pi_33*pi_33
                      - 2.*(pi_01*pi_01 + pi_02*pi_02 + pi_03*pi_03)
                      + 2.*(pi_12*pi_12 + pi_13*pi_13 + pi_23*pi_23));
   
-    double pi_local = grid_pt->pi_b[trk_flag];
+    //double pi_local = grid_pt->pi_b[trk_flag];
+    double pi_local = vis_array[idx][14];
     double bulksize = 3.*pi_local*pi_local;
 
-    double e_local = grid_pt->epsilon;
-    double rhob_local = grid_pt->rhob;
+    //double rhob_local = grid_pt->rhob;
+    double rhob_local = grid_array[idx][4];
     double p_local = eos->get_pressure(e_local, rhob_local);
     double eq_size = e_local*e_local + 3.*p_local*p_local;
        
@@ -958,9 +974,12 @@ int Advance::QuestRevert(double tau, Grid *grid_pt, int rk_flag,
         for (int mu = 0; mu < 4; mu++) {
             for (int nu = mu; nu < 4; nu++) {
                 int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                grid_pt->Wmunu[trk_flag][idx_1d] = (
-                    (rho_shear_max/rho_shear)
-                    *grid_pt->Wmunu[trk_flag][idx_1d]);
+                //grid_pt->Wmunu[trk_flag][idx_1d] = (
+                //    (rho_shear_max/rho_shear)
+                //    *grid_pt->Wmunu[trk_flag][idx_1d]);
+                vis_array[idx][idx_1d] = ((rho_shear_max/rho_shear)
+                                          *vis_array[idx][idx_1d]);
+                grid_pt->Wmunu[trk_flag][idx_1d] = vis_array[idx][idx_1d];
             }
         }
         revert_flag = 1;
@@ -973,8 +992,10 @@ int Advance::QuestRevert(double tau, Grid *grid_pt, int rk_flag,
             printf("energy density = %lf --  |Pi/(epsilon+3*P)| = %lf\n",
                    e_local*hbarc, rho_bulk);
         }
-        grid_pt->pi_b[trk_flag] = (
-                (rho_bulk_max/rho_bulk)*grid_pt->pi_b[trk_flag]);
+        //grid_pt->pi_b[trk_flag] = (
+        //        (rho_bulk_max/rho_bulk)*grid_pt->pi_b[trk_flag]);
+        vis_array[idx][14] = (rho_bulk_max/rho_bulk)*vis_array[idx][14];
+        grid_pt->pi_b[trk_flag] = vis_array[idx][14];
         revert_flag = 1;
     }
 
@@ -985,8 +1006,9 @@ int Advance::QuestRevert(double tau, Grid *grid_pt, int rk_flag,
 //! this function reduce the size of net baryon diffusion current
 //! in the dilute region to stablize numerical simulations
 int Advance::QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
-                             InitData *DATA) {
+                             double **vis_array, double **grid_array) {
 
+    int idx = 0;
     int trk_flag = rk_flag + 1;
     if (rk_flag == 1) {
         trk_flag = 0;
@@ -994,13 +1016,15 @@ int Advance::QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
     int revert_flag = 0;
     const double energy_density_warning = 0.01;  // GeV/fm^3, T~100 MeV
     double eps_scale = 1.0;   // in 1/fm^4
-    double factor = 300.*tanh(grid_pt->epsilon/eps_scale);
+    double e_local = grid_array[idx][0];
+    double factor = 300.*tanh(e_local/eps_scale);
 
     double q_mu_local[4];
     for (int i = 0; i < 4; i++) {
         // copy the value from the grid
         int idx_1d = util->map_2d_idx_to_1d(4, i);
-        q_mu_local[i] = grid_pt->Wmunu[trk_flag][idx_1d];
+        //q_mu_local[i] = grid_pt->Wmunu[trk_flag][idx_1d];
+        q_mu_local[i] = vis_array[idx][idx_1d];
     }
 
     // calculate the size of q^\mu
@@ -1018,14 +1042,15 @@ int Advance::QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
         cout << "Reset it to zero!!!!" << endl;
         for (int i = 0; i < 4; i++) {
             int idx_1d = util->map_2d_idx_to_1d(4, i);
-            grid_pt->Wmunu[trk_flag][idx_1d] = 0.0;
+            //grid_pt->Wmunu[trk_flag][idx_1d] = 0.0;
+            vis_array[idx][idx_1d] = 0.0;
+            grid_pt->Wmunu[trk_flag][idx_1d] = vis_array[idx][idx_1d];
         }
         revert_flag = 1;
     }
 
     // reduce the size of q^mu according to rhoB
-    double e_local = grid_pt->epsilon;
-    double rhob_local = grid_pt->rhob;
+    double rhob_local = grid_array[idx][4];
     double rho_q = sqrt(q_size/(rhob_local*rhob_local))/factor;
     double rho_q_max = 0.1;
     if (rho_q > rho_q_max) {
@@ -1035,8 +1060,10 @@ int Advance::QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
         }
         for (int i = 0; i < 4; i++) {
             int idx_1d = util->map_2d_idx_to_1d(4, i);
-            grid_pt->Wmunu[trk_flag][idx_1d] =
-                                (rho_q_max/rho_q)*q_mu_local[i];
+            //grid_pt->Wmunu[trk_flag][idx_1d] =
+            //                    (rho_q_max/rho_q)*q_mu_local[i];
+            vis_array[idx][idx_1d] =rho_q_max/rho_q*q_mu_local[i];
+            grid_pt->Wmunu[trk_flag][idx_1d] = vis_array[idx][idx_1d];
         }
         revert_flag = 1;
     }

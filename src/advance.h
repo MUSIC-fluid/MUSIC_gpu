@@ -83,9 +83,10 @@ class Advance {
                           int ieta, int ix, int iy,
                           int n_cell_eta, int n_cell_x);
 
-    int QuestRevert(double tau, Grid *grid_pt, int rk_flag, InitData *DATA);
+    int QuestRevert(double tau, Grid *grid_pt, int rk_flag,
+                    double **vis_array, double **grid_array);
     int QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
-                        InitData *DATA);
+                        double **vis_array, double **grid_array);
 
     void MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                      double **qi_nbr_y, double **qi_nbr_eta,
