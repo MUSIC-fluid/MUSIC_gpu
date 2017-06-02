@@ -503,6 +503,11 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
     if (DATA_ptr->turn_on_shear == 0)
         return(1);
 
+    int idx_1d_list[] = {4, 5, 6, 7, 8 ,9};
+    int mu_list[] = {1, 1, 1, 2, 2, 3};
+    int nu_list[] = {1, 2, 3, 2, 3, 3};
+    int idx_list_length = sizeof(idx_1d_list)/sizeof(int);
+
     double Wmunu_local[4][4];
     for (int k = 0; k < n_cell_eta; k++) {
         for (int i = 0; i < n_cell_x; i++) {
@@ -540,271 +545,277 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                 // This is the second step in the operator splitting. it uses
                 // rk_flag+1 as initial condition
     
-                double sum, taufactor;
+                double taufactor;
                 double g, gp1, gm1, gp2, gm2, a, am1, ap1, ax;
                 double f, fp1, fm1, fp2, fm2;
                 double uWphR, uWphL, uWmhR, uWmhL, WphR, WphL, WmhR, WmhL;
                 double HWph, HWmh, HW;
-                double tempf;
                 int idx_p_2, idx_p_1, idx_m_1, idx_m_2;
-                for (int mu = 1; mu < 4; mu++) {
-                    for (int nu = mu; nu < 4; nu++) {
-                        // pi^\mu\nu is symmetric
+                for (int ii = 0; ii < idx_list_length; ii++) {
+                    int idx_1d = idx_1d_list[ii];
 
-                        int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                        vis_array_new[idx][idx_1d] = (
+                    // the derivative part is the same for all viscous
+                    // components
+                    vis_array_new[idx][idx_1d] = (
                                 vis_array[idx][idx_1d]*vis_array[idx][15]);
 
-                        sum = 0.0;
-                        // x-direction
-                        taufactor = 1.0;
-                        /* Get_uWmns */
-                        //g = grid_pt->Wmunu[rk_flag][idx_1d];
-                        //f = g*grid_pt->u[rk_flag][direc];
-                        //g *= grid_pt->u[rk_flag][0];
-                        g = Wmunu_local[mu][nu];
-                        f = g*vis_array[idx][16];
-                        g *= vis_array[idx][15];
-                        //a = fabs(grid_pt->u[rk_flag][direc]);
-                        a = fabs(vis_array[idx][16])/vis_array[idx][15];
+                    double sum = 0.0;
+                    // x-direction
+                    taufactor = 1.0;
+                    /* Get_uWmns */
+                    //g = grid_pt->Wmunu[rk_flag][idx_1d];
+                    //f = g*grid_pt->u[rk_flag][direc];
+                    //g *= grid_pt->u[rk_flag][0];
+                    g = vis_array[idx][idx_1d];
+                    f = g*vis_array[idx][16];
+                    g *= vis_array[idx][15];
+                    //a = fabs(grid_pt->u[rk_flag][direc]);
+                    a = fabs(vis_array[idx][16])/vis_array[idx][15];
 
-                        if (i + 2 < n_cell_x) {
-                            idx_p_2 = j + (i+2)*n_cell_x + k*n_cell_x*n_cell_x;
-                            gp2 = vis_array[idx_p_2][idx_1d];
-                            fp2 = gp2*vis_array[idx_p_2][16];
-                            gp2 *= vis_array[idx_p_2][15];
-                        } else {
-                            idx_p_2 = 4*j + k*4*n_cell_x + 3;
-                            gp2 = vis_nbr_x[idx_p_2][idx_1d];
-                            fp2 = gp2*vis_nbr_x[idx_p_2][16];
-                            gp2 *= vis_nbr_x[idx_p_2][15];
-                        }
+                    if (i + 2 < n_cell_x) {
+                        idx_p_2 = j + (i+2)*n_cell_x + k*n_cell_x*n_cell_x;
+                        gp2 = vis_array[idx_p_2][idx_1d];
+                        fp2 = gp2*vis_array[idx_p_2][16];
+                        gp2 *= vis_array[idx_p_2][15];
+                    } else {
+                        idx_p_2 = 4*j + k*4*n_cell_x + 3;
+                        gp2 = vis_nbr_x[idx_p_2][idx_1d];
+                        fp2 = gp2*vis_nbr_x[idx_p_2][16];
+                        gp2 *= vis_nbr_x[idx_p_2][15];
+                    }
 
-                        if (i + 1 < n_cell_x) {
-                            idx_p_1 = j + (i+1)*n_cell_x + k*n_cell_x*n_cell_x;
-                            gp1 = vis_array[idx_p_1][idx_1d];
-                            fp1 = gp1*vis_array[idx_p_1][16];
-                            gp1 *= vis_array[idx_p_1][15];
-                            ap1 = (fabs(vis_array[idx_p_1][16])
-                                   /vis_array[idx_p_1][15]);
-                        } else {
-                            idx_p_1 = 4*j + k*4*n_cell_x + 2;
-                            gp1 = vis_nbr_x[idx_p_1][idx_1d];
-                            fp1 = gp1*vis_nbr_x[idx_p_1][16];
-                            gp1 *= vis_nbr_x[idx_p_1][15];
-                            ap1 = (fabs(vis_nbr_x[idx_p_1][16])
-                                   /vis_nbr_x[idx_p_1][15]);
-                        }
+                    if (i + 1 < n_cell_x) {
+                        idx_p_1 = j + (i+1)*n_cell_x + k*n_cell_x*n_cell_x;
+                        gp1 = vis_array[idx_p_1][idx_1d];
+                        fp1 = gp1*vis_array[idx_p_1][16];
+                        gp1 *= vis_array[idx_p_1][15];
+                        ap1 = (fabs(vis_array[idx_p_1][16])
+                               /vis_array[idx_p_1][15]);
+                    } else {
+                        idx_p_1 = 4*j + k*4*n_cell_x + 2;
+                        gp1 = vis_nbr_x[idx_p_1][idx_1d];
+                        fp1 = gp1*vis_nbr_x[idx_p_1][16];
+                        gp1 *= vis_nbr_x[idx_p_1][15];
+                        ap1 = (fabs(vis_nbr_x[idx_p_1][16])
+                               /vis_nbr_x[idx_p_1][15]);
+                    }
 
-                        if (i - 1 > 0) {
-                            idx_m_1 = j + (i-1)*n_cell_x + k*n_cell_x*n_cell_x;
-                            gm1 = vis_array[idx_m_1][idx_1d];
-                            fm1 = gm1*vis_array[idx_m_1][16];
-                            gm1 *= vis_array[idx_m_1][15];
-                            am1 = (fabs(vis_array[idx_m_1][16])
-                                   /vis_array[idx_m_1][15]);
-                        } else {
-                            idx_m_1 = 4*j + k*4*n_cell_x + 1;
-                            gm1 = vis_nbr_x[idx_m_1][idx_1d];
-                            fm1 = gm1*vis_nbr_x[idx_m_1][16];
-                            gm1 *= vis_nbr_x[idx_m_1][15];
-                            am1 = (fabs(vis_nbr_x[idx_m_1][16])
-                                   /vis_nbr_x[idx_m_1][15]);
-                        }
+                    if (i - 1 > 0) {
+                        idx_m_1 = j + (i-1)*n_cell_x + k*n_cell_x*n_cell_x;
+                        gm1 = vis_array[idx_m_1][idx_1d];
+                        fm1 = gm1*vis_array[idx_m_1][16];
+                        gm1 *= vis_array[idx_m_1][15];
+                        am1 = (fabs(vis_array[idx_m_1][16])
+                               /vis_array[idx_m_1][15]);
+                    } else {
+                        idx_m_1 = 4*j + k*4*n_cell_x + 1;
+                        gm1 = vis_nbr_x[idx_m_1][idx_1d];
+                        fm1 = gm1*vis_nbr_x[idx_m_1][16];
+                        gm1 *= vis_nbr_x[idx_m_1][15];
+                        am1 = (fabs(vis_nbr_x[idx_m_1][16])
+                               /vis_nbr_x[idx_m_1][15]);
+                    }
 
-                        if (i - 2 > 0) {
-                            idx_m_2 = j + (i-2)*n_cell_x + k*n_cell_x*n_cell_x;
-                            gm2 = vis_array[idx_m_2][idx_1d];
-                            fm2 = gm2*vis_array[idx_m_2][16];
-                            gm2 *= vis_array[idx_m_2][15];
-                        } else {
-                            idx_m_2 = 4*j + k*4*n_cell_x;
-                            gm2 = vis_nbr_x[idx_m_2][idx_1d];
-                            fm2 = gm2*vis_nbr_x[idx_m_2][16];
-                            gm2 *= vis_nbr_x[idx_m_2][15];
-                        }
-                        // MakeuWmnHalfs uWmn
-                        uWphR = fp1 - 0.5*minmod->minmod_dx(fp2, fp1, f);
-                        uWphL = f + 0.5*minmod->minmod_dx(fp1, f, fm1);
-                        uWmhR = f - 0.5*minmod->minmod_dx(fp1, f, fm1);
-                        uWmhL = fm1 + 0.5*minmod->minmod_dx(f, fm1, fm2);
-                        // just Wmn
-                        WphR = gp1 - 0.5*minmod->minmod_dx(gp2, gp1, g);
-                        WphL = g + 0.5*minmod->minmod_dx(gp1, g, gm1);
-                        WmhR = g - 0.5*minmod->minmod_dx(gp1, g, gm1);
-                        WmhL = gm1 + 0.5*minmod->minmod_dx(g, gm1, gm2);
+                    if (i - 2 > 0) {
+                        idx_m_2 = j + (i-2)*n_cell_x + k*n_cell_x*n_cell_x;
+                        gm2 = vis_array[idx_m_2][idx_1d];
+                        fm2 = gm2*vis_array[idx_m_2][16];
+                        gm2 *= vis_array[idx_m_2][15];
+                    } else {
+                        idx_m_2 = 4*j + k*4*n_cell_x;
+                        gm2 = vis_nbr_x[idx_m_2][idx_1d];
+                        fm2 = gm2*vis_nbr_x[idx_m_2][16];
+                        gm2 *= vis_nbr_x[idx_m_2][15];
+                    }
+                    // MakeuWmnHalfs uWmn
+                    uWphR = fp1 - 0.5*minmod->minmod_dx(fp2, fp1, f);
+                    uWphL = f + 0.5*minmod->minmod_dx(fp1, f, fm1);
+                    uWmhR = f - 0.5*minmod->minmod_dx(fp1, f, fm1);
+                    uWmhL = fm1 + 0.5*minmod->minmod_dx(f, fm1, fm2);
+                    // just Wmn
+                    WphR = gp1 - 0.5*minmod->minmod_dx(gp2, gp1, g);
+                    WphL = g + 0.5*minmod->minmod_dx(gp1, g, gm1);
+                    WmhR = g - 0.5*minmod->minmod_dx(gp1, g, gm1);
+                    WmhL = gm1 + 0.5*minmod->minmod_dx(g, gm1, gm2);
 
-                        ax = maxi(a, ap1);
-                        HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
-                        ax = maxi(a, am1);
-                        HWmh = ((uWmhR + uWmhL) - ax*(WmhR - WmhL))*0.5;
-                        HW = (HWph - HWmh)/DATA_ptr->delta_x/taufactor;
-                            
-                        // make partial_i (u^i Wmn)
-                        sum += -HW;
+                    ax = maxi(a, ap1);
+                    HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
+                    ax = maxi(a, am1);
+                    HWmh = ((uWmhR + uWmhL) - ax*(WmhR - WmhL))*0.5;
+                    HW = (HWph - HWmh)/DATA_ptr->delta_x/taufactor;
+                        
+                    // make partial_i (u^i Wmn)
+                    sum += -HW;
             
-                        // y-direction
-                        taufactor = 1.0;
-                        /* Get_uWmns */
-                        g = Wmunu_local[mu][nu];
-                        f = g*vis_array[idx][17];
-                        g *= vis_array[idx][15];
-                        a = fabs(vis_array[idx][17])/vis_array[idx][15];
+                    // y-direction
+                    taufactor = 1.0;
+                    /* Get_uWmns */
+                    g = vis_array[idx][idx_1d];
+                    f = g*vis_array[idx][17];
+                    g *= vis_array[idx][15];
+                    a = fabs(vis_array[idx][17])/vis_array[idx][15];
 
-                        if (j + 2 < n_cell_x) {
-                            idx_p_2 = j + 2 + i*n_cell_x + k*n_cell_x*n_cell_x;
-                            gp2 = vis_array[idx_p_2][idx_1d];
-                            fp2 = gp2*vis_array[idx_p_2][17];
-                            gp2 *= vis_array[idx_p_2][15];
-                        } else {
-                            idx_p_2 = 4*i + 4*k*n_cell_x + 3;
-                            gp2 = vis_nbr_y[idx_p_2][idx_1d];
-                            fp2 = gp2*vis_nbr_y[idx_p_2][17];
-                            gp2 *= vis_nbr_y[idx_p_2][15];
-                        }
+                    if (j + 2 < n_cell_x) {
+                        idx_p_2 = j + 2 + i*n_cell_x + k*n_cell_x*n_cell_x;
+                        gp2 = vis_array[idx_p_2][idx_1d];
+                        fp2 = gp2*vis_array[idx_p_2][17];
+                        gp2 *= vis_array[idx_p_2][15];
+                    } else {
+                        idx_p_2 = 4*i + 4*k*n_cell_x + 3;
+                        gp2 = vis_nbr_y[idx_p_2][idx_1d];
+                        fp2 = gp2*vis_nbr_y[idx_p_2][17];
+                        gp2 *= vis_nbr_y[idx_p_2][15];
+                    }
 
-                        if (j + 1 < n_cell_x) {
-                            idx_p_1 = j + 1 + i*n_cell_x + k*n_cell_x*n_cell_x;
-                            gp1 = vis_array[idx_p_1][idx_1d];
-                            fp1 = gp1*vis_array[idx_p_1][17];
-                            gp1 *= vis_array[idx_p_1][15];
-                            ap1 = (fabs(vis_array[idx_p_1][17])
-                                   /vis_array[idx_p_1][15]);
-                        } else {
-                            idx_p_1 = 4*i + 4*k*n_cell_x + 2;
-                            gp1 = vis_nbr_y[idx_p_1][idx_1d];
-                            fp1 = gp1*vis_nbr_y[idx_p_1][17];
-                            gp1 *= vis_nbr_y[idx_p_1][15];
-                            ap1 = (fabs(vis_nbr_y[idx_p_1][17])
-                                   /vis_nbr_y[idx_p_1][15]);
-                        }
-                            
-                        if (j - 1 > 0) {
-                            idx_m_1 = j - 1 + i*n_cell_x + k*n_cell_x*n_cell_x;
-                            gm1 = vis_array[idx_m_1][idx_1d];
-                            fm1 = gm1*vis_array[idx_m_1][17];
-                            gm1 *= vis_array[idx_m_1][15];
-                            am1 = (fabs(vis_array[idx_m_1][17])
-                                   /vis_array[idx_m_1][15]);
-                        } else {
-                            idx_m_1 = 4*i + 4*k*n_cell_x + 1;
-                            gm1 = vis_nbr_y[idx_m_1][idx_1d];
-                            fm1 = gm1*vis_nbr_y[idx_m_1][17];
-                            gm1 *= vis_nbr_y[idx_m_1][15];
-                            am1 = (fabs(vis_nbr_y[idx_m_1][17])
-                                   /vis_nbr_y[idx_m_1][15]);
-                        }
+                    if (j + 1 < n_cell_x) {
+                        idx_p_1 = j + 1 + i*n_cell_x + k*n_cell_x*n_cell_x;
+                        gp1 = vis_array[idx_p_1][idx_1d];
+                        fp1 = gp1*vis_array[idx_p_1][17];
+                        gp1 *= vis_array[idx_p_1][15];
+                        ap1 = (fabs(vis_array[idx_p_1][17])
+                               /vis_array[idx_p_1][15]);
+                    } else {
+                        idx_p_1 = 4*i + 4*k*n_cell_x + 2;
+                        gp1 = vis_nbr_y[idx_p_1][idx_1d];
+                        fp1 = gp1*vis_nbr_y[idx_p_1][17];
+                        gp1 *= vis_nbr_y[idx_p_1][15];
+                        ap1 = (fabs(vis_nbr_y[idx_p_1][17])
+                               /vis_nbr_y[idx_p_1][15]);
+                    }
+                        
+                    if (j - 1 > 0) {
+                        idx_m_1 = j - 1 + i*n_cell_x + k*n_cell_x*n_cell_x;
+                        gm1 = vis_array[idx_m_1][idx_1d];
+                        fm1 = gm1*vis_array[idx_m_1][17];
+                        gm1 *= vis_array[idx_m_1][15];
+                        am1 = (fabs(vis_array[idx_m_1][17])
+                               /vis_array[idx_m_1][15]);
+                    } else {
+                        idx_m_1 = 4*i + 4*k*n_cell_x + 1;
+                        gm1 = vis_nbr_y[idx_m_1][idx_1d];
+                        fm1 = gm1*vis_nbr_y[idx_m_1][17];
+                        gm1 *= vis_nbr_y[idx_m_1][15];
+                        am1 = (fabs(vis_nbr_y[idx_m_1][17])
+                               /vis_nbr_y[idx_m_1][15]);
+                    }
 
-                        if (j - 2 > 0) {
-                            idx_m_2 = j - 2 + i*n_cell_x + k*n_cell_x*n_cell_x;
-                            gm2 = vis_array[idx_m_2][idx_1d];
-                            fm2 = gm2*vis_array[idx_m_2][17];
-                            gm2 *= vis_array[idx_m_2][15];
-                        } else {
-                            idx_m_2 = 4*i + 4*k*n_cell_x;
-                            gm2 = vis_nbr_y[idx_m_2][idx_1d];
-                            fm2 = gm2*vis_nbr_y[idx_m_2][17];
-                            gm2 *= vis_nbr_y[idx_m_2][15];
-                        }
-                        // MakeuWmnHalfs uWmn
-                        uWphR = fp1 - 0.5*minmod->minmod_dx(fp2, fp1, f);
-                        uWphL = f + 0.5*minmod->minmod_dx(fp1, f, fm1);
-                        uWmhR = f - 0.5*minmod->minmod_dx(fp1, f, fm1);
-                        uWmhL = fm1 + 0.5*minmod->minmod_dx(f, fm1, fm2);
-                        // just Wmn
-                        WphR = gp1 - 0.5*minmod->minmod_dx(gp2, gp1, g);
-                        WphL = g + 0.5*minmod->minmod_dx(gp1, g, gm1);
-                        WmhR = g - 0.5*minmod->minmod_dx(gp1, g, gm1);
-                        WmhL = gm1 + 0.5*minmod->minmod_dx(g, gm1, gm2);
-                        ax = maxi(a, ap1);
-                        HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
-                        ax = maxi(a, am1);
-                        HWmh = ((uWmhR + uWmhL) - ax*(WmhR - WmhL))*0.5;
-                        HW = (HWph - HWmh)/DATA_ptr->delta_y/taufactor;
-                        // make partial_i (u^i Wmn)
-                        sum += -HW;
+                    if (j - 2 > 0) {
+                        idx_m_2 = j - 2 + i*n_cell_x + k*n_cell_x*n_cell_x;
+                        gm2 = vis_array[idx_m_2][idx_1d];
+                        fm2 = gm2*vis_array[idx_m_2][17];
+                        gm2 *= vis_array[idx_m_2][15];
+                    } else {
+                        idx_m_2 = 4*i + 4*k*n_cell_x;
+                        gm2 = vis_nbr_y[idx_m_2][idx_1d];
+                        fm2 = gm2*vis_nbr_y[idx_m_2][17];
+                        gm2 *= vis_nbr_y[idx_m_2][15];
+                    }
+                    // MakeuWmnHalfs uWmn
+                    uWphR = fp1 - 0.5*minmod->minmod_dx(fp2, fp1, f);
+                    uWphL = f + 0.5*minmod->minmod_dx(fp1, f, fm1);
+                    uWmhR = f - 0.5*minmod->minmod_dx(fp1, f, fm1);
+                    uWmhL = fm1 + 0.5*minmod->minmod_dx(f, fm1, fm2);
+                    // just Wmn
+                    WphR = gp1 - 0.5*minmod->minmod_dx(gp2, gp1, g);
+                    WphL = g + 0.5*minmod->minmod_dx(gp1, g, gm1);
+                    WmhR = g - 0.5*minmod->minmod_dx(gp1, g, gm1);
+                    WmhL = gm1 + 0.5*minmod->minmod_dx(g, gm1, gm2);
+                    ax = maxi(a, ap1);
+                    HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
+                    ax = maxi(a, am1);
+                    HWmh = ((uWmhR + uWmhL) - ax*(WmhR - WmhL))*0.5;
+                    HW = (HWph - HWmh)/DATA_ptr->delta_y/taufactor;
+                    // make partial_i (u^i Wmn)
+                    sum += -HW;
             
-                        // eta-direction
-                        taufactor = tau;
-                        /* Get_uWmns */
-                        g = Wmunu_local[mu][nu];
-                        f = g*vis_array[idx][18];
-                        g *= vis_array[idx][15];
-                        a = fabs(vis_array[idx][18])/vis_array[idx][15];
+                    // eta-direction
+                    taufactor = tau;
+                    /* Get_uWmns */
+                    g = vis_array[idx][idx_1d];
+                    f = g*vis_array[idx][18];
+                    g *= vis_array[idx][15];
+                    a = fabs(vis_array[idx][18])/vis_array[idx][15];
 
-                        if (k + 2 < n_cell_eta) {
-                            idx_p_2 = j + i*n_cell_x + (k+2)*n_cell_x*n_cell_x;
-                            gp2 = vis_array[idx_p_2][idx_1d];
-                            fp2 = gp2*vis_array[idx_p_2][18];
-                            gp2 *= vis_array[idx_p_2][15];
-                        } else {
-                            idx_p_2 = 4*i + 4*j*n_cell_x + 3;
-                            gp2 = vis_nbr_eta[idx_p_2][idx_1d];
-                            fp2 = gp2*vis_nbr_eta[idx_p_2][18];
-                            gp2 *= vis_nbr_eta[idx_p_2][15];
-                        }
+                    if (k + 2 < n_cell_eta) {
+                        idx_p_2 = j + i*n_cell_x + (k+2)*n_cell_x*n_cell_x;
+                        gp2 = vis_array[idx_p_2][idx_1d];
+                        fp2 = gp2*vis_array[idx_p_2][18];
+                        gp2 *= vis_array[idx_p_2][15];
+                    } else {
+                        idx_p_2 = 4*i + 4*j*n_cell_x + 3;
+                        gp2 = vis_nbr_eta[idx_p_2][idx_1d];
+                        fp2 = gp2*vis_nbr_eta[idx_p_2][18];
+                        gp2 *= vis_nbr_eta[idx_p_2][15];
+                    }
 
-                        if (k + 1 < n_cell_eta) {
-                            idx_p_1 = j + i*n_cell_x + (k+1)*n_cell_x*n_cell_x;
-                            gp1 = vis_array[idx_p_1][idx_1d];
-                            fp1 = gp1*vis_array[idx_p_1][18];
-                            gp1 *= vis_array[idx_p_1][15];
-                            ap1 = (fabs(vis_array[idx_p_1][17])
-                                    /vis_array[idx_p_1][15]);
-                        } else {
-                            idx_p_1 = 4*i + 4*j*n_cell_x + 2;
-                            gp1 = vis_nbr_eta[idx_p_1][idx_1d];
-                            fp1 = gp1*vis_nbr_eta[idx_p_1][18];
-                            gp1 *= vis_nbr_eta[idx_p_1][15];
-                            ap1 = (fabs(vis_nbr_eta[idx_p_1][17])
-                                    /vis_nbr_eta[idx_p_1][15]);
-                        }
+                    if (k + 1 < n_cell_eta) {
+                        idx_p_1 = j + i*n_cell_x + (k+1)*n_cell_x*n_cell_x;
+                        gp1 = vis_array[idx_p_1][idx_1d];
+                        fp1 = gp1*vis_array[idx_p_1][18];
+                        gp1 *= vis_array[idx_p_1][15];
+                        ap1 = (fabs(vis_array[idx_p_1][17])
+                                /vis_array[idx_p_1][15]);
+                    } else {
+                        idx_p_1 = 4*i + 4*j*n_cell_x + 2;
+                        gp1 = vis_nbr_eta[idx_p_1][idx_1d];
+                        fp1 = gp1*vis_nbr_eta[idx_p_1][18];
+                        gp1 *= vis_nbr_eta[idx_p_1][15];
+                        ap1 = (fabs(vis_nbr_eta[idx_p_1][17])
+                                /vis_nbr_eta[idx_p_1][15]);
+                    }
 
-                        if (k - 1 > 0) {
-                            idx_m_1 = j + i*n_cell_x + (k-1)*n_cell_x*n_cell_x;
-                            gm1 = vis_array[idx_m_1][idx_1d];
-                            fm1 = gm1*vis_array[idx_m_1][18];
-                            gm1 *= vis_array[idx_m_1][15];
-                            am1 = (fabs(vis_array[idx_m_1][17])
-                                    /vis_array[idx_m_1][15]);
-                        } else {
-                            idx_m_1 = 4*i + 4*j*n_cell_x + 1;
-                            gm1 = vis_nbr_eta[idx_m_1][idx_1d];
-                            fm1 = gm1*vis_nbr_eta[idx_m_1][18];
-                            gm1 *= vis_nbr_eta[idx_m_1][15];
-                            am1 = (fabs(vis_nbr_eta[idx_m_1][17])
-                                    /vis_nbr_eta[idx_m_1][15]);
-                        }
+                    if (k - 1 > 0) {
+                        idx_m_1 = j + i*n_cell_x + (k-1)*n_cell_x*n_cell_x;
+                        gm1 = vis_array[idx_m_1][idx_1d];
+                        fm1 = gm1*vis_array[idx_m_1][18];
+                        gm1 *= vis_array[idx_m_1][15];
+                        am1 = (fabs(vis_array[idx_m_1][17])
+                                /vis_array[idx_m_1][15]);
+                    } else {
+                        idx_m_1 = 4*i + 4*j*n_cell_x + 1;
+                        gm1 = vis_nbr_eta[idx_m_1][idx_1d];
+                        fm1 = gm1*vis_nbr_eta[idx_m_1][18];
+                        gm1 *= vis_nbr_eta[idx_m_1][15];
+                        am1 = (fabs(vis_nbr_eta[idx_m_1][17])
+                                /vis_nbr_eta[idx_m_1][15]);
+                    }
 
-                        if (k - 2 > 0) {
-                            idx_m_2 = j + i*n_cell_x + (k-2)*n_cell_x*n_cell_x;
-                            gm2 = vis_array[idx_m_2][idx_1d];
-                            fm2 = gm2*vis_array[idx_m_2][18];
-                            gm2 *= vis_array[idx_m_2][15];
-                        } else {
-                            idx_m_2 = 4*i + 4*j*n_cell_x;
-                            gm2 = vis_nbr_eta[idx_m_2][idx_1d];
-                            fm2 = gm2*vis_nbr_eta[idx_m_2][18];
-                            gm2 *= vis_nbr_eta[idx_m_2][15];
-                        }
-                        // MakeuWmnHalfs uWmn
-                        uWphR = fp1 - 0.5*minmod->minmod_dx(fp2, fp1, f);
-                        uWphL = f + 0.5*minmod->minmod_dx(fp1, f, fm1);
-                        uWmhR = f - 0.5*minmod->minmod_dx(fp1, f, fm1);
-                        uWmhL = fm1 + 0.5*minmod->minmod_dx(f, fm1, fm2);
-                        // just Wmn
-                        WphR = gp1 - 0.5*minmod->minmod_dx(gp2, gp1, g);
-                        WphL = g + 0.5*minmod->minmod_dx(gp1, g, gm1);
-                        WmhR = g - 0.5*minmod->minmod_dx(gp1, g, gm1);
-                        WmhL = gm1 + 0.5*minmod->minmod_dx(g, gm1, gm2);
-                        ax = maxi(a, ap1);
-                        HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
-                        ax = maxi(a, am1);
-                        HWmh = ((uWmhR + uWmhL) - ax*(WmhR - WmhL))*0.5;
-                        HW = (HWph - HWmh)/DATA_ptr->delta_eta/taufactor;
-                        // make partial_i (u^i Wmn)
-                        sum += -HW;
+                    if (k - 2 > 0) {
+                        idx_m_2 = j + i*n_cell_x + (k-2)*n_cell_x*n_cell_x;
+                        gm2 = vis_array[idx_m_2][idx_1d];
+                        fm2 = gm2*vis_array[idx_m_2][18];
+                        gm2 *= vis_array[idx_m_2][15];
+                    } else {
+                        idx_m_2 = 4*i + 4*j*n_cell_x;
+                        gm2 = vis_nbr_eta[idx_m_2][idx_1d];
+                        fm2 = gm2*vis_nbr_eta[idx_m_2][18];
+                        gm2 *= vis_nbr_eta[idx_m_2][15];
+                    }
+                    // MakeuWmnHalfs uWmn
+                    uWphR = fp1 - 0.5*minmod->minmod_dx(fp2, fp1, f);
+                    uWphL = f + 0.5*minmod->minmod_dx(fp1, f, fm1);
+                    uWmhR = f - 0.5*minmod->minmod_dx(fp1, f, fm1);
+                    uWmhL = fm1 + 0.5*minmod->minmod_dx(f, fm1, fm2);
+                    // just Wmn
+                    WphR = gp1 - 0.5*minmod->minmod_dx(gp2, gp1, g);
+                    WphL = g + 0.5*minmod->minmod_dx(gp1, g, gm1);
+                    WmhR = g - 0.5*minmod->minmod_dx(gp1, g, gm1);
+                    WmhL = gm1 + 0.5*minmod->minmod_dx(g, gm1, gm2);
+                    ax = maxi(a, ap1);
+                    HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
+                    ax = maxi(a, am1);
+                    HWmh = ((uWmhR + uWmhL) - ax*(WmhR - WmhL))*0.5;
+                    HW = (HWph - HWmh)/DATA_ptr->delta_eta/taufactor;
+                    // make partial_i (u^i Wmn)
+                    sum += -HW;
 
+                    // the following geometric parts are different for
+                    // individual pi^\mu\nu, q^\mu, and Pi
+
+                    if (idx_1d < 10) {
+                        // geometric terms for shear pi^\mu\nu
+                        int mu = mu_list[ii];
+                        int nu = nu_list[ii];
                         // add a source term -u^tau Wmn/tau
                         //   due to the coordinate change to tau-eta
                         //sum += (- (grid_pt->u[rk_flag][0]*Wmunu_local[mu][nu])/tau
@@ -819,7 +830,7 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                         // -4/3 + 1 = -1/3
                         // other source terms due to the coordinate
                         // change to tau-eta
-                        tempf = 0.0;
+                        double tempf = 0.0;
                         tempf = (
                             - (DATA_ptr->gmunu[3][mu])*(Wmunu_local[0][nu])
                             - (DATA_ptr->gmunu[3][nu])*(Wmunu_local[0][mu])
@@ -853,10 +864,10 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                                    *(velocity_array[idx][1+ic])*ic_fac);
                         }
                         sum += tempf;
-                        //w_rhs[mu][nu] = sum*(DATA_ptr->delta_tau);
-                        vis_array_new[idx][idx_1d] += (
-                                            sum*(DATA_ptr->delta_tau));
                     }
+                    //w_rhs[mu][nu] = sum*(DATA_ptr->delta_tau);
+                    vis_array_new[idx][idx_1d] += (
+                                        sum*(DATA_ptr->delta_tau));
                 }
             }
         }
