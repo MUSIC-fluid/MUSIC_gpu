@@ -64,7 +64,8 @@ class Advance {
                      double *sigma_local, double **vis_array,
                      double **vis_nbr_tau, double **vis_nbr_x,
                      double **vis_nbr_y, double **vis_nbr_eta,
-                     double **velocity_array, double **grid_array);
+                     double **velocity_array, double **grid_array,
+                     double **vis_array_new);
 
     
     void update_grid_array_from_grid_cell(Grid *grid_p, double *grid_array,
