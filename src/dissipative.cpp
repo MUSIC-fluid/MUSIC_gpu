@@ -4,6 +4,7 @@
 #include "./data.h"
 #include "./eos.h"
 #include "./dissipative.h"
+#include<vector>
 
 using namespace std;
 
@@ -503,10 +504,19 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
     if (DATA_ptr->turn_on_shear == 0)
         return(1);
 
-    int idx_1d_list[] = {4, 5, 6, 7, 8 ,9};
+    int temp[6] = {4, 5, 6, 7, 8 ,9};
+    vector<int> idx_1d_list(temp, temp+6);  // shear components
+    if (DATA_ptr->turn_on_diff == 1) {  // diffusion components
+        for (int ii = 10; ii < 14; ii++) {
+            idx_1d_list.push_back(ii);
+        }
+    }
+    if (DATA_ptr->turn_on_bulk == 1) {  // bulk viscous pressure
+        idx_1d_list.push_back(14);
+    }
+
     int mu_list[] = {1, 1, 1, 2, 2, 3};
     int nu_list[] = {1, 2, 3, 2, 3, 3};
-    int idx_list_length = sizeof(idx_1d_list)/sizeof(int);
 
     double Wmunu_local[4][4];
     for (int k = 0; k < n_cell_eta; k++) {
@@ -551,7 +561,7 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                 double uWphR, uWphL, uWmhR, uWmhL, WphR, WphL, WmhR, WmhL;
                 double HWph, HWmh, HW;
                 int idx_p_2, idx_p_1, idx_m_1, idx_m_2;
-                for (int ii = 0; ii < idx_list_length; ii++) {
+                for (unsigned int ii = 0; ii < idx_1d_list.size(); ii++) {
                     int idx_1d = idx_1d_list[ii];
 
                     // the derivative part is the same for all viscous
@@ -864,6 +874,12 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                                    *(velocity_array[idx][1+ic])*ic_fac);
                         }
                         sum += tempf;
+                    } else if (idx_1d == 14) {
+                        // geometric terms for bulk Pi
+                        //sum -= (pi_b[rk_flag])*(u[rk_flag][0])/tau;
+                        //sum += (pi_b[rk_flag])*theta_local;
+                        sum -= vis_array[idx][14]*vis_array[idx][15]/tau;
+                        sum += vis_array[idx][14]*velocity_array[idx][0];
                     }
                     //w_rhs[mu][nu] = sum*(DATA_ptr->delta_tau);
                     vis_array_new[idx][idx_1d] += (
@@ -1085,122 +1101,125 @@ int Diss::Make_uPRHS(double tau, double *p_rhs,
 }
 
 
-double Diss::Make_uPiSource(double tau, double **vis_array,
-                            double **velocity_array, double **grid_array) {
-    
+double Diss::Make_uPiSource(double tau, int n_cell_eta, int n_cell_x,
+                            double **vis_array, double **velocity_array,
+                            double **grid_array, double **vis_array_new) {
     // switch to include non-linear coupling terms in the bulk pi evolution
     int include_BBterm = 1;
     int include_coupling_to_shear = 1;
  
     if (DATA_ptr->turn_on_bulk == 0) return 0.0;
 
-    int idx = 0;
+    for (int k = 0; k < n_cell_eta; k++) {
+        for (int i = 0; i < n_cell_x; i++) {
+            for (int j = 0; j < n_cell_x; j++) {
+                int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+                // defining bulk viscosity coefficient
+                double epsilon = grid_array[idx][0];
+                double rhob = grid_array[idx][4];
+                double temperature = eos->get_temperature(epsilon, rhob);
 
-    // defining bulk viscosity coefficient
-    // shear viscosity = constant * entropy density
-    //s_den = eos->get_entropy(grid_pt->epsilon, grid_pt->rhob);
-    //shear = (DATA->shear_to_s)*s_den;   
-    // shear viscosity = constant * (e + P)/T
-    double epsilon = grid_array[idx][0];
-    double rhob = grid_array[idx][4];
-    double temperature = eos->get_temperature(epsilon, rhob);
-    //double shear = ((DATA->shear_to_s)*(grid_pt->epsilon + grid_pt->p)
-    //                /temperature);  
+                // cs2 is the velocity of sound squared
+                double cs2 = eos->get_cs2(epsilon, rhob);  
+                double pressure = eos->get_pressure(epsilon, rhob);
 
-    // cs2 is the velocity of sound squared
-    double cs2 = eos->get_cs2(epsilon, rhob);  
-    double pressure = eos->get_pressure(epsilon, rhob);
+                // T dependent bulk viscosity from Gabriel
+                double bulk =
+                            get_temperature_dependent_zeta_s(temperature);
+                bulk = bulk*(epsilon + pressure)/temperature;
 
-    // T dependent bulk viscosity from Gabriel
-    double bulk = get_temperature_dependent_zeta_s(temperature);
-    bulk = bulk*(epsilon + pressure)/temperature;
+                // defining bulk relaxation time and
+                // additional transport coefficients
+                // Bulk relaxation time from kinetic theory
+                double Bulk_Relax_time = (1./14.55/(1./3.-cs2)/(1./3.-cs2)
+                                          /(epsilon + pressure)*bulk);
 
-    // defining bulk relaxation time and additional transport coefficients
-    // Bulk relaxation time from kinetic theory
-    double Bulk_Relax_time = (
-        1./14.55/(1./3.-cs2)/(1./3.-cs2)/(epsilon + pressure)*bulk);
+                // from kinetic theory, small mass limit
+                double transport_coeff1 = 2.0/3.0*(Bulk_Relax_time);
+                double transport_coeff2 = 0.;  // not known; put 0
 
-    // from kinetic theory, small mass limit
-    double transport_coeff1   = 2.0/3.0*(Bulk_Relax_time);
-    double transport_coeff2   = 0.;  // not known; put 0
+                // from kinetic theory
+                double transport_coeff1_s = (8./5.*(1./3.-cs2)
+                                             *Bulk_Relax_time);
+                double transport_coeff2_s = 0.;  // not known;  put 0
 
-    // from kinetic theory
-    double transport_coeff1_s = 8./5.*(1./3.-cs2)*Bulk_Relax_time;
-    double transport_coeff2_s = 0.;  // not known;  put 0
+                // Computing Navier-Stokes term (-bulk viscosity * theta)
+                //double NS_term = -bulk*theta_local;
+                double NS_term = -bulk*velocity_array[idx][0];
 
-    // Computing Navier-Stokes term (-bulk viscosity * theta)
-    //double NS_term = -bulk*theta_local;
-    double NS_term = -bulk*velocity_array[idx][0];
+                // Computing relaxation term and nonlinear term:
+                // - Bulk - transport_coeff1*Bulk*theta
+                //double tempf = (-(grid_pt->pi_b[rk_flag])
+                //         - transport_coeff1*theta_local
+                //           *(grid_pt->pi_b[rk_flag]));
+                double tempf = (- vis_array[idx][14]
+                    - transport_coeff1*velocity_array[idx][0]
+                      *vis_array[idx][14]);
 
-    // Computing relaxation term and nonlinear term:
-    // - Bulk - transport_coeff1*Bulk*theta
-    //double tempf = (-(grid_pt->pi_b[rk_flag])
-    //         - transport_coeff1*theta_local
-    //           *(grid_pt->pi_b[rk_flag]));
-    double tempf = (- vis_array[idx][14]
-        - transport_coeff1*velocity_array[idx][0]
-          *vis_array[idx][14]);
+                // Computing nonlinear term: + transport_coeff2*Bulk*Bulk
+                double BB_term = 0.0;
+                if (include_BBterm == 1) {
+                    //BB_term = (transport_coeff2*(grid_pt->pi_b[rk_flag])
+                    //           *(grid_pt->pi_b[rk_flag]));
+                    BB_term = (transport_coeff2*vis_array[idx][14]
+                               *vis_array[idx][14]);
+                }
 
-    // Computing nonlinear term: + transport_coeff2*Bulk*Bulk
-    double BB_term = 0.0;
-    if (include_BBterm == 1) {
-        //BB_term = (transport_coeff2*(grid_pt->pi_b[rk_flag])
-        //           *(grid_pt->pi_b[rk_flag]));
-        BB_term = (transport_coeff2*vis_array[idx][14]
-                   *vis_array[idx][14]);
-    }
+                // Computing terms that Couple with shear-stress tensor
+                double Wsigma, WW, Shear_Sigma_term, Shear_Shear_term;
+                double Coupling_to_Shear;
 
-    // Computing terms that Couple with shear-stress tensor
-    double Wsigma, WW, Shear_Sigma_term, Shear_Shear_term, Coupling_to_Shear;
+                if (include_coupling_to_shear == 1) {
+                    // Computing sigma^mu^nu
+                    double sigma[4][4], Wmunu[4][4];
+                    for (int a = 0; a < 4 ; a++) {
+                        for (int b = a; b < 4; b++) {
+                            int idx_1d = util->map_2d_idx_to_1d(a, b);
+                            sigma[a][b] = velocity_array[idx][6+idx_1d];
+                            Wmunu[a][b] = vis_array[idx][idx_1d];
+                        }
+                    }
 
-    if (include_coupling_to_shear == 1) {
-        // Computing sigma^mu^nu
-        double sigma[4][4], Wmunu[4][4];
-        for (int a = 0; a < 4 ; a++) {
-            for (int b = a; b < 4; b++) {
-                int idx_1d = util->map_2d_idx_to_1d(a, b);
-                //sigma[a][b] = sigma_1d[idx_1d];
-                //Wmunu[a][b] = grid_pt->Wmunu[rk_flag][idx_1d];
-                sigma[a][b] = velocity_array[idx][6+idx_1d];
-                Wmunu[a][b] = vis_array[idx][idx_1d];
+                    Wsigma = (  Wmunu[0][0]*sigma[0][0]
+                              + Wmunu[1][1]*sigma[1][1]
+                              + Wmunu[2][2]*sigma[2][2]
+                              + Wmunu[3][3]*sigma[3][3]
+                              - 2.*(  Wmunu[0][1]*sigma[0][1]
+                                    + Wmunu[0][2]*sigma[0][2]
+                                    + Wmunu[0][3]*sigma[0][3])
+                              + 2.*(  Wmunu[1][2]*sigma[1][2]
+                                    + Wmunu[1][3]*sigma[1][3]
+                                    + Wmunu[2][3]*sigma[2][3]));
+
+                    WW = (   Wmunu[0][0]*Wmunu[0][0]
+                           + Wmunu[1][1]*Wmunu[1][1]
+                           + Wmunu[2][2]*Wmunu[2][2]
+                           + Wmunu[3][3]*Wmunu[3][3]
+                           - 2.*(  Wmunu[0][1]*Wmunu[0][1]
+                                 + Wmunu[0][2]*Wmunu[0][2]
+                                 + Wmunu[0][3]*Wmunu[0][3])
+                           + 2.*(  Wmunu[1][2]*Wmunu[1][2]
+                                 + Wmunu[1][3]*Wmunu[1][3]
+                                 + Wmunu[2][3]*Wmunu[2][3]));
+                    // multiply term by its transport coefficient
+                    Shear_Sigma_term = Wsigma*transport_coeff1_s;
+                    Shear_Shear_term = WW*transport_coeff2_s;
+
+                    // full term that couples to shear is
+                    Coupling_to_Shear = (- Shear_Sigma_term
+                                         + Shear_Shear_term);
+                } else {
+                    Coupling_to_Shear = 0.0;
+                }
+                
+                // Final Answer
+                double Final_Answer = (NS_term + tempf + BB_term
+                                        + Coupling_to_Shear)/Bulk_Relax_time;
+                vis_array_new[idx][14] += Final_Answer*(DATA_ptr->delta_tau);
             }
         }
-
-        Wsigma = (  Wmunu[0][0]*sigma[0][0]
-                  + Wmunu[1][1]*sigma[1][1]
-                  + Wmunu[2][2]*sigma[2][2]
-                  + Wmunu[3][3]*sigma[3][3]
-                  - 2.*(  Wmunu[0][1]*sigma[0][1]
-                        + Wmunu[0][2]*sigma[0][2]
-                        + Wmunu[0][3]*sigma[0][3])
-                  + 2.*(  Wmunu[1][2]*sigma[1][2]
-                        + Wmunu[1][3]*sigma[1][3]
-                        + Wmunu[2][3]*sigma[2][3]));
-
-        WW = (   Wmunu[0][0]*Wmunu[0][0]
-               + Wmunu[1][1]*Wmunu[1][1]
-               + Wmunu[2][2]*Wmunu[2][2]
-               + Wmunu[3][3]*Wmunu[3][3]
-               - 2.*(  Wmunu[0][1]*Wmunu[0][1]
-                     + Wmunu[0][2]*Wmunu[0][2]
-                     + Wmunu[0][3]*Wmunu[0][3])
-               + 2.*(  Wmunu[1][2]*Wmunu[1][2]
-                     + Wmunu[1][3]*Wmunu[1][3]
-                     + Wmunu[2][3]*Wmunu[2][3]));
-        // multiply term by its respective transport coefficient
-        Shear_Sigma_term = Wsigma*transport_coeff1_s;
-        Shear_Shear_term = WW*transport_coeff2_s;
-
-        // full term that couples to shear is
-        Coupling_to_Shear = -Shear_Sigma_term + Shear_Shear_term ;
-    } else {
-        Coupling_to_Shear = 0.0;
     }
-        
-    // Final Answer
-    double Final_Answer = NS_term + tempf + BB_term + Coupling_to_Shear;
-
-    return(Final_Answer/(Bulk_Relax_time));
+    return(0);
 }
 
 
@@ -1216,133 +1235,157 @@ double Diss::Make_uPiSource(double tau, double **vis_array,
     -Delta[a][eta] u[eta] q[tau]/tau
     -u[a]u[b]g[b][e] Dq[e]
 */
-double Diss::Make_uqSource(double tau, int nu, double **vis_array,
-                           double **velocity_array, double **grid_array) {
+double Diss::Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
+                           double **vis_array, double **velocity_array,
+                           double **grid_array, double **vis_array_new) {
+
     if (DATA_ptr->turn_on_diff == 0) return 0.0;
  
-    double q[4];
-
-    int idx = 0;
-
-    // Useful variables to define
-    double epsilon = grid_array[idx][0];
-    double rhob = grid_array[idx][4];
-    double pressure = eos->get_pressure(epsilon, rhob);
-    double T = eos->get_temperature(epsilon, rhob);
-
-    double kappa_coefficient = DATA_ptr->kappa_coefficient;
-    double tau_rho = kappa_coefficient/(T + 1e-15);
-    double mub = eos->get_mu(epsilon, rhob);
-    double alpha = mub/T;
-    double kappa = kappa_coefficient*(rhob/(3.*T*tanh(alpha) + 1e-15)
-                                      - rhob*rhob/(epsilon + pressure));
-
-    // copy the value of \tilde{q^\mu}
-    for (int i = 0; i < 4; i++) {
-        int idx_1d = util->map_2d_idx_to_1d(4, i);
-        //q[i] = (grid_pt->Wmunu[rk_flag][idx_1d]);
-        q[i] = vis_array[idx][idx_1d];
-    }
-
-    /* -(1/tau_rho)(q[a] + kappa g[a][b]Dtildemu[b] 
-     *              + kappa u[a] u[b]g[b][c]Dtildemu[c])
-     * + theta q[a] - q[a] u^\tau/tau
-     * + Delta[a][tau] u[eta] q[eta]/tau
-     * - Delta[a][eta] u[eta] q[tau]/tau
-     * - u[a] u[b]g[b][e] Dq[e] -> u[a] q[e] g[e][b] Du[b]
-    */    
- 
-    // first: (1/tau_rho) part
-    // recall that dUsup[4][i] = partial_i (muB/T) 
-    // and dUsup[4][0] = -partial_tau (muB/T) = partial^tau (muB/T)
-    // and a[4] = u^a partial_a (muB/T) = DmuB/T
-    // -(1/tau_rho)(q[a] + kappa g[a][b]DmuB/T[b] 
-    // + kappa u[a] u[b]g[b][c]DmuB/T[c])
-    // a = nu 
-    //double NS = kappa*(grid_pt->dUsup[0][4][nu] 
-    //                       + grid_pt->u[rk_flag][nu]*a_local[4]);
-    double NS = kappa*(velocity_array[idx][16+nu]
-                           + vis_array[idx][15+nu]*velocity_array[idx][5]);
-    if (isnan(NS)) {
-        cout << "Navier Stock term is nan! " << endl;
-        cout << q[nu] << endl;
-        // derivative already upper index
-        cout << velocity_array[idx][16+nu] << endl;
-        cout << velocity_array[5] << endl;
-        cout << tau_rho << endl;
-        cout << kappa << endl;
-        cout << vis_array[idx][15+nu] << endl;
-    }
-  
-    // add a new non-linear term (- q \theta)
-    double transport_coeff = 1.0*tau_rho;   // from conformal kinetic theory
-    //double Nonlinear1 = -transport_coeff*q[nu]*theta_local;
-    double Nonlinear1 = -transport_coeff*q[nu]*velocity_array[idx][0];
-
-    // add a new non-linear term (-q^\mu \sigma_\mu\nu)
-    double transport_coeff_2 = 3./5.*tau_rho;   // from 14-momentum massless
     double sigma[4][4];
-    for (int ii = 0; ii < 4; ii++) {
-        for (int jj = ii; jj < 4; jj++) {
-            int idx_1d = util->map_2d_idx_to_1d(ii, jj);
-            //sigma[ii][jj] = sigma_1d[idx_1d];
-            sigma[ii][jj] = velocity_array[idx][6+idx_1d];
+
+    for (int k = 0; k < n_cell_eta; k++) {
+        for (int i = 0; i < n_cell_x; i++) {
+            for (int j = 0; j < n_cell_x; j++) {
+                int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+
+                // Useful variables to define
+                double epsilon = grid_array[idx][0];
+                double rhob = grid_array[idx][4];
+                double pressure = eos->get_pressure(epsilon, rhob);
+                double T = eos->get_temperature(epsilon, rhob);
+
+                double kappa_coefficient = DATA_ptr->kappa_coefficient;
+                double tau_rho = kappa_coefficient/(T + 1e-15);
+                double mub = eos->get_mu(epsilon, rhob);
+                double alpha = mub/T;
+                double kappa = (kappa_coefficient
+                                *(rhob/(3.*T*tanh(alpha) + 1e-15)
+                                  - rhob*rhob/(epsilon + pressure)));
+
+
+                for (int ii = 0; ii < 4; ii++) {
+                    for (int jj = ii; jj < 4; jj++) {
+                        int idx_1d = util->map_2d_idx_to_1d(ii, jj);
+                        //sigma[ii][jj] = sigma_1d[idx_1d];
+                        sigma[ii][jj] = velocity_array[idx][6+idx_1d];
+                    }
+                }
+                for (int ii = 0; ii < 4; ii++) {
+                    for (int jj = ii+1; jj < 4; jj++) {
+                        sigma[jj][ii] = sigma[ii][jj];
+                    }
+                }
+
+                // add a new non-linear term (- q \theta)
+                // from conformal kinetic theory
+                double transport_coeff = 1.0*tau_rho;
+                // add a new non-linear term (-q^\mu \sigma_\mu\nu)
+                // from 14-momentum massless
+                double transport_coeff_2 = 3./5.*tau_rho;
+
+                /* -(1/tau_rho)(q[a] + kappa g[a][b]Dtildemu[b] 
+                 *              + kappa u[a] u[b]g[b][c]Dtildemu[c])
+                 * + theta q[a] - q[a] u^\tau/tau
+                 * + Delta[a][tau] u[eta] q[eta]/tau
+                 * - Delta[a][eta] u[eta] q[tau]/tau
+                 * - u[a] u[b]g[b][e] Dq[e] -> u[a] q[e] g[e][b] Du[b]
+                */    
+ 
+                // first: (1/tau_rho) part
+                // recall that dUsup[4][i] = partial_i (muB/T) 
+                // and dUsup[4][0] = -partial_tau (muB/T) = partial^tau (muB/T)
+                // and a[4] = u^a partial_a (muB/T) = DmuB/T
+                // -(1/tau_rho)(q[a] + kappa g[a][b]DmuB/T[b] 
+                // + kappa u[a] u[b]g[b][c]DmuB/T[c])
+                // a = nu 
+                //double NS = kappa*(grid_pt->dUsup[0][4][nu] 
+                //                       + grid_pt->u[rk_flag][nu]*a_local[4]);
+                for (int nu = 1; nu < 4; nu++) {
+                    int idx_1d = util->map_2d_idx_to_1d(4, nu);
+                    //double NS = kappa*(dUsup[0][4][nu] 
+                    //                       + u[rk_flag][nu]*a_local[4]);
+                    double NS = kappa*(velocity_array[idx][16+nu]
+                           + vis_array[idx][15+nu]*velocity_array[idx][5]);
+                    if (isnan(NS)) {
+                        cout << "Navier Stock term is nan! " << endl;
+                        cout << vis_array[idx][idx_1d] << endl;
+                        // derivative already upper index
+                        cout << velocity_array[idx][16+nu] << endl;
+                        cout << velocity_array[5] << endl;
+                        cout << tau_rho << endl;
+                        cout << kappa << endl;
+                        cout << vis_array[idx][15+nu] << endl;
+                    }
+  
+                    //double Nonlinear1 = -transport_coeff*q[nu]*theta_local;
+                    double Nonlinear1 = (- transport_coeff
+                                           *vis_array[idx][idx_1d]
+                                           *velocity_array[idx][0]);
+
+                    double temptemp = 0.0;
+                    for (int iii = 0 ; iii < 4; iii++) {
+                        temptemp += (vis_array[idx][10+iii]*sigma[iii][nu]
+                                     *DATA_ptr->gmunu[iii][iii]);
+                    }
+                    double Nonlinear2 = - transport_coeff_2*temptemp;
+
+                    double SW = ((-vis_array[idx][idx_1d]
+                                  - NS + Nonlinear1 + Nonlinear2)
+                                 /(tau_rho + 1e-15));
+
+                    // for 1+1D numerical test
+                    // SW = (-q[nu] - NS)/(tau_rho + 1e-15);
+
+                    // all other geometric terms....
+                    // + theta q[a] - q[a] u^\tau/tau
+                    //SW += (theta_local - grid_pt->u[rk_flag][0]/tau)*q[nu];
+                    SW += (velocity_array[idx][0]
+                            - vis_array[idx][15]/tau)*vis_array[idx][idx_1d];
+ 
+                    if (isnan(SW)) {
+                        cout << "theta term is nan! " << endl;
+                    }
+
+                    // +Delta[a][tau] u[eta] q[eta]/tau 
+                    double tempf = ((DATA_ptr->gmunu[nu][0] 
+                                    //+ grid_pt->u[rk_flag][nu]*grid_pt->u[rk_flag][0])
+                                    //  *grid_pt->u[rk_flag][3]*q[3]/tau
+                                    + vis_array[idx][15+nu]*vis_array[idx][15])
+                                      *vis_array[idx][18]
+                                      *vis_array[idx][13]/tau
+                                    - (DATA_ptr->gmunu[nu][3]
+                                      // + grid_pt->u[rk_flag][nu]*grid_pt->u[rk_flag][3])
+                                      //*grid_pt->u[rk_flag][3]*q[0]/tau);
+                                       + vis_array[idx][15+nu]
+                                         *vis_array[idx][18])
+                                      *vis_array[idx][18]
+                                      *vis_array[idx][10]/tau);
+                    SW += tempf;
+ 
+                    if (isnan(tempf)) {
+                        cout << "Delta^{a \tau} and Delta^{a \eta} terms "
+                             << "are nan!" << endl;
+                    }
+
+                    // -u[a] u[b]g[b][e] Dq[e] -> u[a] (q[e] g[e][b] Du[b])
+                    tempf = 0.0;
+                    for (int iii = 0; iii < 4; iii++) {
+                        //tempf += q[i]*gmn(i)*a_local[i];
+                        tempf += (vis_array[idx][10+iii]*gmn(iii)
+                                  *velocity_array[idx][1+iii]);
+                    }
+                    //SW += (grid_pt->u[rk_flag][nu])*tempf;
+                    SW += vis_array[idx][15+nu]*tempf;
+                    
+                    if (isnan(tempf)) {
+                        cout << "u^a q_b Du^b term is nan! " << endl;
+                    }
+                    vis_array_new[idx][idx_1d] += SW*(DATA_ptr->delta_tau);
+                }
+            }
         }
     }
-    for (int ii = 0; ii < 4; ii++) {
-        for (int jj = ii+1; jj < 4; jj++) {
-            sigma[jj][ii] = sigma[ii][jj];
-        }
-    }
-    double temptemp = 0.0;
-    for (int i = 0 ; i < 4; i++) {
-        temptemp += q[i]*sigma[i][nu]*DATA_ptr->gmunu[i][i]; 
-    }
-    double Nonlinear2 = - transport_coeff_2*temptemp;
-
-    double SW = (-q[nu] - NS + Nonlinear1 + Nonlinear2)/(tau_rho + 1e-15);
-    // SW = (-q[nu] - NS)/(tau_rho + 1e-15);  // for 1+1D numerical test
-
-    // all other geometric terms....
-    // + theta q[a] - q[a] u^\tau/tau
-    //SW += (theta_local - grid_pt->u[rk_flag][0]/tau)*q[nu];
-    SW += (velocity_array[idx][0] - vis_array[idx][15]/tau)*q[nu];
- 
-    if (isnan(SW)) {
-        cout << "theta term is nan! " << endl;
-    }
-
-    // +Delta[a][tau] u[eta] q[eta]/tau 
-    double tempf = ((DATA_ptr->gmunu[nu][0] 
-                    //+ grid_pt->u[rk_flag][nu]*grid_pt->u[rk_flag][0])
-                    //  *grid_pt->u[rk_flag][3]*q[3]/tau
-                    + vis_array[idx][15+nu]*vis_array[idx][15])
-                      *vis_array[idx][18]*q[3]/tau
-                    - (DATA_ptr->gmunu[nu][3]
-                      // + grid_pt->u[rk_flag][nu]*grid_pt->u[rk_flag][3])
-                      //*grid_pt->u[rk_flag][3]*q[0]/tau);
-                       + vis_array[idx][15+nu]*vis_array[idx][18])
-                      *vis_array[idx][18]*q[0]/tau);
-    SW += tempf;
- 
-    if (isnan(tempf)) {
-        cout << "Delta^{a \tau} and Delta^{a \eta} terms are nan!" << endl;
-    }
-
-    // -u[a] u[b]g[b][e] Dq[e] -> u[a] (q[e] g[e][b] Du[b])
-    tempf = 0.0;
-    for (int i = 0; i < 4; i++) {
-        //tempf += q[i]*gmn(i)*a_local[i];
-        tempf += q[i]*gmn(i)*velocity_array[idx][1+i];
-    }
-    //SW += (grid_pt->u[rk_flag][nu])*tempf;
-    SW += vis_array[idx][15+nu]*tempf;
-    
-    if (isnan(tempf)) {
-        cout << "u^a q_b Du^b term is nan! " << endl;
-    }
-
-    return(SW);
+    return(0);
 }
 
 

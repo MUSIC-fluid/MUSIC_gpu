@@ -575,8 +575,6 @@ int Advance::FirstRKStepW(double tau, int rk_flag, int n_cell_eta,
     else 
         mu_max = 3;
  
-    double u_new[4];
-
     // Solve partial_a (u^a W^{mu nu}) = 0
     // Update W^{mu nu}
     // mu = 4 is the baryon current qmu
@@ -643,6 +641,93 @@ int Advance::FirstRKStepW(double tau, int rk_flag, int n_cell_eta,
         }
     }
 
+    if (DATA_ptr->turn_on_bulk == 1) {
+        if (rk_flag == 0) {
+            diss->Make_uPiSource(tau_now, n_cell_eta, n_cell_x, vis_array,
+                                 velocity_array, grid_array, vis_array_new);
+            for (int k = 0; k < n_cell_eta; k++) {
+                for (int i = 0; i < n_cell_x; i++) {
+                    for (int j = 0; j < n_cell_x; j++) {
+                        int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+                        vis_array_new[idx][14] /= vis_array_new[idx][15];
+                    }
+                }
+            }
+        } else {
+            diss->Make_uPiSource(tau_next, n_cell_eta, n_cell_x, vis_array,
+                                 velocity_array, grid_array, vis_array_new);
+            for (int k = 0; k < n_cell_eta; k++) {
+                for (int i = 0; i < n_cell_x; i++) {
+                    for (int j = 0; j < n_cell_x; j++) {
+                        int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+                        double rk0 = vis_nbr_tau[idx][14]*vis_nbr_tau[idx][15];
+                        vis_array_new[idx][14] += rk0;
+                        vis_array_new[idx][14] *= 0.5;
+                        vis_array_new[idx][14] /= vis_array_new[idx][15];
+                    }
+                }
+            }
+        }
+    } else {
+        for (int k = 0; k < n_cell_eta; k++) {
+            for (int i = 0; i < n_cell_x; i++) {
+                for (int j = 0; j < n_cell_x; j++) {
+                    int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+                    vis_array_new[idx][14] = 0.0;
+                }
+            }
+        }
+    }
+
+    // CShen: add source term for baryon diffusion
+    if (DATA_ptr->turn_on_diff == 1) {
+        if (rk_flag == 0) {
+            diss->Make_uqSource(tau_now, n_cell_eta, n_cell_x, vis_array,
+                                velocity_array, grid_array, vis_array_new);
+            for (int k = 0; k < n_cell_eta; k++) {
+                for (int i = 0; i < n_cell_x; i++) {
+                    for (int j = 0; j < n_cell_x; j++) {
+                        int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+                        for (int nu = 1; nu < 4; nu++) {
+                            vis_array_new[idx][10+nu] /= (
+                                                vis_array_new[idx][15]);
+                        }
+                    }
+                }
+            }
+        } else {
+            diss->Make_uqSource(tau_next, n_cell_eta, n_cell_x, vis_array,
+                                velocity_array, grid_array, vis_array_new);
+            for (int k = 0; k < n_cell_eta; k++) {
+                for (int i = 0; i < n_cell_x; i++) {
+                    for (int j = 0; j < n_cell_x; j++) {
+                        int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+                        for (int nu = 1; nu < 4; nu++) {
+                            double rk0 = (vis_nbr_tau[idx][10+nu]
+                                           *vis_nbr_tau[idx][15]);
+                            vis_array_new[idx][10+nu] += rk0;
+                            vis_array_new[idx][10+nu] *= 0.5;
+                            vis_array_new[idx][10+nu] /= (
+                                                vis_array_new[idx][15]);
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        for (int k = 0; k < n_cell_eta; k++) {
+            for (int i = 0; i < n_cell_x; i++) {
+                for (int j = 0; j < n_cell_x; j++) {
+                    int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+                    for (int nu = 0; nu < 4; nu++) {
+                        vis_array_new[idx][10+nu] = 0.0;
+                    }
+                }
+            }
+        }
+    }
+
+    double u_new[4];
     for (int k = 0; k < n_cell_eta; k++) {
         for (int i = 0; i < n_cell_x; i++) {
             for (int j = 0; j < n_cell_x; j++) {
@@ -652,95 +737,6 @@ int Advance::FirstRKStepW(double tau, int rk_flag, int n_cell_eta,
                 u_new[2] = vis_array_new[idx][17]; 
                 u_new[3] = vis_array_new[idx][18]; 
 
-                if (DATA_ptr->turn_on_bulk == 1) {
-                    /* calculate delta u pi */
-                    double p_rhs;
-                    if (rk_flag == 0) {
-                        /* calculate delta u^0 pi */
-                        diss->Make_uPRHS(tau_now, &p_rhs, vis_array,
-                                         vis_nbr_x, vis_nbr_y, vis_nbr_eta,
-                                         velocity_array);
-   
-                        //tempf = (grid_pt->pi_b[rk_flag])*(grid_pt->u[rk_flag][0]);
-                        tempf = vis_array[idx][14]*vis_array[idx][15];
-                        temps = diss->Make_uPiSource(tau_now, vis_array,
-                                                velocity_array, grid_array);
-                        tempf += temps*(DATA_ptr->delta_tau);
-                        tempf += p_rhs;
-   
-                        //grid_pt->pi_b[trk_flag] = tempf/(grid_pt->u[trk_flag][0]);
-                        vis_array_new[idx][14] = tempf/u_new[0];
-                    } else if (rk_flag > 0) {
-                        /* calculate delta u^0 pi */
-                        diss->Make_uPRHS(tau_next, &p_rhs, vis_array,
-                                         vis_nbr_x, vis_nbr_y, vis_nbr_eta,
-                                         velocity_array);
-   
-                        //tempf = (grid_pt->pi_b[0])*(grid_pt->prev_u[0][0]);
-                        tempf = vis_nbr_tau[idx][14]*vis_nbr_tau[idx][15];
-                        temps = diss->Make_uPiSource(tau_next, vis_array,
-                                                velocity_array, grid_array);
-                        tempf += temps*(DATA_ptr->delta_tau);
-                        tempf += p_rhs;
-  
-                        //tempf += (grid_pt->pi_b[1])*(grid_pt->u[0][0]);
-                        tempf += vis_array[idx][14]*vis_array[idx][15];
-                        tempf *= 0.5;
-
-                        //grid_pt->pi_b[trk_flag] = tempf/(grid_pt->u[trk_flag][0]);
-                        vis_array_new[idx][14] = tempf/u_new[0];
-                    }
-                } else {
-                    vis_array_new[idx][14] = 0.0;
-                }
-
-                // CShen: add source term for baryon diffusion
-                if (DATA_ptr->turn_on_diff == 1) {
-                    if (rk_flag == 0) {
-                        diss->Make_uqRHS(tau_now, w_rhs, vis_array,
-                                         vis_nbr_x, vis_nbr_y, vis_nbr_eta);
-                        int mu = 4;
-                        for (int nu = 1; nu < 4; nu++) {
-                            int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                            //tempf = ((grid_pt->Wmunu[rk_flag][idx_1d])
-                            //         *(grid_pt->u[rk_flag][0]));
-                            tempf = vis_array[idx][idx_1d]*vis_array[idx][15];
-                            temps = diss->Make_uqSource(tau_now, nu, vis_array,
-                                                velocity_array, grid_array);
-                            tempf += temps*(DATA_ptr->delta_tau);
-                            tempf += w_rhs[mu][nu];
-
-                            vis_array_new[idx][idx_1d] = tempf/u_new[0];
-                        }
-                    } else if (rk_flag > 0) {
-                        diss->Make_uqRHS(tau_next, w_rhs, vis_array,
-                                         vis_nbr_x, vis_nbr_y, vis_nbr_eta);
-                        int mu = 4;
-                        for (int nu = 1; nu < 4; nu++) {
-                            int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                            //tempf = (grid_pt->Wmunu[0][idx_1d])*(grid_pt->prev_u[0][0]);
-                            tempf = vis_nbr_tau[idx][idx_1d]*vis_nbr_tau[idx][15];
-                            temps = diss->Make_uqSource(
-                                            tau_next, nu, vis_array,
-                                            velocity_array, grid_array);
-                            tempf += temps*(DATA_ptr->delta_tau);
-                            tempf += w_rhs[mu][nu];
-
-                            //tempf += ((grid_pt->Wmunu[rk_flag][idx_1d])
-                            //          *(grid_pt->u[rk_flag][0]));
-                            tempf += vis_array[idx][idx_1d]*vis_array[idx][15];
-                            tempf *= 0.5;
-                   
-                            vis_array_new[idx][idx_1d] = tempf/u_new[0];
-                        }
-                    }
-                } else {
-                    for (int nu = 0; nu < 4; nu++) {
-                        int idx_1d = util->map_2d_idx_to_1d(4, nu);
-                        vis_array_new[idx][idx_1d] = 0.0;
-                    }
-                }
-   
                 // re-make Wmunu[3][3] so that Wmunu[mu][nu] is traceless
                 vis_array_new[idx][9] = (
                         (2.*(u_new[1]*u_new[2]*vis_array_new[idx][5]
