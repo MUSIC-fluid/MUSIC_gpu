@@ -391,30 +391,20 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                             tau_rk = tau + DATA_ptr->delta_tau;
                         }
 
-                        double theta_local = (
-                                u_derivative_ptr->calculate_expansion_rate(
-                                    tau_rk, arena, ieta, ix, iy, rk_flag));
-                        double *a_local = new double[5];
-                        double *sigma_local = new double[10];
-                        u_derivative_ptr->calculate_Du_supmu(
-                                tau_rk, arena, ieta, ix, iy, rk_flag, a_local);
-                        u_derivative_ptr->calculate_velocity_shear_tensor(
-                                tau_rk, arena, ieta, ix, iy, rk_flag, a_local,
-                                sigma_local);
-
                         prepare_velocity_array(tau_rk, arena, ieta, ix, iy,
                                                rk_flag, n_cell_eta, n_cell_x,
                                                velocity_array, grid_array);
 
-                        FirstRKStepW(tau, DATA, &(arena[ieta][ix][iy]),
-                                     rk_flag, theta_local, a_local,
-                                     sigma_local, vis_array, vis_nbr_tau,
+                        FirstRKStepW(tau, &(arena[ieta][ix][iy]),
+                                     rk_flag,
+                                     vis_array, vis_nbr_tau,
                                      vis_nbr_x, vis_nbr_y, vis_nbr_eta,
                                      velocity_array, grid_array,
                                      vis_array_new);
 
-                        delete[] a_local;
-                        delete[] sigma_local;
+                        update_grid_cell_viscous(vis_array_new, arena, rk_flag,
+                                                 ieta, ix, iy, n_cell_eta,
+                                                 n_cell_x);
                     }
                 }
 
@@ -540,9 +530,9 @@ int Advance::FirstRKStepT(double tau, Grid *grid_pt, int rk_flag,
 */
 /* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% */
 
-int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
-                          int rk_flag, double theta_local, double* a_local,
-                          double *sigma_local, double **vis_array,
+int Advance::FirstRKStepW(double tau, Grid *grid_pt,
+                          int rk_flag,
+                          double **vis_array,
                           double **vis_nbr_tau, double **vis_nbr_x,
                           double **vis_nbr_y, double **vis_nbr_eta,
                           double **velocity_array, double **grid_array,
@@ -607,7 +597,7 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
                                             grid_array); 
                 tempf += temps*(DATA_ptr->delta_tau);
                 tempf += w_rhs[mu][nu];
-                grid_pt->Wmunu[trk_flag][idx_1d] = tempf/u_new[0];
+                //grid_pt->Wmunu[trk_flag][idx_1d] = tempf/u_new[0];
                 vis_array_new[idx][idx_1d] = tempf/u_new[0];
             }
         }
@@ -629,13 +619,13 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
                 tempf += vis_array[idx][idx_1d]*vis_array[idx][15];
                 tempf *= 0.5;
        
-                grid_pt->Wmunu[trk_flag][idx_1d] = tempf/u_new[0];
+                //grid_pt->Wmunu[trk_flag][idx_1d] = tempf/u_new[0];
                 vis_array_new[idx][idx_1d] = tempf/u_new[0];
             }
         }
     } /* rk_flag > 0 */
 
-    if (DATA->turn_on_bulk == 1) {
+    if (DATA_ptr->turn_on_bulk == 1) {
         /* calculate delta u pi */
         double p_rhs;
         if (rk_flag == 0) {
@@ -652,7 +642,6 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
             tempf += p_rhs;
    
             //grid_pt->pi_b[trk_flag] = tempf/(grid_pt->u[trk_flag][0]);
-            grid_pt->pi_b[trk_flag] = tempf/u_new[0];
             vis_array_new[idx][14] = tempf/u_new[0];
         } else if (rk_flag > 0) {
             /* calculate delta u^0 pi */
@@ -672,7 +661,6 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
             tempf *= 0.5;
 
             //grid_pt->pi_b[trk_flag] = tempf/(grid_pt->u[trk_flag][0]);
-            grid_pt->pi_b[trk_flag] = tempf/u_new[0];
             vis_array_new[idx][14] = tempf/u_new[0];
         }
     } else {
@@ -681,7 +669,7 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
     }
 
     // CShen: add source term for baryon diffusion
-    if (DATA->turn_on_diff == 1) {
+    if (DATA_ptr->turn_on_diff == 1) {
         if (rk_flag == 0) {
             diss->Make_uqRHS(tau_now, w_rhs, vis_array, vis_nbr_x,
                              vis_nbr_y, vis_nbr_eta);
@@ -696,8 +684,6 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
                 tempf += temps*(DATA_ptr->delta_tau);
                 tempf += w_rhs[mu][nu];
 
-                grid_pt->Wmunu[trk_flag][idx_1d] = tempf/u_new[0];
-                                            //tempf/(grid_pt->u[trk_flag][0]));
                 vis_array_new[idx][idx_1d] = tempf/u_new[0];
             }
         } else if (rk_flag > 0) {
@@ -718,35 +704,17 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
                 tempf += vis_array[idx][idx_1d]*vis_array[idx][15];
                 tempf *= 0.5;
        
-                grid_pt->Wmunu[trk_flag][idx_1d] = tempf/u_new[0];
-                                        //tempf/(grid_pt->u[trk_flag][0]));
                 vis_array_new[idx][idx_1d] = tempf/u_new[0];
             }
         }
     } else {
         for (int nu = 0; nu < 4; nu++) {
             int idx_1d = util->map_2d_idx_to_1d(4, nu);
-            grid_pt->Wmunu[trk_flag][idx_1d] = 0.0;
             vis_array_new[idx][idx_1d] = 0.0;
         }
     }
    
     // re-make Wmunu[3][3] so that Wmunu[mu][nu] is traceless
-    //grid_pt->Wmunu[trk_flag][9] = (
-    //        (2.*(grid_pt->u[trk_flag][1]*grid_pt->u[trk_flag][2]
-    //            *grid_pt->Wmunu[trk_flag][5]
-    //            + grid_pt->u[trk_flag][1]*grid_pt->u[trk_flag][3]
-    //              *grid_pt->Wmunu[trk_flag][6]
-    //            + grid_pt->u[trk_flag][2]*grid_pt->u[trk_flag][3]
-    //              *grid_pt->Wmunu[trk_flag][8])
-    //            - (grid_pt->u[trk_flag][0]*grid_pt->u[trk_flag][0] 
-    //               - grid_pt->u[trk_flag][1]*grid_pt->u[trk_flag][1])
-    //               *grid_pt->Wmunu[trk_flag][4] 
-    //            - (grid_pt->u[trk_flag][0]*grid_pt->u[trk_flag][0] 
-    //               - grid_pt->u[trk_flag][2]*grid_pt->u[trk_flag][2])
-    //              *grid_pt->Wmunu[trk_flag][7])
-    //        /(grid_pt->u[trk_flag][0]*grid_pt->u[trk_flag][0] 
-    //          - grid_pt->u[trk_flag][3]*grid_pt->u[trk_flag][3]));
     vis_array_new[idx][9] = (
             (2.*(u_new[1]*u_new[2]*vis_array_new[idx][5]
                  + u_new[1]*u_new[3]*vis_array_new[idx][6]
@@ -755,31 +723,23 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
                 - (u_new[0]*u_new[0] - u_new[2]*u_new[2])
                   *vis_array_new[idx][7])
             /(u_new[0]*u_new[0] - u_new[3]*u_new[3]));
-    grid_pt->Wmunu[trk_flag][9] = vis_array_new[idx][9];
 
     // make Wmunu[i][0] using the transversality
     for (int mu = 1; mu < 4; mu++) {
         tempf = 0.0;
         for (int nu = 1; nu < 4; nu++) {
             int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-            //tempf += (
-            //    grid_pt->Wmunu[trk_flag][idx_1d]*grid_pt->u[trk_flag][nu]);
             tempf += vis_array_new[idx][idx_1d]*u_new[nu];
         }
-        //grid_pt->Wmunu[trk_flag][mu] = tempf/u_new[0];
         vis_array_new[idx][mu] = tempf/u_new[0];
-        grid_pt->Wmunu[trk_flag][mu] = vis_array_new[idx][mu];
     }
 
     // make Wmunu[0][0]
     tempf = 0.0;
     for (int nu = 1; nu < 4; nu++) {
-        //tempf += grid_pt->Wmunu[trk_flag][nu]*grid_pt->u[trk_flag][nu];
         tempf += vis_array_new[idx][nu]*u_new[nu];
     }
-    //grid_pt->Wmunu[trk_flag][0] = tempf/u_new[0];
     vis_array_new[idx][0] = tempf/u_new[0];
-    grid_pt->Wmunu[trk_flag][0] = vis_array_new[idx][0];
  
     if (DATA_ptr->turn_on_diff == 1) {
         // make qmu[0] using transversality
@@ -787,16 +747,11 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
             tempf = 0.0;
             for (int nu = 1; nu < 4; nu++) {
                 int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                //tempf += (grid_pt->Wmunu[trk_flag][idx_1d]
-                //          *grid_pt->u[trk_flag][nu]);
                 tempf += (vis_array_new[idx][idx_1d]*u_new[nu]);
             }
-            //grid_pt->Wmunu[trk_flag][10] = tempf/u_new[0];
             vis_array_new[idx][10] = tempf/u_new[0];
-            grid_pt->Wmunu[trk_flag][10] = vis_array_new[idx][10];
         }
     } else {
-        grid_pt->Wmunu[trk_flag][10] = 0.0;
         vis_array_new[idx][10] = 0.0;
     }
 
@@ -804,10 +759,10 @@ int Advance::FirstRKStepW(double tau, InitData *DATA, Grid *grid_pt,
     // reduce Wmunu using the QuestRevert algorithm
     int revert_flag = 0;
     int revert_q_flag = 0;
-    if (DATA->Initial_profile != 0) {
+    if (DATA_ptr->Initial_profile != 0) {
         revert_flag = QuestRevert(tau, grid_pt, rk_flag,
                                   vis_array_new, grid_array);
-        if (DATA->turn_on_diff == 1) {
+        if (DATA_ptr->turn_on_diff == 1) {
             revert_q_flag = QuestRevert_qmu(tau, grid_pt, rk_flag,
                                             vis_array_new, grid_array);
         }
@@ -907,7 +862,7 @@ void Advance::UpdateTJbRK(double *grid_array, Grid *grid_pt, int rk_flag) {
     grid_pt->u[trk_flag][1] = grid_pt->u[trk_flag][0]*grid_array[1];
     grid_pt->u[trk_flag][2] = grid_pt->u[trk_flag][0]*grid_array[2];
     grid_pt->u[trk_flag][3] = grid_pt->u[trk_flag][0]*grid_array[3];
-}/* UpdateTJbRK */
+}
 
 //! this function reduce the size of shear stress tensor and bulk pressure
 //! in the dilute region to stablize numerical simulations
@@ -917,26 +872,10 @@ int Advance::QuestRevert(double tau, Grid *grid_pt, int rk_flag,
     int revert_flag = 0;
     const double energy_density_warning = 0.01;  // GeV/fm^3, T~100 MeV
 
-    int trk_flag = rk_flag + 1;
-    if (rk_flag == 1) {
-        trk_flag = 0;
-    }
-
     double eps_scale = 1.0;  // 1/fm^4
     double e_local = grid_array[idx][0];
     double factor = 300.*tanh(e_local/eps_scale);
 
-    //double pi_00 = grid_pt->Wmunu[trk_flag][0];
-    //double pi_01 = grid_pt->Wmunu[trk_flag][1];
-    //double pi_02 = grid_pt->Wmunu[trk_flag][2];
-    //double pi_03 = grid_pt->Wmunu[trk_flag][3];
-    //double pi_11 = grid_pt->Wmunu[trk_flag][4];
-    //double pi_12 = grid_pt->Wmunu[trk_flag][5];
-    //double pi_13 = grid_pt->Wmunu[trk_flag][6];
-    //double pi_22 = grid_pt->Wmunu[trk_flag][7];
-    //double pi_23 = grid_pt->Wmunu[trk_flag][8];
-    //double pi_33 = grid_pt->Wmunu[trk_flag][9];
-    
     double pi_00 = vis_array[idx][0];
     double pi_01 = vis_array[idx][1];
     double pi_02 = vis_array[idx][2];
@@ -974,12 +913,8 @@ int Advance::QuestRevert(double tau, Grid *grid_pt, int rk_flag,
         for (int mu = 0; mu < 4; mu++) {
             for (int nu = mu; nu < 4; nu++) {
                 int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                //grid_pt->Wmunu[trk_flag][idx_1d] = (
-                //    (rho_shear_max/rho_shear)
-                //    *grid_pt->Wmunu[trk_flag][idx_1d]);
                 vis_array[idx][idx_1d] = ((rho_shear_max/rho_shear)
                                           *vis_array[idx][idx_1d]);
-                grid_pt->Wmunu[trk_flag][idx_1d] = vis_array[idx][idx_1d];
             }
         }
         revert_flag = 1;
@@ -992,15 +927,12 @@ int Advance::QuestRevert(double tau, Grid *grid_pt, int rk_flag,
             printf("energy density = %lf --  |Pi/(epsilon+3*P)| = %lf\n",
                    e_local*hbarc, rho_bulk);
         }
-        //grid_pt->pi_b[trk_flag] = (
-        //        (rho_bulk_max/rho_bulk)*grid_pt->pi_b[trk_flag]);
         vis_array[idx][14] = (rho_bulk_max/rho_bulk)*vis_array[idx][14];
-        grid_pt->pi_b[trk_flag] = vis_array[idx][14];
         revert_flag = 1;
     }
 
     return(revert_flag);
-}/* QuestRevert */
+}
 
 
 //! this function reduce the size of net baryon diffusion current
@@ -1023,7 +955,6 @@ int Advance::QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
     for (int i = 0; i < 4; i++) {
         // copy the value from the grid
         int idx_1d = util->map_2d_idx_to_1d(4, i);
-        //q_mu_local[i] = grid_pt->Wmunu[trk_flag][idx_1d];
         q_mu_local[i] = vis_array[idx][idx_1d];
     }
 
@@ -1042,7 +973,6 @@ int Advance::QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
         cout << "Reset it to zero!!!!" << endl;
         for (int i = 0; i < 4; i++) {
             int idx_1d = util->map_2d_idx_to_1d(4, i);
-            //grid_pt->Wmunu[trk_flag][idx_1d] = 0.0;
             vis_array[idx][idx_1d] = 0.0;
             grid_pt->Wmunu[trk_flag][idx_1d] = vis_array[idx][idx_1d];
         }
@@ -1060,10 +990,7 @@ int Advance::QuestRevert_qmu(double tau, Grid *grid_pt, int rk_flag,
         }
         for (int i = 0; i < 4; i++) {
             int idx_1d = util->map_2d_idx_to_1d(4, i);
-            //grid_pt->Wmunu[trk_flag][idx_1d] =
-            //                    (rho_q_max/rho_q)*q_mu_local[i];
             vis_array[idx][idx_1d] =rho_q_max/rho_q*q_mu_local[i];
-            grid_pt->Wmunu[trk_flag][idx_1d] = vis_array[idx][idx_1d];
         }
         revert_flag = 1;
     }
@@ -1599,11 +1526,39 @@ void Advance::update_grid_cell(double **grid_array, Grid ***arena, int rk_flag,
                                int ieta, int ix, int iy,
                                int n_cell_eta, int n_cell_x) {
     for (int k = 0; k < n_cell_eta; k++) {
+        int idx_ieta = min(ieta + k, DATA_ptr->neta - 1);
         for (int i = 0; i < n_cell_x; i++) {
+            int idx_ix = min(ix + i, DATA_ptr->nx);
             for (int j = 0; j < n_cell_x; j++) {
+                int idx_iy = min(iy + j, DATA_ptr->nx);
                 int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
-                UpdateTJbRK(grid_array[idx], &arena[ieta+k][ix+i][iy+j],
+                UpdateTJbRK(grid_array[idx], &arena[idx_ieta][idx_ix][idx_iy],
                             rk_flag);
+            }
+        }
+    }
+}           
+
+void Advance::update_grid_cell_viscous(double **vis_array, Grid ***arena,
+        int rk_flag, int ieta, int ix, int iy, int n_cell_eta, int n_cell_x) {
+    int trk_flag = 1;
+    if (rk_flag == 1) {
+        trk_flag = 0;
+    }
+
+    for (int k = 0; k < n_cell_eta; k++) {
+        int idx_ieta = min(ieta + k, DATA_ptr->neta - 1);
+        for (int i = 0; i < n_cell_x; i++) {
+            int idx_ix = min(ix + i, DATA_ptr->nx);
+            for (int j = 0; j < n_cell_x; j++) {
+                int idx_iy = min(iy + j, DATA_ptr->nx);
+                int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+                for (int alpha = 0; alpha < 14; alpha++) {
+                    arena[idx_ieta][idx_ix][idx_iy].Wmunu[trk_flag][alpha] = (
+                                                        vis_array[idx][alpha]);
+                }
+                arena[idx_ieta][idx_ix][idx_iy].pi_b[trk_flag] = (
+                                                        vis_array[idx][14]);
             }
         }
     }

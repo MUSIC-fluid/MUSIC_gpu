@@ -59,9 +59,9 @@ class Advance {
                      double **vis_nbr_eta,
                      double **qi_rk0, double **grid_array);
 
-    int FirstRKStepW(double tau_it, InitData *DATA, Grid *grid_pt,
-                     int rk_flag, double theta_local, double* a_local,
-                     double *sigma_local, double **vis_array,
+    int FirstRKStepW(double tau_it, Grid *grid_pt,
+                     int rk_flag,
+                     double **vis_array,
                      double **vis_nbr_tau, double **vis_nbr_x,
                      double **vis_nbr_y, double **vis_nbr_eta,
                      double **velocity_array, double **grid_array,
@@ -82,6 +82,9 @@ class Advance {
     void update_grid_cell(double **grid_array, Grid ***arena, int rk_flag,
                           int ieta, int ix, int iy,
                           int n_cell_eta, int n_cell_x);
+    void update_grid_cell_viscous(double **vis_array, Grid ***arena,
+                                  int rk_flag, int ieta, int ix, int iy,
+                                  int n_cell_eta, int n_cell_x);
 
     int QuestRevert(double tau, Grid *grid_pt, int rk_flag,
                     double **vis_array, double **grid_array);
