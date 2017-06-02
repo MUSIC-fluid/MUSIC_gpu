@@ -42,7 +42,6 @@ Evolve::~Evolve() {
 int Evolve::EvolveIt(InitData *DATA, Grid ***arena) {
     // first pass some control parameters
     facTau = DATA->facTau;
-    int output_hydro_debug_flag = DATA->output_hydro_debug_info;
     int Nskip_timestep = DATA->output_evolution_every_N_timesteps;
     int outputEvo_flag = DATA->outputEvolutionData;
     int output_movie_flag = DATA->output_movie_flag;

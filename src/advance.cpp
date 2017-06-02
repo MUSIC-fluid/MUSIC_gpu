@@ -435,6 +435,7 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                     delete[] vis_array[i];
                     delete[] vis_nbr_tau[i];
                     delete[] velocity_array[i];
+                    delete[] vis_array_new[i];
                 }
                 delete[] qi_array;
                 delete[] qi_rk0;
@@ -442,6 +443,7 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                 delete[] vis_array;
                 delete[] vis_nbr_tau;
                 delete[] velocity_array;
+                delete[] vis_array_new;
                 for (int i = 0; i < 4*n_cell_x*n_cell_eta; i++) {
                     delete[] qi_nbr_x[i];
                     delete[] qi_nbr_y[i];
@@ -585,7 +587,7 @@ int Advance::FirstRKStepW(double tau, int rk_flag, int n_cell_eta,
     // solve partial_tau (u^0 W^{kl}) = -partial_i (u^i W^{kl}
  
     /* Advance uWmunu */
-    double tempf, temps;
+    double tempf;
     if (rk_flag == 0) {
         // add partial_\mu uW^\mu\nu terms using KT
         diss->Make_uWRHS(tau_now, n_cell_eta, n_cell_x,
