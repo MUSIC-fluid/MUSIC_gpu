@@ -36,31 +36,32 @@ class Advance {
 
     void prepare_qi_array(
         double tau, Grid ***arena, int rk_flag, int ieta, int ix, int iy,
-        int n_cell_eta, int n_cell_x, double **qi_array,
+        int n_cell_eta, int n_cell_x, int n_cell_y, double **qi_array,
         double **qi_nbr_x, double **qi_nbr_y, double **qi_nbr_eta,
         double **qi_rk0, double **grid_array);
 
     void prepare_vis_array(
         Grid ***arena, int rk_flag, int ieta, int ix, int iy,
-        int n_cell_eta, int n_cell_x, double **vis_array, double **vis_nbr_tau,
+        int n_cell_eta, int n_cell_x, int n_cell_y,
+        double **vis_array, double **vis_nbr_tau,
         double **vis_nbr_x, double **vis_nbr_y, double **vis_nbr_eta);
 
     void prepare_velocity_array(double tau_rk, Grid ***arena,
                                 int ieta, int ix, int iy, int rk_flag,
-                                int n_cell_eta, int n_cell_x,
+                                int n_cell_eta, int n_cell_x, int n_cell_y,
                                 double **velocity_array,
                                 double **grid_array, double **vis_array_new);
 
-    int FirstRKStepT(double tau, int rk_flag,
+    int FirstRKStepT(double tau, int rk_flag, int check,
                      double **qi_array, double **qi_nbr_x, double **qi_nbr_y,
                      double **qi_nbr_eta, int n_cell_eta, int n_cell_x,
-                     double **vis_array, double **vis_nbr_tau,
+                     int n_cell_y, double **vis_array, double **vis_nbr_tau,
                      double **vis_nbr_x, double **vis_nbr_y,
                      double **vis_nbr_eta, double **qi_rk0,
                      double **qi_array_new, double **grid_array);
 
     int FirstRKStepW(double tau_it, int rk_flag, int n_cell_eta, int n_cell_x,
-                     double **vis_array,
+                     int n_cell_y, double **vis_array,
                      double **vis_nbr_tau, double **vis_nbr_x,
                      double **vis_nbr_y, double **vis_nbr_eta,
                      double **velocity_array, double **grid_array,
@@ -80,18 +81,18 @@ class Advance {
 
     void update_grid_cell(double **grid_array, Grid ***arena, int rk_flag,
                           int ieta, int ix, int iy,
-                          int n_cell_eta, int n_cell_x);
+                          int n_cell_eta, int n_cell_x, int n_cell_y);
     void update_grid_cell_viscous(double **vis_array, Grid ***arena,
                                   int rk_flag, int ieta, int ix, int iy,
-                                  int n_cell_eta, int n_cell_x);
+                                  int n_cell_eta, int n_cell_x, int n_cell_y);
 
     int QuestRevert(double tau, double *vis_array, double *grid_array);
     int QuestRevert_qmu(double tau, double *vis_array, double *grid_array);
 
     void MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                      double **qi_nbr_y, double **qi_nbr_eta,
-                     int n_cell_eta, int n_cell_x, double **qi_array_new,
-                     double **grid_array);
+                     int n_cell_eta, int n_cell_x, int n_cell_y,
+                     double **qi_array_new, double **grid_array);
 
     double MaxSpeed(double tau, int direc, double *grid_array);
 

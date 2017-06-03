@@ -23,7 +23,8 @@ Diss::~Diss() {
 
 
 void Diss::MakeWSource(double tau, double **qi_array,
-                       int n_cell_eta, int n_cell_x, double **vis_array,
+                       int n_cell_eta, int n_cell_x, int n_cell_y,
+                       double **vis_array,
                        double **vis_nbr_tau, double **vis_nbr_x,
                        double **vis_nbr_y, double **vis_nbr_eta,
                        double **qi_array_new) {
@@ -52,8 +53,8 @@ void Diss::MakeWSource(double tau, double **qi_array,
     }
     for (int k = 0; k < n_cell_eta; k++) {
         for (int i = 0; i < n_cell_x; i++) {
-            for (int j = 0; j < n_cell_x; j++) {
-                int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+            for (int j = 0; j < n_cell_y; j++) {
+                int idx = j + i*n_cell_y + k*n_cell_x*n_cell_y;
                 for (int alpha = 0; alpha < alpha_max; alpha++) {
                     // dW/dtau
                     // backward time derivative (first order is more stable)
@@ -89,17 +90,17 @@ void Diss::MakeWSource(double tau, double **qi_array,
                     // x-direction
                     idx_1d = util->map_2d_idx_to_1d(alpha, 1);
                     if (i + 1 < n_cell_x) {
-                        idx_p_1 = j + (i+1)*n_cell_x + k*n_cell_x*n_cell_x;
+                        idx_p_1 = j + (i+1)*n_cell_y + k*n_cell_x*n_cell_y;
                         sgp1 = vis_array[idx_p_1][idx_1d];
                     } else {
-                        idx_p_1 = 4*j + k*4*n_cell_x + 2;
+                        idx_p_1 = 4*j + k*4*n_cell_y + 2;
                         sgp1 = vis_nbr_x[idx_p_1][idx_1d];
                     }
-                    if (i - 1 > 0) {
-                        idx_m_1 = j + (i-1)*n_cell_x + k*n_cell_x*n_cell_x;
+                    if (i - 1 >= 0) {
+                        idx_m_1 = j + (i-1)*n_cell_y + k*n_cell_x*n_cell_y;
                         sgm1 = vis_array[idx_m_1][idx_1d];
                     } else {
-                        idx_m_1 = 4*j + k*4*n_cell_x + 1;
+                        idx_m_1 = 4*j + k*4*n_cell_y + 1;
                         sgm1 = vis_nbr_x[idx_m_1][idx_1d];
                     }
                     dWdx_perp += (sgp1 - sgm1)/(2.*DATA_ptr->delta_x);
@@ -114,7 +115,7 @@ void Diss::MakeWSource(double tau, double **qi_array,
                                         *(gfac1 + vis_nbr_x[idx_p_1][15+alpha]
                                                   *vis_nbr_x[idx_p_1][16]));
                         }
-                        if (i - 1 > 0) {
+                        if (i - 1 >= 0) {
                             bgm1 = (vis_array[idx_m_1][14]
                                         *(gfac1 + vis_array[idx_m_1][15+alpha]
                                                   *vis_array[idx_m_1][16]));
@@ -127,15 +128,15 @@ void Diss::MakeWSource(double tau, double **qi_array,
                     }
                     // y-direction
                     idx_1d = util->map_2d_idx_to_1d(alpha, 2);
-                    if (j + 1 < n_cell_x) {
-                        idx_p_1 = j + 1 + i*n_cell_x + k*n_cell_x*n_cell_x;
+                    if (j + 1 < n_cell_y) {
+                        idx_p_1 = j + 1 + i*n_cell_y + k*n_cell_x*n_cell_y;
                         sgp1 = vis_array[idx_p_1][idx_1d];
                     } else {
                         idx_p_1 = 4*i + 4*k*n_cell_x + 2;
                         sgp1 = vis_nbr_y[idx_p_1][idx_1d];
                     }
-                    if (j - 1 > 0) {
-                        idx_m_1 = j - 1 + i*n_cell_x + k*n_cell_x*n_cell_x;
+                    if (j - 1 >= 0) {
+                        idx_m_1 = j - 1 + i*n_cell_y + k*n_cell_x*n_cell_y;
                         sgm1 = vis_array[idx_m_1][idx_1d];
                     } else {
                         idx_m_1 = 4*i + 4*k*n_cell_x + 1;
@@ -153,7 +154,7 @@ void Diss::MakeWSource(double tau, double **qi_array,
                                         *(gfac1 + vis_nbr_y[idx_p_1][15+alpha]
                                                   *vis_nbr_y[idx_p_1][17]));
                         }
-                        if (j - 1 > 0) {
+                        if (j - 1 >= 0) {
                             bgm1 = (vis_array[idx_m_1][14]
                                         *(gfac1 + vis_array[idx_m_1][15+alpha]
                                                   *vis_array[idx_m_1][17]));
@@ -171,17 +172,17 @@ void Diss::MakeWSource(double tau, double **qi_array,
                     double dPideta = 0.0;
                     idx_1d = util->map_2d_idx_to_1d(alpha, 3);
                     if (k + 1 < n_cell_eta) {
-                        idx_p_1 = j + i*n_cell_x + (k+1)*n_cell_x*n_cell_x;
+                        idx_p_1 = j + i*n_cell_y + (k+1)*n_cell_x*n_cell_y;
                         sgp1 = vis_array[idx_p_1][idx_1d];
                     } else {
-                        idx_p_1 = 4*i + 4*j*n_cell_x + 2;
+                        idx_p_1 = 4*j + 4*i*n_cell_y + 2;
                         sgp1 = vis_nbr_eta[idx_p_1][idx_1d];
                     }
-                    if (k - 1 > 0) {
-                        idx_m_1 = j + i*n_cell_x + (k-1)*n_cell_x*n_cell_x;
+                    if (k - 1 >= 0) {
+                        idx_m_1 = j + i*n_cell_y + (k-1)*n_cell_x*n_cell_y;
                         sgm1 = vis_array[idx_m_1][idx_1d];
                     } else {
-                        idx_m_1 = 4*i + 4*j*n_cell_x + 1;
+                        idx_m_1 = 4*j + 4*i*n_cell_y + 1;
                         sgm1 = vis_nbr_eta[idx_m_1][idx_1d];
                     }
                     dWdeta = (sgp1 - sgm1)/(2.*DATA_ptr->delta_eta*taufactor);
@@ -196,7 +197,7 @@ void Diss::MakeWSource(double tau, double **qi_array,
                                        *(gfac3 + vis_nbr_eta[idx_p_1][15+alpha]
                                                  *vis_nbr_eta[idx_p_1][18]));
                         }
-                        if (k - 1 > 0) {
+                        if (k - 1 >= 0) {
                             bgm1 = (vis_array[idx_m_1][14]
                                        *(gfac3 + vis_array[idx_m_1][15+alpha]
                                                  *vis_array[idx_m_1][18]));
@@ -243,6 +244,7 @@ void Diss::MakeWSource(double tau, double **qi_array,
 
 
 double Diss::Make_uWSource(double tau, int n_cell_eta, int n_cell_x,
+                           int n_cell_y,
                            double **vis_array, double **velocity_array,
                            double **grid_array, double **vis_array_new) {
     if (DATA_ptr->turn_on_shear == 0) {
@@ -262,8 +264,8 @@ double Diss::Make_uWSource(double tau, int n_cell_eta, int n_cell_x,
     double Wmunu[4][4];
     for (int k = 0; k < n_cell_eta; k++) {
         for (int i = 0; i < n_cell_x; i++) {
-            for (int j = 0; j < n_cell_x; j++) {
-                int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+            for (int j = 0; j < n_cell_y; j++) {
+                int idx = j + i*n_cell_y + k*n_cell_x*n_cell_y;
 
                 for (int a = 0; a < 4; a++) {
                     for (int b = a; b < 4; b++) {
@@ -497,7 +499,7 @@ double Diss::Make_uWSource(double tau, int n_cell_eta, int n_cell_x,
 }
 
 
-int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
+int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x, int n_cell_y,
                      double **vis_array, double **vis_nbr_x,
                      double **vis_nbr_y, double **vis_nbr_eta,
                      double **velocity_array, double **vis_array_new) {
@@ -522,8 +524,8 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
     double Wmunu_local[4][4];
     for (int k = 0; k < n_cell_eta; k++) {
         for (int i = 0; i < n_cell_x; i++) {
-            for (int j = 0; j < n_cell_x; j++) {
-                int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+            for (int j = 0; j < n_cell_y; j++) {
+                int idx = j + i*n_cell_y + k*n_cell_x*n_cell_y;
 
                 for (int aa = 0; aa < 4; aa++) {
                     for (int bb = aa; bb < 4; bb++) {
@@ -584,26 +586,26 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                     a = fabs(vis_array[idx][16])/vis_array[idx][15];
 
                     if (i + 2 < n_cell_x) {
-                        idx_p_2 = j + (i+2)*n_cell_x + k*n_cell_x*n_cell_x;
+                        idx_p_2 = j + (i+2)*n_cell_y + k*n_cell_x*n_cell_y;
                         gp2 = vis_array[idx_p_2][idx_1d];
                         fp2 = gp2*vis_array[idx_p_2][16];
                         gp2 *= vis_array[idx_p_2][15];
                     } else {
-                        idx_p_2 = 4*j + k*4*n_cell_x + 3;
+                        idx_p_2 = 4*j + k*4*n_cell_y + 4 + i - n_cell_x;
                         gp2 = vis_nbr_x[idx_p_2][idx_1d];
                         fp2 = gp2*vis_nbr_x[idx_p_2][16];
                         gp2 *= vis_nbr_x[idx_p_2][15];
                     }
 
                     if (i + 1 < n_cell_x) {
-                        idx_p_1 = j + (i+1)*n_cell_x + k*n_cell_x*n_cell_x;
+                        idx_p_1 = j + (i+1)*n_cell_y + k*n_cell_x*n_cell_y;
                         gp1 = vis_array[idx_p_1][idx_1d];
                         fp1 = gp1*vis_array[idx_p_1][16];
                         gp1 *= vis_array[idx_p_1][15];
                         ap1 = (fabs(vis_array[idx_p_1][16])
                                /vis_array[idx_p_1][15]);
                     } else {
-                        idx_p_1 = 4*j + k*4*n_cell_x + 2;
+                        idx_p_1 = 4*j + k*4*n_cell_y + 2;
                         gp1 = vis_nbr_x[idx_p_1][idx_1d];
                         fp1 = gp1*vis_nbr_x[idx_p_1][16];
                         gp1 *= vis_nbr_x[idx_p_1][15];
@@ -612,14 +614,14 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                     }
 
                     if (i - 1 >= 0) {
-                        idx_m_1 = j + (i-1)*n_cell_x + k*n_cell_x*n_cell_x;
+                        idx_m_1 = j + (i-1)*n_cell_y + k*n_cell_x*n_cell_y;
                         gm1 = vis_array[idx_m_1][idx_1d];
                         fm1 = gm1*vis_array[idx_m_1][16];
                         gm1 *= vis_array[idx_m_1][15];
                         am1 = (fabs(vis_array[idx_m_1][16])
                                /vis_array[idx_m_1][15]);
                     } else {
-                        idx_m_1 = 4*j + k*4*n_cell_x + 1;
+                        idx_m_1 = 4*j + k*4*n_cell_y + 1;
                         gm1 = vis_nbr_x[idx_m_1][idx_1d];
                         fm1 = gm1*vis_nbr_x[idx_m_1][16];
                         gm1 *= vis_nbr_x[idx_m_1][15];
@@ -628,12 +630,12 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                     }
 
                     if (i - 2 >= 0) {
-                        idx_m_2 = j + (i-2)*n_cell_x + k*n_cell_x*n_cell_x;
+                        idx_m_2 = j + (i-2)*n_cell_y + k*n_cell_x*n_cell_y;
                         gm2 = vis_array[idx_m_2][idx_1d];
                         fm2 = gm2*vis_array[idx_m_2][16];
                         gm2 *= vis_array[idx_m_2][15];
                     } else {
-                        idx_m_2 = 4*j + k*4*n_cell_x;
+                        idx_m_2 = 4*j + k*4*n_cell_y + i;
                         gm2 = vis_nbr_x[idx_m_2][idx_1d];
                         fm2 = gm2*vis_nbr_x[idx_m_2][16];
                         gm2 *= vis_nbr_x[idx_m_2][15];
@@ -666,20 +668,20 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                     g *= vis_array[idx][15];
                     a = fabs(vis_array[idx][17])/vis_array[idx][15];
 
-                    if (j + 2 < n_cell_x) {
-                        idx_p_2 = j + 2 + i*n_cell_x + k*n_cell_x*n_cell_x;
+                    if (j + 2 < n_cell_y) {
+                        idx_p_2 = j + 2 + i*n_cell_y + k*n_cell_x*n_cell_y;
                         gp2 = vis_array[idx_p_2][idx_1d];
                         fp2 = gp2*vis_array[idx_p_2][17];
                         gp2 *= vis_array[idx_p_2][15];
                     } else {
-                        idx_p_2 = 4*i + 4*k*n_cell_x + 3;
+                        idx_p_2 = 4*i + 4*k*n_cell_x + 4 + j - n_cell_y;
                         gp2 = vis_nbr_y[idx_p_2][idx_1d];
                         fp2 = gp2*vis_nbr_y[idx_p_2][17];
                         gp2 *= vis_nbr_y[idx_p_2][15];
                     }
 
-                    if (j + 1 < n_cell_x) {
-                        idx_p_1 = j + 1 + i*n_cell_x + k*n_cell_x*n_cell_x;
+                    if (j + 1 < n_cell_y) {
+                        idx_p_1 = j + 1 + i*n_cell_y + k*n_cell_x*n_cell_y;
                         gp1 = vis_array[idx_p_1][idx_1d];
                         fp1 = gp1*vis_array[idx_p_1][17];
                         gp1 *= vis_array[idx_p_1][15];
@@ -695,7 +697,7 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                     }
                         
                     if (j - 1 >= 0) {
-                        idx_m_1 = j - 1 + i*n_cell_x + k*n_cell_x*n_cell_x;
+                        idx_m_1 = j - 1 + i*n_cell_y + k*n_cell_x*n_cell_y;
                         gm1 = vis_array[idx_m_1][idx_1d];
                         fm1 = gm1*vis_array[idx_m_1][17];
                         gm1 *= vis_array[idx_m_1][15];
@@ -711,12 +713,12 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                     }
 
                     if (j - 2 >= 0) {
-                        idx_m_2 = j - 2 + i*n_cell_x + k*n_cell_x*n_cell_x;
+                        idx_m_2 = j - 2 + i*n_cell_y + k*n_cell_x*n_cell_y;
                         gm2 = vis_array[idx_m_2][idx_1d];
                         fm2 = gm2*vis_array[idx_m_2][17];
                         gm2 *= vis_array[idx_m_2][15];
                     } else {
-                        idx_m_2 = 4*i + 4*k*n_cell_x;
+                        idx_m_2 = 4*i + 4*k*n_cell_x + j;
                         gm2 = vis_nbr_y[idx_m_2][idx_1d];
                         fm2 = gm2*vis_nbr_y[idx_m_2][17];
                         gm2 *= vis_nbr_y[idx_m_2][15];
@@ -748,26 +750,26 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                     a = fabs(vis_array[idx][18])/vis_array[idx][15];
 
                     if (k + 2 < n_cell_eta) {
-                        idx_p_2 = j + i*n_cell_x + (k+2)*n_cell_x*n_cell_x;
+                        idx_p_2 = j + i*n_cell_y + (k+2)*n_cell_x*n_cell_y;
                         gp2 = vis_array[idx_p_2][idx_1d];
                         fp2 = gp2*vis_array[idx_p_2][18];
                         gp2 *= vis_array[idx_p_2][15];
                     } else {
-                        idx_p_2 = 4*i + 4*j*n_cell_x + 3;
+                        idx_p_2 = 4*j + 4*i*n_cell_y + 4 + k - n_cell_eta;
                         gp2 = vis_nbr_eta[idx_p_2][idx_1d];
                         fp2 = gp2*vis_nbr_eta[idx_p_2][18];
                         gp2 *= vis_nbr_eta[idx_p_2][15];
                     }
 
                     if (k + 1 < n_cell_eta) {
-                        idx_p_1 = j + i*n_cell_x + (k+1)*n_cell_x*n_cell_x;
+                        idx_p_1 = j + i*n_cell_y + (k+1)*n_cell_x*n_cell_y;
                         gp1 = vis_array[idx_p_1][idx_1d];
                         fp1 = gp1*vis_array[idx_p_1][18];
                         gp1 *= vis_array[idx_p_1][15];
                         ap1 = (fabs(vis_array[idx_p_1][18])
                                 /vis_array[idx_p_1][15]);
                     } else {
-                        idx_p_1 = 4*i + 4*j*n_cell_x + 2;
+                        idx_p_1 = 4*j + 4*i*n_cell_y + 2;
                         gp1 = vis_nbr_eta[idx_p_1][idx_1d];
                         fp1 = gp1*vis_nbr_eta[idx_p_1][18];
                         gp1 *= vis_nbr_eta[idx_p_1][15];
@@ -776,14 +778,14 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                     }
 
                     if (k - 1 >= 0) {
-                        idx_m_1 = j + i*n_cell_x + (k-1)*n_cell_x*n_cell_x;
+                        idx_m_1 = j + i*n_cell_y + (k-1)*n_cell_x*n_cell_y;
                         gm1 = vis_array[idx_m_1][idx_1d];
                         fm1 = gm1*vis_array[idx_m_1][18];
                         gm1 *= vis_array[idx_m_1][15];
                         am1 = (fabs(vis_array[idx_m_1][18])
                                 /vis_array[idx_m_1][15]);
                     } else {
-                        idx_m_1 = 4*i + 4*j*n_cell_x + 1;
+                        idx_m_1 = 4*j + 4*i*n_cell_y + 1;
                         gm1 = vis_nbr_eta[idx_m_1][idx_1d];
                         fm1 = gm1*vis_nbr_eta[idx_m_1][18];
                         gm1 *= vis_nbr_eta[idx_m_1][15];
@@ -792,12 +794,12 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x,
                     }
 
                     if (k - 2 >= 0) {
-                        idx_m_2 = j + i*n_cell_x + (k-2)*n_cell_x*n_cell_x;
+                        idx_m_2 = j + i*n_cell_y + (k-2)*n_cell_x*n_cell_y;
                         gm2 = vis_array[idx_m_2][idx_1d];
                         fm2 = gm2*vis_array[idx_m_2][18];
                         gm2 *= vis_array[idx_m_2][15];
                     } else {
-                        idx_m_2 = 4*i + 4*j*n_cell_x;
+                        idx_m_2 = 4*j + 4*i*n_cell_y + k;
                         gm2 = vis_nbr_eta[idx_m_2][idx_1d];
                         fm2 = gm2*vis_nbr_eta[idx_m_2][18];
                         gm2 *= vis_nbr_eta[idx_m_2][15];
@@ -1103,6 +1105,7 @@ int Diss::Make_uPRHS(double tau, double *p_rhs,
 
 
 double Diss::Make_uPiSource(double tau, int n_cell_eta, int n_cell_x,
+                            int n_cell_y,
                             double **vis_array, double **velocity_array,
                             double **grid_array, double **vis_array_new) {
     // switch to include non-linear coupling terms in the bulk pi evolution
@@ -1113,8 +1116,8 @@ double Diss::Make_uPiSource(double tau, int n_cell_eta, int n_cell_x,
 
     for (int k = 0; k < n_cell_eta; k++) {
         for (int i = 0; i < n_cell_x; i++) {
-            for (int j = 0; j < n_cell_x; j++) {
-                int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+            for (int j = 0; j < n_cell_y; j++) {
+                int idx = j + i*n_cell_y + k*n_cell_x*n_cell_y;
                 // defining bulk viscosity coefficient
                 double epsilon = grid_array[idx][0];
                 double rhob = grid_array[idx][4];
@@ -1237,6 +1240,7 @@ double Diss::Make_uPiSource(double tau, int n_cell_eta, int n_cell_x,
     -u[a]u[b]g[b][e] Dq[e]
 */
 double Diss::Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
+                           int n_cell_y,
                            double **vis_array, double **velocity_array,
                            double **grid_array, double **vis_array_new) {
 
@@ -1246,8 +1250,8 @@ double Diss::Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
 
     for (int k = 0; k < n_cell_eta; k++) {
         for (int i = 0; i < n_cell_x; i++) {
-            for (int j = 0; j < n_cell_x; j++) {
-                int idx = j + i*n_cell_x + k*n_cell_x*n_cell_x;
+            for (int j = 0; j < n_cell_y; j++) {
+                int idx = j + i*n_cell_y + k*n_cell_x*n_cell_y;
 
                 // Useful variables to define
                 double epsilon = grid_array[idx][0];
