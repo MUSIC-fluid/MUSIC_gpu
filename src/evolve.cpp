@@ -25,9 +25,9 @@ Evolve::Evolve(EOS *eosIn, InitData *DATA_in) {
     grid_ny = DATA_in->ny;
     grid_neta = DATA_in->neta;
   
-    if (DATA_ptr->freezeOutMethod == 4) {
-        initialize_freezeout_surface_info();
-    }
+    //if (DATA_ptr->freezeOutMethod == 4) {
+    //    initialize_freezeout_surface_info();
+    //}
 }
 
 // destructor
@@ -173,29 +173,8 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
 
     // clean up
     clean_up_hydro_fields(hydro_fields);
-    delete hydro_fields;
 
-    //for (int ieta=0; ieta < DATA->neta; ieta++) {
-    //    for (int ix=0; ix <= DATA->nx; ix++) {
-    //        for (int iy=0; iy <= DATA->ny; iy++) {
-    //            util->cube_free(arena[ieta][ix][iy].dUsup, 1, 5, 4);
-    //            util->mtx_free(arena[ieta][ix][iy].Wmunu, rk_order, 14);
-    //            util->mtx_free(arena[ieta][ix][iy].prevWmunu, 1, 14);
-    //            util->mtx_free(arena[ieta][ix][iy].u, rk_order, 4);
-    //            util->mtx_free(arena[ieta][ix][iy].prev_u, 1, 4);
-    //            util->vector_free(arena[ieta][ix][iy].pi_b);
-    //            util->vector_free(arena[ieta][ix][iy].prev_pi_b);
-    //            
-    //            util->vector_free(arena[ieta][ix][iy].W_prev);
-    //            delete[] arena[ieta][ix][iy].nbr_p_1;
-    //            delete[] arena[ieta][ix][iy].nbr_p_2;
-    //            delete[] arena[ieta][ix][iy].nbr_m_1;
-    //            delete[] arena[ieta][ix][iy].nbr_m_2;
-    //        }
-    //    }
-    //}
-
-    return 1; /* successful */
+    return(1); /* successful */
 }/* Evolve */
 
 void Evolve::store_previous_step_for_freezeout(Grid ***arena) {
