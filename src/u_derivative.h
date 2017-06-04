@@ -4,6 +4,7 @@
 #include "util.h"
 #include "data.h"
 #include "grid.h"
+#include "field.h"
 #include <string.h>
 #include <iostream>
 
@@ -25,14 +26,21 @@ class U_derivative {
     //! this function returns the expansion rate on the grid
     double calculate_expansion_rate(double tau, Grid ***arena,
                                     int ieta, int ix, int iy, int rk_flag);
+    double calculate_expansion_rate_1(double tau, Field *hydro_fields,
+                                      int idx, int rk_flag);
 
     //! this function returns Du^\mu
     void calculate_Du_supmu(double tau, Grid ***arena, int ieta, int ix,
                             int iy, int rk_flag, double *a);
+    void calculate_Du_supmu_1(double tau, Field *hydro_fields,
+                              int idx, int rk_flag, double *a);
 
     //! This funciton returns the velocity shear tensor sigma^\mu\nu
     void calculate_velocity_shear_tensor(double tau, Grid ***arena,
         int ieta, int ix, int iy, int rk_flag, double *a_local, double *sigma);
+    void calculate_velocity_shear_tensor_1(double tau, Field *hydro_fields,
+                                           int idx, int rk_flag,
+                                           double *a_local, double *sigma);
     int MakeDSpatial(double tau, InitData *DATA, Grid *grid_pt, int rk_flag);
     int MakeDTau(double tau, InitData *DATA, Grid *grid_pt, int rk_flag);
 };

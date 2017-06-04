@@ -5,6 +5,7 @@
 #include <iostream>
 #include "./data.h"
 #include "./grid.h"
+#include "./field.h"
 #include "./dissipative.h"
 #include "./minmod.h"
 #include "./u_derivative.h"
@@ -32,21 +33,21 @@ class Advance {
     Advance(EOS *eosIn, InitData* DATA_in);
     ~Advance();
 
-    int AdvanceIt(double tau_init, InitData *DATA, Grid ***arena, int rk_flag);
+    int AdvanceIt(double tau_init, InitData *DATA, Grid ***arena, Field *hydro_fields, int rk_flag);
 
     void prepare_qi_array(
-        double tau, Grid ***arena, int rk_flag, int ieta, int ix, int iy,
+        double tau, Field *hydro_fields, int rk_flag, int ieta, int ix, int iy,
         int n_cell_eta, int n_cell_x, int n_cell_y, double **qi_array,
         double **qi_nbr_x, double **qi_nbr_y, double **qi_nbr_eta,
         double **qi_rk0, double **grid_array);
 
     void prepare_vis_array(
-        Grid ***arena, int rk_flag, int ieta, int ix, int iy,
+        Field *hydro_fields, int rk_flag, int ieta, int ix, int iy,
         int n_cell_eta, int n_cell_x, int n_cell_y,
         double **vis_array, double **vis_nbr_tau,
         double **vis_nbr_x, double **vis_nbr_y, double **vis_nbr_eta);
 
-    void prepare_velocity_array(double tau_rk, Grid ***arena,
+    void prepare_velocity_array(double tau_rk, Field *hydro_fields,
                                 int ieta, int ix, int iy, int rk_flag,
                                 int n_cell_eta, int n_cell_x, int n_cell_y,
                                 double **velocity_array,
@@ -70,19 +71,28 @@ class Advance {
     
     void update_grid_array_from_grid_cell(Grid *grid_p, double *grid_array,
                                           int rk_flag);
+    void update_grid_array_from_field(
+                Field *hydro_fields, int idx, double *grid_array, int rk_flag);
+
     void update_grid_cell_from_grid_array(Grid *grid_p, double *grid_array);
 
     void update_vis_array_from_grid_cell(Grid *grid_p, double *vis_array,
                                          int rk_flag);
+    void update_vis_array_from_field(Field *hydro_fields, int idx,
+                                     double *vis_array, int rk_flag);
     void update_vis_prev_tau_from_grid_cell(Grid *grid_p, double *vis_array,
                                             int rk_flag);
+    void update_vis_prev_tau_from_field(Field *hydro_fields, int idx,
+                                        double *vis_array,int rk_flag);
 
     void UpdateTJbRK(double *grid_array, Grid *grid_pt, int rk_flag);
+    void update_grid_array_to_hydro_fields(
+            double *grid_array, Field *hydro_fields, int idx, int rk_flag);
 
-    void update_grid_cell(double **grid_array, Grid ***arena, int rk_flag,
+    void update_grid_cell(double **grid_array, Grid ***arena, Field *hydro_fields, int rk_flag,
                           int ieta, int ix, int iy,
                           int n_cell_eta, int n_cell_x, int n_cell_y);
-    void update_grid_cell_viscous(double **vis_array, Grid ***arena,
+    void update_grid_cell_viscous(double **vis_array, Grid ***arena, Field *hydro_fields,
                                   int rk_flag, int ieta, int ix, int iy,
                                   int n_cell_eta, int n_cell_x, int n_cell_y);
 

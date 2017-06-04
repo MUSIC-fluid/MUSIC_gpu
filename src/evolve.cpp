@@ -7,6 +7,7 @@
 #include "./eos.h"
 #include "./advance.h"
 #include "./cornelius.h"
+#include "./field.h"
 
 using namespace std;
 
@@ -38,8 +39,69 @@ Evolve::~Evolve() {
     delete u_derivative;
 }
 
+void Evolve::initialize_hydro_fields(Field *hydro_fields) {
+    int n_cell = DATA_ptr->neta*(DATA_ptr->nx + 1)*(DATA_ptr->ny + 1);
+    hydro_fields->e_rk0 = new double[n_cell];
+    hydro_fields->e_rk1 = new double[n_cell];
+    hydro_fields->e_prev = new double[n_cell];
+    hydro_fields->rhob_rk0 = new double[n_cell];
+    hydro_fields->rhob_rk1 = new double[n_cell];
+    hydro_fields->rhob_prev = new double[n_cell];
+    hydro_fields->u_rk0 = new double* [n_cell];
+    hydro_fields->u_rk1 = new double* [n_cell];
+    hydro_fields->u_prev = new double* [n_cell];
+    hydro_fields->dUsup = new double* [n_cell];
+    hydro_fields->Wmunu_rk0 = new double* [n_cell];
+    hydro_fields->Wmunu_rk1 = new double* [n_cell];
+    hydro_fields->Wmunu_prev = new double* [n_cell];
+    for (int i = 0; i < n_cell; i++) {
+        hydro_fields->u_rk0[i] = new double[4];
+        hydro_fields->u_rk1[i] = new double[4];
+        hydro_fields->u_prev[i] = new double[4];
+        hydro_fields->dUsup[i] = new double[20];
+        hydro_fields->Wmunu_rk0[i] = new double[14];
+        hydro_fields->Wmunu_rk1[i] = new double[14];
+        hydro_fields->Wmunu_prev[i] = new double[14];
+    }
+    hydro_fields->pi_b_rk0 = new double[n_cell];
+    hydro_fields->pi_b_rk1 = new double[n_cell];
+    hydro_fields->pi_b_prev = new double[n_cell];
+}
+
+void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
+    int n_cell = DATA_ptr->neta*(DATA_ptr->nx + 1)*(DATA_ptr->ny + 1);
+    delete[] hydro_fields->e_rk0;
+    delete[] hydro_fields->e_rk1;
+    delete[] hydro_fields->e_prev;
+    delete[] hydro_fields->rhob_rk0;
+    delete[] hydro_fields->rhob_rk1;
+    delete[] hydro_fields->rhob_prev;
+    for (int i = 0; i < n_cell; i++) {
+        delete[] hydro_fields->u_rk0[i];
+        delete[] hydro_fields->u_rk1[i];
+        delete[] hydro_fields->u_prev[i];
+        delete[] hydro_fields->dUsup[i];
+        delete[] hydro_fields->Wmunu_rk0[i];
+        delete[] hydro_fields->Wmunu_rk1[i];
+        delete[] hydro_fields->Wmunu_prev[i];
+    }
+    delete[] hydro_fields->u_rk0;
+    delete[] hydro_fields->u_rk1;
+    delete[] hydro_fields->u_prev;
+    delete[] hydro_fields->dUsup;
+    delete[] hydro_fields->Wmunu_rk0;
+    delete[] hydro_fields->Wmunu_rk1;
+    delete[] hydro_fields->Wmunu_prev;
+    delete[] hydro_fields->pi_b_rk0;
+    delete[] hydro_fields->pi_b_rk1;
+    delete[] hydro_fields->pi_b_prev;
+}
+
 // master control function for hydrodynamic evolution
 int Evolve::EvolveIt(InitData *DATA, Grid ***arena) {
+    Field *hydro_fields = new Field;
+    initialize_hydro_fields(hydro_fields);
+
     // first pass some control parameters
     facTau = DATA->facTau;
     int Nskip_timestep = DATA->output_evolution_every_N_timesteps;
@@ -73,6 +135,8 @@ int Evolve::EvolveIt(InitData *DATA, Grid ***arena) {
         if (it == it_start) {
             store_previous_step_for_freezeout(arena);
         }
+
+        convert_grid_to_field(arena, hydro_fields);
         
         if (DATA->Initial_profile == 0) {
             if (fabs(tau - 1.0) < 1e-8) {
@@ -89,24 +153,6 @@ int Evolve::EvolveIt(InitData *DATA, Grid ***arena) {
             }
             if (fabs(tau - 3.0) < 1e-8) {
                 grid_info->Gubser_flow_check_file(arena, tau);
-            }
-        }
-
-        if (DATA->Initial_profile == 1) {
-            if (fabs(tau - 1.0) < 1e-8) {
-                grid_info->output_1p1D_check_file(arena, tau);
-            }
-            if (fabs(tau - 2.0) < 1e-8) {
-                grid_info->output_1p1D_check_file(arena, tau);
-            }
-            if (fabs(tau - 5.0) < 1e-8) {
-                grid_info->output_1p1D_check_file(arena, tau);
-            }
-            if (fabs(tau - 10.) < 1e-8) {
-                grid_info->output_1p1D_check_file(arena, tau);
-            }
-            if (fabs(tau - 20.) < 1e-8) {
-                grid_info->output_1p1D_check_file(arena, tau);
             }
         }
 
@@ -130,7 +176,7 @@ int Evolve::EvolveIt(InitData *DATA, Grid ***arena) {
 
         /* execute rk steps */
         // all the evolution are at here !!!
-        AdvanceRK(tau, DATA, arena);
+        AdvanceRK(tau, DATA, arena, hydro_fields);
         
         //determine freeze-out surface
         int frozen = 0;
@@ -159,6 +205,9 @@ int Evolve::EvolveIt(InitData *DATA, Grid ***arena) {
                 it, itmax, tau);
         if (frozen) break;
     }/* it */ 
+
+    clean_up_hydro_fields(hydro_fields);
+    delete hydro_fields;
 
     // clean up
     for (int ieta=0; ieta < DATA->neta; ieta++) {
@@ -257,16 +306,101 @@ void Evolve::Update_prev_Arena_XY(int ieta, Grid ***arena) {
     }
 }
 
+void Evolve::update_prev_field(Field *hydro_fields) {
+    int n_cell = DATA_ptr->neta*(DATA_ptr->nx + 1)*(DATA_ptr->ny + 1);
+    for (int i = 0; i < n_cell; i++) {
+        hydro_fields->e_prev[i] = hydro_fields->e_rk0[i];
+        hydro_fields->rhob_prev[i] = hydro_fields->rhob_rk0[i];
+        for (int ii = 0; ii < 4; ii++) {
+            hydro_fields->u_prev[i][ii] = hydro_fields->u_rk0[i][ii];
+        }
+        for (int ii = 0; ii < 14; ii++) {
+            hydro_fields->Wmunu_prev[i][ii] = hydro_fields->Wmunu_rk0[i][ii];
+        }
+        hydro_fields->pi_b_prev[i] = hydro_fields->pi_b_rk0[i];
+    }
 
-int Evolve::AdvanceRK(double tau, InitData *DATA, Grid ***arena) {
+}
+
+void Evolve::copy_dUsup_from_grid_to_field(Grid ***arena, Field *hydro_fields) {
+    int nx = grid_nx + 1;
+    int ny = grid_ny + 1;
+    int neta = grid_neta;
+    for (int ieta = 0; ieta < neta; ieta++) {
+        for (int ix = 0; ix < nx; ix++) {
+            for (int iy = 0; iy < ny; iy++) {
+                int idx = iy + ix*ny + ieta*ny*nx;
+                for (int ii = 0; ii < 5; ii++) {
+                    for (int jj = 0; jj < 4; jj++) {
+                        int iidx = jj + 4*ii;
+                        hydro_fields->dUsup[idx][iidx] =
+                            arena[ieta][ix][iy].dUsup[0][ii][jj];
+                    }
+                }
+            }
+        }
+    }
+}
+
+void Evolve::convert_grid_to_field(Grid ***arena, Field *hydro_fields) {
+    int nx = grid_nx + 1;
+    int ny = grid_ny + 1;
+    int neta = grid_neta;
+    for (int ieta = 0; ieta < neta; ieta++) {
+        for (int ix = 0; ix < nx; ix++) {
+            for (int iy = 0; iy < ny; iy++) {
+                int idx = iy + ix*ny + ieta*ny*nx;
+                hydro_fields->e_rk0[idx] = arena[ieta][ix][iy].epsilon;
+                hydro_fields->e_rk1[idx] = arena[ieta][ix][iy].epsilon_t;
+                hydro_fields->e_prev[idx] = arena[ieta][ix][iy].prev_epsilon;
+                hydro_fields->rhob_rk0[idx] = arena[ieta][ix][iy].rhob;
+                hydro_fields->rhob_rk1[idx] = arena[ieta][ix][iy].rhob_t;
+                hydro_fields->rhob_prev[idx] = arena[ieta][ix][iy].prev_rhob;
+                for (int ii = 0; ii < 4; ii++) {
+                    hydro_fields->u_rk0[idx][ii] =
+                                            arena[ieta][ix][iy].u[0][ii];
+                    hydro_fields->u_rk1[idx][ii] =
+                                            arena[ieta][ix][iy].u[1][ii];
+                    hydro_fields->u_prev[idx][ii] =
+                                            arena[ieta][ix][iy].prev_u[0][ii];
+                }
+                for (int ii = 0; ii < 5; ii++) {
+                    for (int jj = 0; jj < 4; jj++) {
+                        int iidx = jj + 4*ii;
+                        hydro_fields->dUsup[idx][iidx] =
+                            arena[ieta][ix][iy].dUsup[0][ii][jj];
+                    }
+                }
+                for (int ii = 0; ii < 14; ii++) {
+                    hydro_fields->Wmunu_rk0[idx][ii] = 
+                                            arena[ieta][ix][iy].Wmunu[0][ii];
+                    hydro_fields->Wmunu_rk1[idx][ii] = 
+                                            arena[ieta][ix][iy].Wmunu[1][ii];
+                    hydro_fields->Wmunu_prev[idx][ii] = 
+                                        arena[ieta][ix][iy].prevWmunu[0][ii];
+                }
+                hydro_fields->pi_b_rk0[idx] = arena[ieta][ix][iy].pi_b[0];
+                hydro_fields->pi_b_rk1[idx] = arena[ieta][ix][iy].pi_b[1];
+                hydro_fields->pi_b_prev[idx] =
+                                            arena[ieta][ix][iy].prev_pi_b[0];
+            }
+        }
+    }
+}
+
+
+int Evolve::AdvanceRK(double tau, InitData *DATA, Grid ***arena,
+                      Field *hydro_fields) {
     // control function for Runge-Kutta evolution in tau
     int flag = 0;
     // loop over Runge-Kutta steps
     for (int rk_flag = 0; rk_flag < rk_order; rk_flag++) {
         flag = u_derivative->MakedU(tau, DATA, arena, rk_flag);
-        flag = advance->AdvanceIt(tau, DATA, arena, rk_flag);
+        copy_dUsup_from_grid_to_field(arena, hydro_fields);
+        flag = advance->AdvanceIt(tau, DATA, arena, hydro_fields, rk_flag);
         if (rk_flag == 0) {
             Update_prev_Arena(arena);
+            update_prev_field(hydro_fields);
         }
     }  /* loop over rk_flag */
     return(flag);

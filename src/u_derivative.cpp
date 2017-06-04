@@ -68,6 +68,22 @@ double U_derivative::calculate_expansion_rate(
     return(theta);
 }
 
+//! this function returns the expansion rate on the grid
+double U_derivative::calculate_expansion_rate_1(
+            double tau, Field *hydro_fields, int idx, int rk_flag) {
+    double partial_mu_u_supmu = (- hydro_fields->dUsup[idx][0]
+                                 + hydro_fields->dUsup[idx][5]
+                                 + hydro_fields->dUsup[idx][10]
+                                 + hydro_fields->dUsup[idx][15]);
+    double theta = partial_mu_u_supmu;
+    if (rk_flag == 0) {
+        theta += hydro_fields->u_rk0[idx][0]/tau;
+    } else {
+        theta += hydro_fields->u_rk1[idx][0]/tau;
+    }
+    return(theta);
+}
+
 
 //! this function returns Du^\mu
 void U_derivative::calculate_Du_supmu(double tau, Grid ***arena, int ieta,
@@ -81,6 +97,28 @@ void U_derivative::calculate_Du_supmu(double tau, Grid ***arena, int ieta,
                 *arena[ieta][ix][iy].dUsup[0][mu][nu]);
         }
         a[mu] = u_supnu_partial_nu_u_supmu;
+    }
+}
+void U_derivative::calculate_Du_supmu_1(double tau, Field *hydro_fields,
+                                        int idx, int rk_flag, double *a) {
+    if (rk_flag == 0) {
+        for (int mu = 0; mu < 5; mu++) {
+            a[mu] = (
+                - hydro_fields->u_rk0[idx][0]*hydro_fields->dUsup[idx][4*mu]
+                + hydro_fields->u_rk0[idx][1]*hydro_fields->dUsup[idx][4*mu+1]
+                + hydro_fields->u_rk0[idx][2]*hydro_fields->dUsup[idx][4*mu+2]
+                + hydro_fields->u_rk0[idx][3]*hydro_fields->dUsup[idx][4*mu+3]
+            );
+        }
+    } else {
+        for (int mu = 0; mu < 5; mu++) {
+            a[mu] = (
+                - hydro_fields->u_rk1[idx][0]*hydro_fields->dUsup[idx][4*mu]
+                + hydro_fields->u_rk1[idx][1]*hydro_fields->dUsup[idx][4*mu+1]
+                + hydro_fields->u_rk1[idx][2]*hydro_fields->dUsup[idx][4*mu+2]
+                + hydro_fields->u_rk1[idx][3]*hydro_fields->dUsup[idx][4*mu+3]
+            );
+        }
     }
 }
 
@@ -99,6 +137,81 @@ void U_derivative::calculate_velocity_shear_tensor(double tau, Grid ***arena,
     }
     double theta_u_local = calculate_expansion_rate(tau, arena, ieta, ix,
                                                     iy, rk_flag);
+    double gfac = 0.0;
+    for (int a = 1; a < 4; a++) {
+        for (int b = a; b < 4; b++) {
+            if (b == a) {
+                gfac = 1.0;
+            } else {
+                gfac = 0.0;
+            }
+            sigma_local[a][b] = ((dUsup_local[a][b] + dUsup_local[b][a])/2.
+                - (gfac + u_local[a]*u_local[b])*theta_u_local/3.
+                + u_local[0]/tau*DATA_ptr->gmunu[a][3]*DATA_ptr->gmunu[b][3]
+                + u_local[3]*u_local[0]/tau/2.
+                  *(DATA_ptr->gmunu[a][3]*u_local[b] 
+                    + DATA_ptr->gmunu[b][3]*u_local[a])
+                + (u_local[a]*a_local[b] + u_local[b]*a_local[a])/2.);
+            sigma_local[b][a] = sigma_local[a][b];
+        }
+    }
+    // make sigma[3][3] using traceless condition
+    sigma_local[3][3] = (
+        (  2.*(  u_local[1]*u_local[2]*sigma_local[1][2]
+               + u_local[1]*u_local[3]*sigma_local[1][3]
+               + u_local[2]*u_local[3]*sigma_local[2][3])
+         - (u_local[0]*u_local[0] - u_local[1]*u_local[1])*sigma_local[1][1]
+         - (u_local[0]*u_local[0] - u_local[2]*u_local[2])*sigma_local[2][2])
+        /(u_local[0]*u_local[0] - u_local[3]*u_local[3]));
+    // make sigma[0][i] using transversality
+    for (int a = 1; a < 4; a++) {
+        double temp = 0.0;
+        for (int b = 1; b < 4; b++) {
+            temp += sigma_local[a][b]*u_local[b];
+        }
+        sigma_local[0][a] = temp/u_local[0];
+    }
+    // make sigma[0][0]
+    double temp = 0.0;
+    for (int a = 1; a < 4; a++) {
+        temp += sigma_local[0][a]*u_local[a];
+    }
+    sigma_local[0][0] = temp/u_local[0];
+
+    sigma[0] = sigma_local[0][0];
+    sigma[1] = sigma_local[0][1];
+    sigma[2] = sigma_local[0][2];
+    sigma[3] = sigma_local[0][3];
+    sigma[4] = sigma_local[1][1];
+    sigma[5] = sigma_local[1][2];
+    sigma[6] = sigma_local[1][3];
+    sigma[7] = sigma_local[2][2];
+    sigma[8] = sigma_local[2][3];
+    sigma[9] = sigma_local[3][3];
+}
+void U_derivative::calculate_velocity_shear_tensor_1(
+                    double tau, Field *hydro_fields, int idx, int rk_flag,
+                    double *a_local, double *sigma) {
+    double dUsup_local[4][4];
+    double u_local[4];
+    double sigma_local[4][4];
+    if (rk_flag == 0) {
+        for (int i = 0; i < 4; i++) {
+            u_local[i] = hydro_fields->u_rk0[idx][i];
+        }
+    } else {
+        for (int i = 0; i < 4; i++) {
+            u_local[i] = hydro_fields->u_rk1[idx][i];
+        }
+    }
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            dUsup_local[i][j] = hydro_fields->dUsup[idx][j + 4*i];
+        }
+    }
+
+    double theta_u_local = calculate_expansion_rate_1(tau, hydro_fields,
+                                                      idx, rk_flag);
     double gfac = 0.0;
     for (int a = 1; a < 4; a++) {
         for (int b = a; b < 4; b++) {

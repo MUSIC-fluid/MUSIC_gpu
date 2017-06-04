@@ -33,6 +33,7 @@ SRC		=	main.cpp music.cpp grid.cpp eos.cpp init.cpp \
 INC		= 	music.h grid.h eos.h init.h util.h data.h \
 			evolve.h advance.h u_derivative.h reconst.h dissipative.h \
 			minmod.h grid_info.h cornelius.h read_in_parameters.h emoji.h \
+			field.h
 
 # -------------------------------------------------
 

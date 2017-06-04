@@ -11,6 +11,7 @@
 #include "./util.h"
 #include "./data.h"
 #include "./grid.h"
+#include "./field.h"
 #include "./grid_info.h"
 #include "./eos.h"
 #include "./advance.h"
@@ -48,9 +49,17 @@ class Evolve {
     ~Evolve();
     int EvolveIt(InitData *DATA, Grid ***arena);
 
-    int AdvanceRK(double tau, InitData *DATA, Grid ***arena);
+    void initialize_hydro_fields(Field *hydro_fields);
+    void clean_up_hydro_fields(Field *hydro_fields);
+    void copy_dUsup_from_grid_to_field(Grid ***arena, Field *hydro_fields);
+    void convert_grid_to_field(Grid ***arena, Field *hydro_fields);
+
+    int AdvanceRK(double tau, InitData *DATA, Grid ***arena,
+                  Field *hydro_fields);
     int Update_prev_Arena(Grid ***arena);
     void Update_prev_Arena_XY(int ieta, Grid ***arena);
+
+    void update_prev_field(Field *hydro_fields);
 
     int FreezeOut_equal_tau_Surface(double tau, InitData *DATA, Grid ***arena);
     void FreezeOut_equal_tau_Surface_XY(double tau, InitData *DATA,
