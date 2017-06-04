@@ -39,35 +39,6 @@ Evolve::~Evolve() {
     delete u_derivative;
 }
 
-void Evolve::initialize_hydro_fields(Field *hydro_fields) {
-    int n_cell = DATA_ptr->neta*(DATA_ptr->nx + 1)*(DATA_ptr->ny + 1);
-    hydro_fields->e_rk0 = new double[n_cell];
-    hydro_fields->e_rk1 = new double[n_cell];
-    hydro_fields->e_prev = new double[n_cell];
-    hydro_fields->rhob_rk0 = new double[n_cell];
-    hydro_fields->rhob_rk1 = new double[n_cell];
-    hydro_fields->rhob_prev = new double[n_cell];
-    hydro_fields->u_rk0 = new double* [n_cell];
-    hydro_fields->u_rk1 = new double* [n_cell];
-    hydro_fields->u_prev = new double* [n_cell];
-    hydro_fields->dUsup = new double* [n_cell];
-    hydro_fields->Wmunu_rk0 = new double* [n_cell];
-    hydro_fields->Wmunu_rk1 = new double* [n_cell];
-    hydro_fields->Wmunu_prev = new double* [n_cell];
-    for (int i = 0; i < n_cell; i++) {
-        hydro_fields->u_rk0[i] = new double[4];
-        hydro_fields->u_rk1[i] = new double[4];
-        hydro_fields->u_prev[i] = new double[4];
-        hydro_fields->dUsup[i] = new double[20];
-        hydro_fields->Wmunu_rk0[i] = new double[14];
-        hydro_fields->Wmunu_rk1[i] = new double[14];
-        hydro_fields->Wmunu_prev[i] = new double[14];
-    }
-    hydro_fields->pi_b_rk0 = new double[n_cell];
-    hydro_fields->pi_b_rk1 = new double[n_cell];
-    hydro_fields->pi_b_prev = new double[n_cell];
-}
-
 void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
     int n_cell = DATA_ptr->neta*(DATA_ptr->nx + 1)*(DATA_ptr->ny + 1);
     delete[] hydro_fields->e_rk0;
@@ -98,45 +69,37 @@ void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
 }
 
 // master control function for hydrodynamic evolution
-int Evolve::EvolveIt(InitData *DATA, Grid ***arena) {
-    Field *hydro_fields = new Field;
-    initialize_hydro_fields(hydro_fields);
-
+int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
     // first pass some control parameters
-    facTau = DATA->facTau;
-    int Nskip_timestep = DATA->output_evolution_every_N_timesteps;
-    int outputEvo_flag = DATA->outputEvolutionData;
-    int output_movie_flag = DATA->output_movie_flag;
-    int freezeout_flag = DATA->doFreezeOut;
-    int freezeout_lowtemp_flag = DATA->doFreezeOut_lowtemp;
-    int freezeout_method = DATA->freezeOutMethod;
-    int boost_invariant_flag = DATA->boost_invariant;
+    //facTau = DATA->facTau;
+    //int Nskip_timestep = DATA->output_evolution_every_N_timesteps;
+    //int outputEvo_flag = DATA->outputEvolutionData;
+    //int output_movie_flag = DATA->output_movie_flag;
+    //int freezeout_flag = DATA->doFreezeOut;
+    //int freezeout_lowtemp_flag = DATA->doFreezeOut_lowtemp;
+    //int freezeout_method = DATA->freezeOutMethod;
+    //int boost_invariant_flag = DATA->boost_invariant;
 
     // Output information about the hydro parameters 
     // in the format of a C header file
-    if (DATA->output_hydro_params_header || outputEvo_flag == 1)
-        grid_info->Output_hydro_information_header(DATA);
+    //if (DATA->output_hydro_params_header || outputEvo_flag == 1)
+    //    grid_info->Output_hydro_information_header(DATA);
 
     // main loop starts ...
     int itmax = DATA->nt;
     double tau0 = DATA->tau0;
     double dt = DATA->delta_tau;
 
-    weirdCases=0;
-    SUM = 0.;
-    warnings = 0;
-    cells = 0;
-      
     double tau;
-    int it_start = 0;
+    //int it_start = 0;
     for (int it = 0; it <= itmax; it++) {
         tau = tau0 + dt*it;
         // store initial conditions
-        if (it == it_start) {
-            store_previous_step_for_freezeout(arena);
-        }
+        //if (it == it_start) {
+        //    store_previous_step_for_freezeout(arena);
+        //}
 
-        convert_grid_to_field(arena, hydro_fields);
+        //convert_grid_to_field(arena, hydro_fields);
         
         if (DATA->Initial_profile == 0) {
             if (fabs(tau - 1.0) < 1e-8) {
@@ -156,80 +119,81 @@ int Evolve::EvolveIt(InitData *DATA, Grid ***arena) {
             }
         }
 
-        if (it % Nskip_timestep == 0) {
-            if (outputEvo_flag == 1) {
-                grid_info->OutputEvolutionDataXYEta(arena, DATA, tau);
-            } else if (outputEvo_flag == 2) {
-                grid_info->OutputEvolutionDataXYEta_chun(arena, DATA, tau);
-            }
-            if (output_movie_flag == 1) {
-                grid_info->output_evolution_for_movie(arena, tau);
-            }
-        }
+        //if (it % Nskip_timestep == 0) {
+        //    if (outputEvo_flag == 1) {
+        //        grid_info->OutputEvolutionDataXYEta(arena, DATA, tau);
+        //    } else if (outputEvo_flag == 2) {
+        //        grid_info->OutputEvolutionDataXYEta_chun(arena, DATA, tau);
+        //    }
+        //    if (output_movie_flag == 1) {
+        //        grid_info->output_evolution_for_movie(arena, tau);
+        //    }
+        //}
         // grid_info->output_average_phase_diagram_trajectory(tau, -0.5, 0.5,
         //                                                    arena);
 
         // check energy conservation
-        if (boost_invariant_flag == 0)
-            grid_info->check_conservation_law(hydro_fields, DATA, tau);
+        //if (boost_invariant_flag == 0)
+        //    grid_info->check_conservation_law(hydro_fields, DATA, tau);
         grid_info->get_maximum_energy_density(hydro_fields);
 
         /* execute rk steps */
         // all the evolution are at here !!!
         AdvanceRK(tau, DATA, hydro_fields);
-        copy_fields_to_grid(hydro_fields, arena);
+
+        //copy_fields_to_grid(hydro_fields, arena);
         
         //determine freeze-out surface
-        int frozen = 0;
-        if (freezeout_flag == 1) {
-            if (freezeout_lowtemp_flag == 1) {
-                if (it == it_start) {
-                    frozen = FreezeOut_equal_tau_Surface(tau, DATA, arena);
-                }
-            }
-            // avoid freeze-out at the first time step
-            if ((it - it_start)%facTau == 0 && it > it_start) {
-               if (freezeout_method == 4) {
-                   if (boost_invariant_flag == 0) {
-                       frozen = FindFreezeOutSurface_Cornelius(tau, DATA,
-                                                               arena);
-                   } else {
-                       frozen = FindFreezeOutSurface_boostinvariant_Cornelius(
-                                                            tau, DATA, arena);
-                   }
-               }
-               store_previous_step_for_freezeout(arena);
-            }
-        }/* do freeze-out determination */
+        //int frozen = 0;
+        //if (freezeout_flag == 1) {
+        //    if (freezeout_lowtemp_flag == 1) {
+        //        if (it == it_start) {
+        //            frozen = FreezeOut_equal_tau_Surface(tau, DATA, arena);
+        //        }
+        //    }
+        //    // avoid freeze-out at the first time step
+        //    if ((it - it_start)%facTau == 0 && it > it_start) {
+        //       if (freezeout_method == 4) {
+        //           if (boost_invariant_flag == 0) {
+        //               frozen = FindFreezeOutSurface_Cornelius(tau, DATA,
+        //                                                       arena);
+        //           } else {
+        //               frozen = FindFreezeOutSurface_boostinvariant_Cornelius(
+        //                                                    tau, DATA, arena);
+        //           }
+        //       }
+        //       store_previous_step_for_freezeout(arena);
+        //    }
+        //}/* do freeze-out determination */
     
         fprintf(stdout, "Done time step %d/%d. tau = %6.3f fm/c \n", 
                 it, itmax, tau);
-        if (frozen) break;
+        //if (frozen) break;
     }/* it */ 
 
+    // clean up
     clean_up_hydro_fields(hydro_fields);
     delete hydro_fields;
 
-    // clean up
-    for (int ieta=0; ieta < DATA->neta; ieta++) {
-        for (int ix=0; ix <= DATA->nx; ix++) {
-            for (int iy=0; iy <= DATA->ny; iy++) {
-                util->cube_free(arena[ieta][ix][iy].dUsup, 1, 5, 4);
-                util->mtx_free(arena[ieta][ix][iy].Wmunu, rk_order, 14);
-                util->mtx_free(arena[ieta][ix][iy].prevWmunu, 1, 14);
-                util->mtx_free(arena[ieta][ix][iy].u, rk_order, 4);
-                util->mtx_free(arena[ieta][ix][iy].prev_u, 1, 4);
-                util->vector_free(arena[ieta][ix][iy].pi_b);
-                util->vector_free(arena[ieta][ix][iy].prev_pi_b);
-                
-                util->vector_free(arena[ieta][ix][iy].W_prev);
-                delete[] arena[ieta][ix][iy].nbr_p_1;
-                delete[] arena[ieta][ix][iy].nbr_p_2;
-                delete[] arena[ieta][ix][iy].nbr_m_1;
-                delete[] arena[ieta][ix][iy].nbr_m_2;
-            }
-        }
-    }
+    //for (int ieta=0; ieta < DATA->neta; ieta++) {
+    //    for (int ix=0; ix <= DATA->nx; ix++) {
+    //        for (int iy=0; iy <= DATA->ny; iy++) {
+    //            util->cube_free(arena[ieta][ix][iy].dUsup, 1, 5, 4);
+    //            util->mtx_free(arena[ieta][ix][iy].Wmunu, rk_order, 14);
+    //            util->mtx_free(arena[ieta][ix][iy].prevWmunu, 1, 14);
+    //            util->mtx_free(arena[ieta][ix][iy].u, rk_order, 4);
+    //            util->mtx_free(arena[ieta][ix][iy].prev_u, 1, 4);
+    //            util->vector_free(arena[ieta][ix][iy].pi_b);
+    //            util->vector_free(arena[ieta][ix][iy].prev_pi_b);
+    //            
+    //            util->vector_free(arena[ieta][ix][iy].W_prev);
+    //            delete[] arena[ieta][ix][iy].nbr_p_1;
+    //            delete[] arena[ieta][ix][iy].nbr_p_2;
+    //            delete[] arena[ieta][ix][iy].nbr_m_1;
+    //            delete[] arena[ieta][ix][iy].nbr_m_2;
+    //        }
+    //    }
+    //}
 
     return 1; /* successful */
 }/* Evolve */

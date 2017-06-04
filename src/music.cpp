@@ -15,6 +15,7 @@ MUSIC::MUSIC(InitData *DATA_in, string input_file) {
     mode = DATA->mode;
     eos = new EOS(DATA);
     util = new Util();
+    hydro_fields = new Field;
     flag_hydro_run = 0;
     flag_hydro_initialized = 0;
 }
@@ -29,6 +30,7 @@ MUSIC::~MUSIC() {
     }
     delete eos;
     delete util;
+    delete hydro_fields;
 }
 
 int MUSIC::initialize_hydro() {
@@ -36,7 +38,7 @@ int MUSIC::initialize_hydro() {
     system("rm surface.dat surface?.dat surface??.dat 2> /dev/null");
 
     init = new Init(eos, DATA);
-    init->InitArena(DATA, &arena);
+    init->InitArena(DATA, hydro_fields);
     flag_hydro_initialized = 1;
     return(0);
 }
@@ -45,7 +47,7 @@ int MUSIC::initialize_hydro() {
 int MUSIC::run_hydro() {
     // this is a shell function to run hydro
     evolve = new Evolve(eos, DATA);
-    evolve->EvolveIt(DATA, arena);
+    evolve->EvolveIt(DATA, hydro_fields);
     flag_hydro_run = 1;
     return(0);
 }

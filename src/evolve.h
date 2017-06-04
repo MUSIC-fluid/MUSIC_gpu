@@ -47,9 +47,8 @@ class Evolve {
  public:
     Evolve(EOS *eos, InitData *DATA_in);
     ~Evolve();
-    int EvolveIt(InitData *DATA, Grid ***arena);
+    int EvolveIt(InitData *DATA, Field *hydro_fields);
 
-    void initialize_hydro_fields(Field *hydro_fields);
     void clean_up_hydro_fields(Field *hydro_fields);
     void copy_dUsup_from_grid_to_field(Grid ***arena, Field *hydro_fields);
     void copy_fields_to_grid(Field *hydro_fields, Grid ***arena);

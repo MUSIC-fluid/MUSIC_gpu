@@ -4,6 +4,7 @@
 
 #include "./util.h"
 #include "./grid.h"
+#include "./field.h"
 #include "./data.h"
 #include "./init.h"
 #include "./eos.h"
@@ -30,6 +31,8 @@ class MUSIC {
     EOS *eos;
 
     Grid ***arena;
+
+    Field *hydro_fields;
 
     Init *init;
     Evolve *evolve;

@@ -9,6 +9,7 @@
 #include <cmath>
 #include "./data.h"
 #include "./grid.h"
+#include "./field.h"
 
 class Init {
  private:
@@ -20,12 +21,16 @@ class Init {
     Init(EOS *eos, InitData *DATA_in);
     ~Init();  // destructor
 
-    void InitArena(InitData *DATA, Grid ****arena);
+    void initialize_hydro_fields(Field *hydro_fields, InitData *DATA);
+
+    void InitArena(InitData *DATA, Field *hydro_fields);
+
     void LinkNeighbors(InitData *DATA, Grid ****arena);
     void LinkNeighbors_XY(InitData *DATA, int ieta, Grid ***arena);
-    int InitTJb(InitData *DATA, Grid ****arena);
-    void initial_Gubser_XY(InitData *DATA, int ieta, Grid ***arena);
-    void initial_IPGlasma_XY(InitData *DATA, int ieta, Grid ***arena);
+
+    int InitTJb(InitData *DATA, Field *hydro_fields);
+    void initial_Gubser_XY(InitData *DATA, int ieta, Field *hydro_fields);
+    void initial_IPGlasma_XY(InitData *DATA, int ieta, Field *hydro_fields);
 
     double eta_profile_normalisation(InitData *DATA, double eta);
     double eta_rhob_profile_normalisation(InitData *DATA, double eta);
