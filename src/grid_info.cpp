@@ -518,34 +518,48 @@ void Grid_info::Gubser_flow_check_file(Field *hydro_fields, double tau) {
         double pixy_diff = 0.0;
         double piyy_diff = 0.0;
         double pizz_diff = 0.0;
+        double T_sum = 0.0;
+        double ux_sum = 0.0;
+        double uy_sum = 0.0;
+        double pixx_sum = 0.0;
+        double pixy_sum = 0.0;
+        double piyy_sum = 0.0;
+        double pizz_sum = 0.0;
         for (int i = 0; i < 201; i++) {
             int idx = i + (DATA_ptr->ny + 1)*i;
             double e_local = hydro_fields->e_rk0[idx];
             double T_local = (
                     eos_ptr->get_temperature(e_local, 0.0)*unit_convert);
             T_diff += fabs(T_analytic[i] - T_local);
+            T_sum += fabs(T_analytic[i]);
             ux_diff += fabs(ux_analytic[i] - hydro_fields->u_rk0[idx][1]);
+            ux_sum += fabs(ux_analytic[i]);
             uy_diff += fabs(uy_analytic[i] - hydro_fields->u_rk0[idx][2]);
+            uy_sum += fabs(uy_analytic[i]);
             pixx_diff += (fabs(pixx_analytic[i]
                                - hydro_fields->Wmunu_rk0[idx][4]
                                  *unit_convert));
+            pixx_sum += fabs(pixx_analytic[i]);
             pixy_diff += (fabs(pixx_analytic[i]
                                - hydro_fields->Wmunu_rk0[idx][5]
                                  *unit_convert));
+            pixy_sum += fabs(pixx_analytic[i]);
             piyy_diff += (fabs(piyy_analytic[i]
                                - hydro_fields->Wmunu_rk0[idx][7]
                                  *unit_convert));
+            piyy_sum += fabs(piyy_analytic[i]);
             pizz_diff += (fabs(pizz_analytic[i]
                                - hydro_fields->Wmunu_rk0[idx][9]
                                  *unit_convert));
+            pizz_sum += fabs(pizz_analytic[i]);
         }
-        cout << "Autocheck: T_diff = " << T_diff/201.
-             << ", ux_diff = " << ux_diff/201.
-             << ", uy_diff = " << uy_diff/201.
-             << ", pixx_diff = " << pixx_diff/201.
-             << ", pixy_diff = " << pixy_diff/201.
-             << ", piyy_diff = " << piyy_diff/201.
-             << ", pizz_diff = " << pizz_diff/201.
+        cout << "Autocheck: T_diff = " << T_diff/T_sum
+             << ", ux_diff = " << ux_diff/ux_sum
+             << ", uy_diff = " << uy_diff/uy_sum
+             << ", pixx_diff = " << pixx_diff/pixx_sum
+             << ", pixy_diff = " << pixy_diff/pixy_sum
+             << ", piyy_diff = " << piyy_diff/piyy_sum
+             << ", pizz_diff = " << pizz_diff/pizz_sum
              << endl;
     }
 
