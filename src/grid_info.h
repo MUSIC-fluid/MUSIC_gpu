@@ -7,6 +7,7 @@
 #include "./data.h"
 #include "./eos.h"
 #include "./grid.h"
+#include "./field.h"
 
 class Grid_info {
  private:
@@ -36,7 +37,7 @@ class Grid_info {
                                   double tau);
     void OutputEvolutionDataXYEta_chun(Grid ***arena, InitData *DATA,
                                        double tau);
-    void Gubser_flow_check_file(Grid ***arena, double tau);
+    void Gubser_flow_check_file(Field *hydro_fields, double tau);
     void output_1p1D_check_file(Grid ***arena, double tau);
     void load_deltaf_qmu_coeff_table(string filename);
     void load_deltaf_qmu_coeff_table_14mom(string filename);
@@ -45,9 +46,9 @@ class Grid_info {
 
     //! This function prints to the screen the maximum local energy density,
     //! the maximum temperature in the current grid
-    void get_maximum_energy_density(Grid ***arena);
+    void get_maximum_energy_density(Field *hydro_fields);
 
-    void check_conservation_law(Grid ***arena, InitData *DATA, double tau);
+    void check_conservation_law(Field *hydro_fields, InitData *DATA, double tau);
     void output_evolution_for_movie(Grid ***arena, double tau);
     void output_average_phase_diagram_trajectory(
                 double tau, double eta_min, double eta_max, Grid ***arena);

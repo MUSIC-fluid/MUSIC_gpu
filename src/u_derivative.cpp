@@ -19,40 +19,33 @@ U_derivative::~U_derivative() {
    delete minmod;
 }
 
-int U_derivative::MakedU(double tau, InitData *DATA,
-                         Grid ***arena, int rk_flag) {
+int U_derivative::MakedU(double tau, Field *hydro_fields, int rk_flag) {
     // ideal hydro: no need to evaluate any flow derivatives
-    if (DATA->viscosity_flag == 0)
-        return 1;  
+    if (DATA_ptr->viscosity_flag == 0) {
+        return(1);
+    }
 
-    int neta = DATA->neta-1;
-
+    int neta = DATA_ptr->neta;
+    int nx = DATA_ptr->nx + 1;
+    int ny = DATA_ptr->ny + 1;
     int ieta;
     #pragma omp parallel private(ieta)
     {
         #pragma omp for
-        for (ieta = 0; ieta <= neta; ieta++) {
-            MakedUXY(tau, ieta, DATA, arena, rk_flag);
-        }/* ieta */
+        for (ieta = 0; ieta < neta; ieta++) {
+            for (int ix = 0; ix < nx; ix++) {
+                for (int iy = 0; iy < ny; iy++) {
+	               /* this calculates du/dx, du/dy, (du/deta)/tau */
+                   MakeDSpatial_1(tau, hydro_fields, ieta, ix, iy, rk_flag);
+                   /* this calculates du/dtau */
+                   MakeDTau_1(tau, hydro_fields, ieta, ix, iy, rk_flag); 
+                }
+            }
+        }
         #pragma omp barrier
     }
 
-   return 1; /* successful */
-}/* MakedU */
-
-void U_derivative::MakedUXY(double tau, int ieta, InitData *DATA,
-                            Grid ***arena, int rk_flag) {
-    // This function is a shell function to calculate parital^\nu u^\mu
-    int nx = DATA->nx;
-    int ny = DATA->ny;
-    for (int ix = 0; ix <= nx; ix++) {
-        for (int iy = 0; iy <= ny; iy++) {
-	       /* this calculates du/dx, du/dy, (du/deta)/tau */
-           MakeDSpatial(tau, DATA, &(arena[ieta][ix][iy]), rk_flag);
-           /* this calculates du/dtau */
-           MakeDTau(tau, DATA, &(arena[ieta][ix][iy]), rk_flag); 
-        }/* ieta */
-    }/*iy */
+   return(1);
 }
 
 //! this function returns the expansion rate on the grid
@@ -358,13 +351,138 @@ int U_derivative::MakeDSpatial(double tau, InitData *DATA, Grid *grid_pt,
     return 1;
 }/* MakeDSpatial */
 
+int U_derivative::MakeDSpatial_1(double tau, Field *hydro_fields, int ieta, int ix, int iy,
+                                 int rk_flag) {
+    int nx = DATA_ptr->nx + 1;
+    int ny = DATA_ptr->ny + 1;
+    int neta = DATA_ptr->neta;
+    
+    int idx = iy + ix*ny + ieta*ny*nx;
+
+    double f, fp1, fm1, taufactor, deltafactor;
+    double rhob, eps;
+    int idx_p_1, idx_m_1;
+    // dUsup[m][n] = partial_n u_m
+    // for u[i]
+    for (int m = 1; m < 5; m++) {
+        for (int n = 1; n < 4; n++) {
+            if (n == 1) {
+                // compute partial_x u[m]
+                if (ix + 1 > nx - 1) {
+                    idx_p_1 = idx;
+                } else {
+                    idx_p_1 = idx + ny;
+                }
+                if (ix - 1 < 0) {
+                    idx_m_1 = idx;
+                } else {
+                    idx_m_1 = idx - ny;
+                }
+                taufactor = 1.0;
+                deltafactor = DATA_ptr->delta_x;
+            } else if (n == 2) {
+                // compute partial_y u[m]
+                if (iy + 1 > ny - 1) {
+                    idx_p_1 = idx;
+                } else {
+                    idx_p_1 = idx + 1;
+                }
+                if (iy - 1 < 0) {
+                    idx_m_1 = idx;
+                } else {
+                    idx_m_1 = idx - 1;
+                }
+                taufactor = 1.0;
+                deltafactor = DATA_ptr->delta_y;
+            } else if (n == 3) {
+                // compute partial_eta u[m]
+                if (ieta + 1 > neta - 1) {
+                    idx_p_1 = idx;
+                } else {
+                    idx_p_1 = idx + ny*nx;
+                }
+                if (ieta - 1 < 0) {
+                    idx_m_1 = idx;
+                } else {
+                    idx_m_1 = idx - ny*nx;
+                }
+                taufactor = tau;
+                deltafactor = DATA_ptr->delta_eta;
+            }
+            if (rk_flag == 0) {
+                if (m < 4) {
+                    f = hydro_fields->u_rk0[idx][m];
+                    fp1 = hydro_fields->u_rk0[idx_p_1][m];
+                    fm1 = hydro_fields->u_rk0[idx_m_1][m];
+                } else if (m == 4) {
+                    rhob = hydro_fields->rhob_rk0[idx];
+                    eps = hydro_fields->e_rk0[idx];
+                    f = eos->get_mu(eps, rhob)/eos->get_temperature(eps, rhob);
+                    rhob = hydro_fields->rhob_rk0[idx_p_1];
+                    eps = hydro_fields->e_rk0[idx_p_1];
+                    fp1 = (eos->get_mu(eps, rhob)
+                            /eos->get_temperature(eps, rhob));
+                    rhob = hydro_fields->rhob_rk0[idx_m_1];
+                    eps = hydro_fields->e_rk0[idx_m_1];
+                    fm1 = (eos->get_mu(eps, rhob)
+                            /eos->get_temperature(eps, rhob));
+                }
+            } else {
+                if (m < 4) {
+                    f = hydro_fields->u_rk1[idx][m];
+                    fp1 = hydro_fields->u_rk1[idx_p_1][m];
+                    fm1 = hydro_fields->u_rk1[idx_m_1][m];
+                } else if (m == 4) {
+                    rhob = hydro_fields->rhob_rk1[idx];
+                    eps = hydro_fields->e_rk1[idx];
+                    f = eos->get_mu(eps, rhob)/eos->get_temperature(eps, rhob);
+                    rhob = hydro_fields->rhob_rk1[idx_p_1];
+                    eps = hydro_fields->e_rk1[idx_p_1];
+                    fp1 = (eos->get_mu(eps, rhob)
+                             /eos->get_temperature(eps, rhob));
+                    rhob = hydro_fields->rhob_rk1[idx_m_1];
+                    eps = hydro_fields->e_rk1[idx_m_1];
+                    fm1 = (eos->get_mu(eps, rhob)
+                            /eos->get_temperature(eps, rhob));
+                }
+            }
+            hydro_fields->dUsup[idx][4*m+n] = (minmod->minmod_dx(fp1, f, fm1)
+                                               /(deltafactor*taufactor));
+        }
+    }
+
+
+    // for u^tau, use u[0]u[0] = 1 + u[i]u[i]
+    // partial^n u^tau = 1/u^tau (sum_i u^i partial^n u^i)
+    if (rk_flag == 0) {
+        for (int n = 1; n < 4; n++) {
+            f = 0.0;
+            for (int m = 1; m < 4; m++) {
+	            f += (hydro_fields->dUsup[idx][4*m+n]
+                      *hydro_fields->u_rk0[idx][m]);
+            } 
+            f /= hydro_fields->u_rk0[idx][0];
+            hydro_fields->dUsup[idx][n] = f;
+        }
+    } else {
+        for (int n = 1; n < 4; n++) {
+            f = 0.0;
+            for (int m = 1; m <= 3; m++) {
+	            f += (hydro_fields->dUsup[idx][4*m+n]
+                      *hydro_fields->u_rk1[idx][m]);
+            }
+            f /= hydro_fields->u_rk1[idx][0];
+            hydro_fields->dUsup[idx][n] = f;
+        }
+    }
+    return(1);
+}/* MakeDSpatial */
+
 int U_derivative::MakeDTau(double tau, InitData *DATA, Grid *grid_pt,
                            int rk_flag) {
     int m;
     double f;
-    // Sangyong Nov 18 2014: added these doubles 
     double tildemu, tildemu_prev, rhob, eps, muB, T;
-
     /* this makes dU[m][0] = partial^tau u^m */
     /* note the minus sign at the end because of g[0][0] = -1 */
     /* rk_flag is 0, 2, 4, ... */
@@ -444,4 +562,73 @@ int U_derivative::MakeDTau(double tau, InitData *DATA, Grid *grid_pt,
     // Ends Sangyong's addition Nov 18 2014
     return 1;
 }/* MakeDTau */
+
+int U_derivative::MakeDTau_1(double tau, Field *hydro_fields, int ieta, int ix, int iy,
+                             int rk_flag) {
+    int nx = DATA_ptr->nx + 1;
+    int ny = DATA_ptr->ny + 1;
+    
+    int idx = iy + ix*ny + ieta*ny*nx;
+
+    double f;
+    /* this makes dU[m][0] = partial^tau u^m */
+    /* note the minus sign at the end because of g[0][0] = -1 */
+    if (rk_flag == 0) {
+        for (int m = 1; m < 4; m++) {
+            f = ((hydro_fields->u_rk0[idx][m] - hydro_fields->u_prev[idx][m])
+                 /DATA_ptr->delta_tau);
+            hydro_fields->dUsup[idx][4*m] = -f;  // g00 = -1
+        }
+    } else {
+        for (int m = 1; m < 4; m++) {
+            f = ((hydro_fields->u_rk1[idx][m] - hydro_fields->u_rk0[idx][m])
+                 /DATA_ptr->delta_tau);
+            hydro_fields->dUsup[idx][4*m] = -f;  // g00 = -1
+        }
+    }
+
+    /* I have now partial^tau u^i */
+    /* I need to calculate (u^i partial^tau u^i) = u^0 partial^tau u^0 */
+    /* u_0 d^0 u^0 + u_m d^0 u^m = 0 */
+    /* -u^0 d^0 u^0 + u_m d^0 u^m = 0 */
+    /* d^0 u^0 = u_m d^0 u^m/u^0 */
+
+    f = 0.0;
+    if (rk_flag == 0) {
+        for (int m = 1; m < 4; m++) {
+            f += hydro_fields->dUsup[idx][4*m]*hydro_fields->u_rk0[idx][m];
+        }
+        f /= hydro_fields->u_rk0[idx][0];
+        hydro_fields->dUsup[idx][0] = f;
+    } else {
+        for (int m = 1; m < 4; m++) {
+            f += hydro_fields->dUsup[idx][4*m]*hydro_fields->u_rk1[idx][m];
+        }
+        f /= hydro_fields->u_rk1[idx][0];
+        hydro_fields->dUsup[idx][0] = f;
+    }
+
+    // Here we make the time derivative of (muB/T)
+    double tildemu, tildemu_prev, rhob, eps;
+    if (rk_flag == 0) {
+        rhob = hydro_fields->rhob_rk0[idx];
+        eps = hydro_fields->e_rk0[idx];
+        tildemu = eos->get_mu(eps, rhob)/eos->get_temperature(eps, rhob);
+        rhob = hydro_fields->rhob_prev[idx];
+        eps = hydro_fields->e_prev[idx];
+        tildemu_prev = eos->get_mu(eps, rhob)/eos->get_temperature(eps, rhob);
+        f = (tildemu - tildemu_prev)/(DATA_ptr->delta_tau);
+        hydro_fields->dUsup[0][16] = -f;   // g00 = -1
+    } else if (rk_flag > 0) {
+        rhob = hydro_fields->rhob_rk1[idx];
+        eps = hydro_fields->e_rk1[idx];
+        tildemu = eos->get_mu(eps, rhob)/eos->get_temperature(eps, rhob);
+        rhob = hydro_fields->rhob_rk0[idx];
+        eps = hydro_fields->e_rk0[idx];
+        tildemu_prev = eos->get_mu(eps, rhob)/eos->get_temperature(eps, rhob);
+        f = (tildemu - tildemu_prev)/(DATA_ptr->delta_tau);
+        hydro_fields->dUsup[0][16] = -f;   // g00 = -1
+    }
+    return(1);
+}
 

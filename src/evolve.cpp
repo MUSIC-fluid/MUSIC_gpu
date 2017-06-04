@@ -140,19 +140,19 @@ int Evolve::EvolveIt(InitData *DATA, Grid ***arena) {
         
         if (DATA->Initial_profile == 0) {
             if (fabs(tau - 1.0) < 1e-8) {
-                grid_info->Gubser_flow_check_file(arena, tau);
+                grid_info->Gubser_flow_check_file(hydro_fields, tau);
             }
             if (fabs(tau - 1.2) < 1e-8) {
-                grid_info->Gubser_flow_check_file(arena, tau);
+                grid_info->Gubser_flow_check_file(hydro_fields, tau);
             }
             if (fabs(tau - 1.5) < 1e-8) {
-                grid_info->Gubser_flow_check_file(arena, tau);
+                grid_info->Gubser_flow_check_file(hydro_fields, tau);
             }
             if (fabs(tau - 2.0) < 1e-8) {
-                grid_info->Gubser_flow_check_file(arena, tau);
+                grid_info->Gubser_flow_check_file(hydro_fields, tau);
             }
             if (fabs(tau - 3.0) < 1e-8) {
-                grid_info->Gubser_flow_check_file(arena, tau);
+                grid_info->Gubser_flow_check_file(hydro_fields, tau);
             }
         }
 
@@ -171,12 +171,13 @@ int Evolve::EvolveIt(InitData *DATA, Grid ***arena) {
 
         // check energy conservation
         if (boost_invariant_flag == 0)
-            grid_info->check_conservation_law(arena, DATA, tau);
-        grid_info->get_maximum_energy_density(arena);
+            grid_info->check_conservation_law(hydro_fields, DATA, tau);
+        grid_info->get_maximum_energy_density(hydro_fields);
 
         /* execute rk steps */
         // all the evolution are at here !!!
-        AdvanceRK(tau, DATA, arena, hydro_fields);
+        AdvanceRK(tau, DATA, hydro_fields);
+        copy_fields_to_grid(hydro_fields, arena);
         
         //determine freeze-out surface
         int frozen = 0;
@@ -389,22 +390,51 @@ void Evolve::convert_grid_to_field(Grid ***arena, Field *hydro_fields) {
 }
 
 
-int Evolve::AdvanceRK(double tau, InitData *DATA, Grid ***arena,
-                      Field *hydro_fields) {
-    // control function for Runge-Kutta evolution in tau
+//! This is a control function for Runge-Kutta evolution in tau
+int Evolve::AdvanceRK(double tau, InitData *DATA, Field *hydro_fields) {
     int flag = 0;
     // loop over Runge-Kutta steps
     for (int rk_flag = 0; rk_flag < rk_order; rk_flag++) {
-        flag = u_derivative->MakedU(tau, DATA, arena, rk_flag);
-        copy_dUsup_from_grid_to_field(arena, hydro_fields);
-        flag = advance->AdvanceIt(tau, DATA, arena, hydro_fields, rk_flag);
+        flag = u_derivative->MakedU(tau, hydro_fields, rk_flag);
+        flag = advance->AdvanceIt(tau, DATA, hydro_fields, rk_flag);
         if (rk_flag == 0) {
-            Update_prev_Arena(arena);
             update_prev_field(hydro_fields);
         }
     }  /* loop over rk_flag */
     return(flag);
-}  /* AdvanceRK */
+}
+
+void Evolve::copy_fields_to_grid(Field *hydro_fields, Grid ***arena) {
+    int nx = grid_nx + 1;
+    int ny = grid_ny + 1;
+    int neta = grid_neta;
+    for (int ieta = 0; ieta < neta; ieta++) {
+        for (int ix = 0; ix < nx; ix++) {
+            for (int iy = 0; iy < ny; iy++) {
+                int idx = iy + ix*ny + ieta*ny*nx;
+                arena[ieta][ix][iy].epsilon = hydro_fields->e_rk0[idx];
+                arena[ieta][ix][iy].epsilon_t = hydro_fields->e_rk1[idx];
+                arena[ieta][ix][iy].prev_epsilon = hydro_fields->e_prev[idx];
+                arena[ieta][ix][iy].rhob = hydro_fields->rhob_rk0[idx];
+                arena[ieta][ix][iy].rhob_t = hydro_fields->rhob_rk1[idx];
+                arena[ieta][ix][iy].prev_rhob = hydro_fields->rhob_prev[idx];
+                for (int ii = 0; ii < 4; ii++) {
+                    arena[ieta][ix][iy].u[0][ii] = hydro_fields->u_rk0[idx][ii];
+                    arena[ieta][ix][iy].u[1][ii] = hydro_fields->u_rk1[idx][ii];
+                    arena[ieta][ix][iy].prev_u[0][ii] = hydro_fields->u_prev[idx][ii];
+                }
+                for (int ii = 0; ii < 14; ii++) {
+                    arena[ieta][ix][iy].Wmunu[0][ii] = hydro_fields->Wmunu_rk0[idx][ii];
+                    arena[ieta][ix][iy].Wmunu[1][ii] = hydro_fields->Wmunu_rk1[idx][ii];
+                    arena[ieta][ix][iy].prevWmunu[0][ii] = hydro_fields->Wmunu_prev[idx][ii];
+                }
+                arena[ieta][ix][iy].pi_b[0] = hydro_fields->pi_b_rk0[idx];
+                arena[ieta][ix][iy].pi_b[1] = hydro_fields->pi_b_rk1[idx];
+                arena[ieta][ix][iy].prev_pi_b[0] = hydro_fields->pi_b_prev[idx];
+            }
+        }
+    }
+}
       
 // Cornelius freeze out  (C. Shen, 11/2014)
 int Evolve::FindFreezeOutSurface_Cornelius(double tau, InitData *DATA,

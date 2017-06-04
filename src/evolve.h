@@ -52,10 +52,10 @@ class Evolve {
     void initialize_hydro_fields(Field *hydro_fields);
     void clean_up_hydro_fields(Field *hydro_fields);
     void copy_dUsup_from_grid_to_field(Grid ***arena, Field *hydro_fields);
+    void copy_fields_to_grid(Field *hydro_fields, Grid ***arena);
     void convert_grid_to_field(Grid ***arena, Field *hydro_fields);
 
-    int AdvanceRK(double tau, InitData *DATA, Grid ***arena,
-                  Field *hydro_fields);
+    int AdvanceRK(double tau, InitData *DATA, Field *hydro_fields);
     int Update_prev_Arena(Grid ***arena);
     void Update_prev_Arena_XY(int ieta, Grid ***arena);
 

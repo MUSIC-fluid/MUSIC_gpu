@@ -445,8 +445,8 @@ void Advance::prepare_velocity_array(double tau_rk, Field *hydro_fields,
 
 
 // evolve Runge-Kutta step in tau
-int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
-                       Field *hydro_fields, int rk_flag) {
+int Advance::AdvanceIt(double tau, InitData *DATA, Field *hydro_fields,
+                       int rk_flag) {
     int n_cell_eta = 1;
     int n_cell_x = 1;
     int n_cell_y = 1;
@@ -527,7 +527,7 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                                  vis_nbr_x, vis_nbr_y, vis_nbr_eta,
                                  qi_rk0, qi_array_new, grid_array);
 
-                    update_grid_cell(grid_array, arena, hydro_fields, rk_flag, ieta, ix, iy,
+                    update_grid_cell(grid_array, hydro_fields, rk_flag, ieta, ix, iy,
                                      n_cell_eta, n_cell_x, n_cell_y);
 
                     if (DATA_ptr->viscosity_flag == 1) {
@@ -548,7 +548,7 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Grid ***arena,
                                      velocity_array, grid_array,
                                      vis_array_new);
 
-                        update_grid_cell_viscous(vis_array_new, arena, hydro_fields, rk_flag,
+                        update_grid_cell_viscous(vis_array_new, hydro_fields, rk_flag,
                                                  ieta, ix, iy, n_cell_eta,
                                                  n_cell_x, n_cell_y);
                     }
@@ -1646,7 +1646,7 @@ void Advance::get_qmu_from_grid_array(double tau, double *qi,
     qi[4] = tau*rhob*gamma;
 }
 
-void Advance::update_grid_cell(double **grid_array, Grid ***arena, Field *hydro_fields, int rk_flag,
+void Advance::update_grid_cell(double **grid_array, Field *hydro_fields, int rk_flag,
                                int ieta, int ix, int iy,
                                int n_cell_eta, int n_cell_x, int n_cell_y) {
     for (int k = 0; k < n_cell_eta; k++) {
@@ -1658,8 +1658,8 @@ void Advance::update_grid_cell(double **grid_array, Grid ***arena, Field *hydro_
                 int field_idx = (idx_iy + idx_ix*(DATA_ptr->ny+1)
                                  + idx_ieta*(DATA_ptr->ny+1)*(DATA_ptr->nx+1));
                 int idx = j + i*n_cell_y + k*n_cell_x*n_cell_y;
-                UpdateTJbRK(grid_array[idx], &arena[idx_ieta][idx_ix][idx_iy],
-                            rk_flag);
+                //UpdateTJbRK(grid_array[idx], &arena[idx_ieta][idx_ix][idx_iy],
+                //            rk_flag);
                 update_grid_array_to_hydro_fields(
                         grid_array[idx], hydro_fields, field_idx, rk_flag);
             }
@@ -1667,7 +1667,7 @@ void Advance::update_grid_cell(double **grid_array, Grid ***arena, Field *hydro_
     }
 }           
 
-void Advance::update_grid_cell_viscous(double **vis_array, Grid ***arena, Field *hydro_fields,
+void Advance::update_grid_cell_viscous(double **vis_array, Field *hydro_fields,
         int rk_flag, int ieta, int ix, int iy, int n_cell_eta, int n_cell_x,
         int n_cell_y) {
 
@@ -1687,12 +1687,12 @@ void Advance::update_grid_cell_viscous(double **vis_array, Grid ***arena, Field 
             for (int j = 0; j < n_cell_y; j++) {
                 int idx_iy = min(iy + j, DATA_ptr->ny);
                 int idx = j + i*n_cell_y + k*n_cell_x*n_cell_y;
-                for (int alpha = 0; alpha < 14; alpha++) {
-                    arena[idx_ieta][idx_ix][idx_iy].Wmunu[trk_flag][alpha] = (
-                                                        vis_array[idx][alpha]);
-                }
-                arena[idx_ieta][idx_ix][idx_iy].pi_b[trk_flag] = (
-                                                        vis_array[idx][14]);
+                //for (int alpha = 0; alpha < 14; alpha++) {
+                //    arena[idx_ieta][idx_ix][idx_iy].Wmunu[trk_flag][alpha] = (
+                //                                        vis_array[idx][alpha]);
+                //}
+                //arena[idx_ieta][idx_ix][idx_iy].pi_b[trk_flag] = (
+                //                                        vis_array[idx][14]);
                 field_idx = (idx_iy + idx_ix*field_ny + idx_ieta*field_nperp);
                 if (rk_flag == 0) {
                     for (int alpha = 0; alpha < 14; alpha++) {

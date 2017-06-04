@@ -389,28 +389,30 @@ void Grid_info::OutputEvolutionDataXYEta_chun(Grid ***arena, InitData *DATA,
 
 //! This function prints to the screen the maximum local energy density,
 //! the maximum temperature in the current grid
-void Grid_info::get_maximum_energy_density(Grid ***arena) {
+void Grid_info::get_maximum_energy_density(Field *hydro_fields) {
     double eps_max = 0.0;
     double rhob_max = 0.0;
     double T_max = 0.0;
 
     // get the grid information
     int neta = DATA_ptr->neta;
-    int nx = DATA_ptr->nx;
-    int ny = DATA_ptr->ny;
+    int nx = DATA_ptr->nx + 1;
+    int ny = DATA_ptr->ny + 1;
 
     int ieta;
     #pragma omp parallel private(ieta) reduction(max:eps_max, rhob_max, T_max)
     {
         #pragma omp for
         for (ieta = 0; ieta < neta; ieta++) {
-            for (int ix = 0; ix <= nx; ix++) {
-                for (int iy = 0; iy <= ny; iy++) {
-                    double eps_local = arena[ieta][ix][iy].epsilon;
+            for (int ix = 0; ix < nx; ix++) {
+                for (int iy = 0; iy < ny; iy++) {
+                    int idx = iy + ix*ny + ieta*ny*nx;
+
+                    double eps_local = hydro_fields->e_rk0[idx];
                     if (eps_max < eps_local) {
                         eps_max = eps_local;
                     }
-                    double rhob_local = arena[ieta][ix][iy].rhob;
+                    double rhob_local = hydro_fields->rhob_rk0[idx];
                     if (rhob_max < rhob_local) {
                         rhob_max = rhob_local;
                     }
@@ -431,7 +433,7 @@ void Grid_info::get_maximum_energy_density(Grid ***arena) {
          << "T_max = " << T_max << " GeV." << endl;
 }
 
-void Grid_info::check_conservation_law(Grid ***arena, InitData *DATA,
+void Grid_info::check_conservation_law(Field *hydro_fields, InitData *DATA,
                                       double tau) {
     double N_B = 0.0;
     double T_tau_t = 0.0;
@@ -449,46 +451,32 @@ void Grid_info::check_conservation_law(Grid ***arena, InitData *DATA,
             double eta_s = deta*ieta - (DATA->eta_size)/2.0;
             for (int ix = 0; ix <= nx; ix++) {
                 for (int iy = 0; iy <= ny; iy++) {
+                    int idx = iy + ix*(ny + 1) + ieta*(ny + 1)*(nx + 1);
                     double cosh_eta = cosh(eta_s);
                     double sinh_eta = sinh(eta_s);
-                    N_B += (arena[ieta][ix][iy].rhob
-                            *arena[ieta][ix][iy].u[0][0]
-                            + (arena[ieta][ix][iy].prevWmunu[0][10]
-                               + arena[ieta][ix][iy].prevWmunu[1][10])*0.5);
+                    N_B += (hydro_fields->rhob_rk0[idx]
+                            *hydro_fields->u_rk0[idx][0]
+                            + hydro_fields->Wmunu_prev[idx][10]);
                     double Pi00_rk_0 = (
-                        arena[ieta][ix][iy].prev_pi_b[0]
-                        *(-1.0 + arena[ieta][ix][iy].prev_u[0][0]
-                                 *(arena[ieta][ix][iy].prev_u[0][0])));
-                    double Pi00_rk_1 = (
-                        arena[ieta][ix][iy].prev_pi_b[1]
-                        *(-1.0 + arena[ieta][ix][iy].prev_u[1][0]
-                                 *(arena[ieta][ix][iy].prev_u[1][0])));
-                    double e_local = arena[ieta][ix][iy].epsilon;
-                    double rhob = arena[ieta][ix][iy].rhob;
+                        hydro_fields->pi_b_prev[idx]
+                        *(-1.0 + hydro_fields->u_prev[idx][0]
+                                 *(hydro_fields->u_prev[idx][0])));
+                    double e_local = hydro_fields->e_rk0[idx];
+                    double rhob = hydro_fields->rhob_rk0[idx];
                     double pressure = eos_ptr->get_pressure(e_local, rhob);
-                    double u0 = arena[ieta][ix][iy].u[0][0];
-                    double u3 = arena[ieta][ix][iy].u[0][3];
+                    double u0 = hydro_fields->u_rk0[idx][0];
+                    double u3 = hydro_fields->u_rk0[idx][3];
                     double T00_local = (e_local + pressure)*u0*u0 - pressure;
                     double T03_local = (e_local + pressure)*u0*u3;
-                    double T_tau_tau = (
-                        T00_local
-                        + (arena[ieta][ix][iy].prevWmunu[0][0]
-                           + arena[ieta][ix][iy].prevWmunu[1][0]
-                           + Pi00_rk_0 + Pi00_rk_1)*0.5);
-
-                    double Pi03_rk_0 = (
-                        arena[ieta][ix][iy].prev_pi_b[0]
-                        *(arena[ieta][ix][iy].prev_u[0][0]
-                          *(arena[ieta][ix][iy].prev_u[0][3])));
-                    double Pi03_rk_1 = (
-                        arena[ieta][ix][iy].prev_pi_b[1]
-                        *(arena[ieta][ix][iy].prev_u[1][0]
-                          *(arena[ieta][ix][iy].prev_u[1][3])));
-                    double T_tau_eta = (
-                        T03_local
-                        + (arena[ieta][ix][iy].prevWmunu[0][3]
-                           + arena[ieta][ix][iy].prevWmunu[1][3]
-                           + Pi03_rk_0 + Pi03_rk_1)*0.5);
+                    double T_tau_tau = (T00_local
+                                        + hydro_fields->Wmunu_prev[idx][0]
+                                        + Pi00_rk_0);
+                    double Pi03_rk_0 = (hydro_fields->pi_b_prev[idx]
+                                        *hydro_fields->u_prev[idx][0]
+                                        *hydro_fields->u_prev[idx][3]);
+                    double T_tau_eta = (T03_local
+                                        + hydro_fields->Wmunu_prev[idx][3]
+                                        + Pi03_rk_0);
                     T_tau_t += T_tau_tau*cosh_eta + T_tau_eta*sinh_eta;
                 }
             }
@@ -503,7 +491,7 @@ void Grid_info::check_conservation_law(Grid ***arena, InitData *DATA,
 }
 
 
-void Grid_info::Gubser_flow_check_file(Grid ***arena, double tau) {
+void Grid_info::Gubser_flow_check_file(Field *hydro_fields, double tau) {
     double unit_convert = 0.19733;  // hbarC
     if (tau > 1.) {
         ostringstream filename_analytic;
@@ -531,20 +519,25 @@ void Grid_info::Gubser_flow_check_file(Grid ***arena, double tau) {
         double piyy_diff = 0.0;
         double pizz_diff = 0.0;
         for (int i = 0; i < 201; i++) {
-            double e_local = arena[0][i][i].epsilon;
+            int idx = i + (DATA_ptr->ny + 1)*i;
+            double e_local = hydro_fields->e_rk0[idx];
             double T_local = (
                     eos_ptr->get_temperature(e_local, 0.0)*unit_convert);
             T_diff += fabs(T_analytic[i] - T_local);
-            ux_diff += fabs(ux_analytic[i] - arena[0][i][i].u[0][1]);
-            uy_diff += fabs(uy_analytic[i] - arena[0][i][i].u[0][2]);
+            ux_diff += fabs(ux_analytic[i] - hydro_fields->u_rk0[idx][1]);
+            uy_diff += fabs(uy_analytic[i] - hydro_fields->u_rk0[idx][2]);
             pixx_diff += (fabs(pixx_analytic[i]
-                               - arena[0][i][i].Wmunu[0][4]*unit_convert));
+                               - hydro_fields->Wmunu_rk0[idx][4]
+                                 *unit_convert));
             pixy_diff += (fabs(pixx_analytic[i]
-                               - arena[0][i][i].Wmunu[0][5]*unit_convert));
+                               - hydro_fields->Wmunu_rk0[idx][5]
+                                 *unit_convert));
             piyy_diff += (fabs(piyy_analytic[i]
-                               - arena[0][i][i].Wmunu[0][7]*unit_convert));
+                               - hydro_fields->Wmunu_rk0[idx][7]
+                                 *unit_convert));
             pizz_diff += (fabs(pizz_analytic[i]
-                               - arena[0][i][i].Wmunu[0][9]*unit_convert));
+                               - hydro_fields->Wmunu_rk0[idx][9]
+                                 *unit_convert));
         }
         cout << "Autocheck: T_diff = " << T_diff/201.
              << ", ux_diff = " << ux_diff/201.
@@ -568,19 +561,20 @@ void Grid_info::Gubser_flow_check_file(Grid ***arena, double tau) {
         double x_local = x_min + ix*dx;
         for (int iy = 0; iy <= DATA_ptr->ny; iy++) {
             double y_local = y_min + iy*dy;
-            double e_local = arena[0][ix][iy].epsilon;
-            double rhob_local = arena[0][ix][iy].rhob;
+            int idx = iy + ix*(DATA_ptr->ny + 1);
+            double e_local = hydro_fields->e_rk0[idx];
+            double rhob_local = hydro_fields->rhob_rk0[idx];
             double T_local = eos_ptr->get_temperature(e_local, 0.0);
             output_file << scientific << setprecision(8) << setw(18)
                         << x_local << "  " << y_local << "  "
                         << e_local*unit_convert << "  " << rhob_local << "  "
                         << T_local*unit_convert << "  "
-                        << arena[0][ix][iy].u[0][1] << "  "
-                        << arena[0][ix][iy].u[0][2] << "  "
-                        << arena[0][ix][iy].Wmunu[0][4]*unit_convert << "  "
-                        << arena[0][ix][iy].Wmunu[0][7]*unit_convert << "  "
-                        << arena[0][ix][iy].Wmunu[0][5]*unit_convert << "  "
-                        << arena[0][ix][iy].Wmunu[0][9]*unit_convert << "  "
+                        << hydro_fields->u_rk0[idx][1] << "  "
+                        << hydro_fields->u_rk0[idx][2] << "  "
+                        << hydro_fields->Wmunu_rk0[idx][4]*unit_convert << "  "
+                        << hydro_fields->Wmunu_rk0[idx][7]*unit_convert << "  "
+                        << hydro_fields->Wmunu_rk0[idx][5]*unit_convert << "  "
+                        << hydro_fields->Wmunu_rk0[idx][9]*unit_convert << "  "
                         << endl;
         }
     }

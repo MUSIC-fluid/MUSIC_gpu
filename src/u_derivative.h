@@ -19,7 +19,7 @@ class U_derivative {
     // Sangyong Nov 18 2014: added EOS *eos in the argument
     U_derivative(EOS *eosIn, InitData* DATA_in);  // constructor
     ~U_derivative();
-    int MakedU(double tau, InitData *DATA, Grid ***arena, int rk_flag);
+    int MakedU(double tau, Field *hydro_fields, int rk_flag);
     void MakedUXY(double tau, int ieta, InitData *DATA,
                   Grid ***arena, int rk_flag);
 
@@ -42,6 +42,8 @@ class U_derivative {
                                            int idx, int rk_flag,
                                            double *a_local, double *sigma);
     int MakeDSpatial(double tau, InitData *DATA, Grid *grid_pt, int rk_flag);
+    int MakeDSpatial_1(double tau, Field *hydro_fields, int ieta, int ix, int iy, int rk_flag);
     int MakeDTau(double tau, InitData *DATA, Grid *grid_pt, int rk_flag);
+    int MakeDTau_1(double tau, Field *hydro_fields, int ieta, int ix, int iy, int rk_flag);
 };
 #endif

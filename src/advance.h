@@ -33,7 +33,7 @@ class Advance {
     Advance(EOS *eosIn, InitData* DATA_in);
     ~Advance();
 
-    int AdvanceIt(double tau_init, InitData *DATA, Grid ***arena, Field *hydro_fields, int rk_flag);
+    int AdvanceIt(double tau_init, InitData *DATA, Field *hydro_fields, int rk_flag);
 
     void prepare_qi_array(
         double tau, Field *hydro_fields, int rk_flag, int ieta, int ix, int iy,
@@ -89,10 +89,10 @@ class Advance {
     void update_grid_array_to_hydro_fields(
             double *grid_array, Field *hydro_fields, int idx, int rk_flag);
 
-    void update_grid_cell(double **grid_array, Grid ***arena, Field *hydro_fields, int rk_flag,
+    void update_grid_cell(double **grid_array, Field *hydro_fields, int rk_flag,
                           int ieta, int ix, int iy,
                           int n_cell_eta, int n_cell_x, int n_cell_y);
-    void update_grid_cell_viscous(double **vis_array, Grid ***arena, Field *hydro_fields,
+    void update_grid_cell_viscous(double **vis_array, Field *hydro_fields,
                                   int rk_flag, int ieta, int ix, int iy,
                                   int n_cell_eta, int n_cell_x, int n_cell_y);
 
