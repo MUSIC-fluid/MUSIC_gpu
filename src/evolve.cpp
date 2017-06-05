@@ -70,6 +70,7 @@ void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
 
 // master control function for hydrodynamic evolution
 int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
+    int n_cell_length = (DATA->nx + 1)*(DATA->ny + 1)*DATA->neta;
     // first pass some control parameters
     //facTau = DATA->facTau;
     //int Nskip_timestep = DATA->output_evolution_every_N_timesteps;
@@ -84,6 +85,25 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
     // in the format of a C header file
     //if (DATA->output_hydro_params_header || outputEvo_flag == 1)
     //    grid_info->Output_hydro_information_header(DATA);
+#pragma acc data copyin (hydro_fields[0:1], \
+                         hydro_fields->e_rk0[0:n_cell_length], \
+                         hydro_fields->e_rk1[0:n_cell_length], \
+                         hydro_fields->e_prev[0:n_cell_length], \
+                         hydro_fields->rhob_rk0[0:n_cell_length], \
+                         hydro_fields->rhob_rk1[0:n_cell_length], \
+                         hydro_fields->rhob_prev[0:n_cell_length], \
+                         hydro_fields->u_rk0[0:n_cell_length][0:4], \
+                         hydro_fields->u_rk1[0:n_cell_length][0:4], \
+                         hydro_fields->u_prev[0:n_cell_length][0:4], \
+                         hydro_fields->dUsup[0:n_cell_length][0:20], \
+                         hydro_fields->Wmunu_rk0[0:n_cell_length][0:14], \
+                         hydro_fields->Wmunu_rk1[0:n_cell_length][0:14], \
+                         hydro_fields->Wmunu_prev[0:n_cell_length][0:14], \
+                         hydro_fields->pi_b_rk0[0:n_cell_length], \
+                         hydro_fields->pi_b_rk1[0:n_cell_length], \
+                         hydro_fields->pi_b_prev[0:n_cell_length], \
+                         DATA[0:1], DATA->gmunu[0:4][0:4])
+{
 
     // main loop starts ...
     int itmax = DATA->nt;
@@ -101,23 +121,23 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
 
         //convert_grid_to_field(arena, hydro_fields);
         
-        if (DATA->Initial_profile == 0) {
-            if (fabs(tau - 1.0) < 1e-8) {
-                grid_info->Gubser_flow_check_file(hydro_fields, tau);
-            }
-            if (fabs(tau - 1.2) < 1e-8) {
-                grid_info->Gubser_flow_check_file(hydro_fields, tau);
-            }
-            if (fabs(tau - 1.5) < 1e-8) {
-                grid_info->Gubser_flow_check_file(hydro_fields, tau);
-            }
-            if (fabs(tau - 2.0) < 1e-8) {
-                grid_info->Gubser_flow_check_file(hydro_fields, tau);
-            }
-            if (fabs(tau - 3.0) < 1e-8) {
-                grid_info->Gubser_flow_check_file(hydro_fields, tau);
-            }
-        }
+        //if (DATA->Initial_profile == 0) {
+        //    if (fabs(tau - 1.0) < 1e-8) {
+        //        grid_info->Gubser_flow_check_file(hydro_fields, tau);
+        //    }
+        //    if (fabs(tau - 1.2) < 1e-8) {
+        //        grid_info->Gubser_flow_check_file(hydro_fields, tau);
+        //    }
+        //    if (fabs(tau - 1.5) < 1e-8) {
+        //        grid_info->Gubser_flow_check_file(hydro_fields, tau);
+        //    }
+        //    if (fabs(tau - 2.0) < 1e-8) {
+        //        grid_info->Gubser_flow_check_file(hydro_fields, tau);
+        //    }
+        //    if (fabs(tau - 3.0) < 1e-8) {
+        //        grid_info->Gubser_flow_check_file(hydro_fields, tau);
+        //    }
+        //}
 
         //if (it % Nskip_timestep == 0) {
         //    if (outputEvo_flag == 1) {
@@ -135,7 +155,7 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
         // check energy conservation
         //if (boost_invariant_flag == 0)
         //    grid_info->check_conservation_law(hydro_fields, DATA, tau);
-        grid_info->get_maximum_energy_density(hydro_fields);
+        //grid_info->get_maximum_energy_density(hydro_fields);
 
         /* execute rk steps */
         // all the evolution are at here !!!
@@ -170,6 +190,7 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
                 it, itmax, tau);
         //if (frozen) break;
     }/* it */ 
+}
 
     // clean up
     clean_up_hydro_fields(hydro_fields);
@@ -2013,7 +2034,8 @@ void Evolve::initialize_freezeout_surface_info() {
         }
     } else if(freeze_eps_flag == 1) {
         // read in from a file
-        string eps_freeze_list_filename = DATA_ptr->freeze_list_filename;
+        //string eps_freeze_list_filename = DATA_ptr->freeze_list_filename;
+        string eps_freeze_list_filename = "";
         cout << "read in freeze out surface information from " 
              << eps_freeze_list_filename << endl;
         ifstream freeze_list_file(eps_freeze_list_filename.c_str());

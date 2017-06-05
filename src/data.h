@@ -20,14 +20,14 @@ typedef struct init_data {
                             //!< 3: do calculation of thermal spectra only;
                             //!< 4: do resonance decays only
     string initName;
-    string initName_rhob;
-    string initName_ux;
-    string initName_uy;
-    string initName_TA;
-    string initName_TB;
-    string initName_rhob_TA;
-    string initName_rhob_TB;
-    string initName_AMPT;
+    //string initName_rhob;
+    //string initName_ux;
+    //string initName_uy;
+    //string initName_TA;
+    //string initName_TB;
+    //string initName_rhob_TA;
+    //string initName_rhob_TB;
+    //string initName_AMPT;
     
     //! random seed
     int seed;
@@ -133,7 +133,7 @@ typedef struct init_data {
     double eps_freeze_min;
     double eps_freeze_max;
     int freeze_eps_flag;
-    string freeze_list_filename;
+    //string freeze_list_filename;
 
     // for calculation of spectra
     int pseudofreeze;    //! flag to compute spectra in pseudorapdity
