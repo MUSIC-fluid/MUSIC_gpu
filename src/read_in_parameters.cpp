@@ -892,21 +892,21 @@ void ReadInParameters::check_parameters(InitData *parameter_list) {
              << endl;
     }
 
-    if (parameter_list->neta < 32 && !parameter_list->boost_invariant) {
-        cerr << "Grid size in eta = " << parameter_list->neta 
-             << "is too small for a (3+1)-d run! "
-             << "Please increase Grid_size_in_eta to be larger than 32 "
-             << "at least!" << endl;
-        exit(1);
-    }
+    //if (parameter_list->neta < 32 && !parameter_list->boost_invariant) {
+    //    cerr << "Grid size in eta = " << parameter_list->neta 
+    //         << "is too small for a (3+1)-d run! "
+    //         << "Please increase Grid_size_in_eta to be larger than 32 "
+    //         << "at least!" << endl;
+    //    exit(1);
+    //}
 
-    if (parameter_list->boost_invariant && parameter_list->neta > 1) {
-        cout << "[Warning]: Grid size in eta is set to "
-             << parameter_list->neta << " for a (2+1)-d simulation! "
-             << "This is redundant! Reset neta to 1!"
-             << endl;
-        parameter_list->neta = 1;
-    }
+    //if (parameter_list->boost_invariant && parameter_list->neta > 1) {
+    //    cout << "[Warning]: Grid size in eta is set to "
+    //         << parameter_list->neta << " for a (2+1)-d simulation! "
+    //         << "This is redundant! Reset neta to 1!"
+    //         << endl;
+    //    parameter_list->neta = 1;
+    //}
     
     if (parameter_list->delta_tau > 0.1) {
         cout << "Warning: Delta_Tau = " << parameter_list->delta_tau
