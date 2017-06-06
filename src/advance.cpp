@@ -1716,7 +1716,7 @@ void Advance::MakeWSource(double tau, double qi_array[][5],
                 for (int alpha = 0; alpha < alpha_max; alpha++) {
                     // dW/dtau
                     // backward time derivative (first order is more stable)
-                    int idx_1d_alpha0 = util->map_2d_idx_to_1d(alpha, 0);
+                    int idx_1d_alpha0 = map_2d_idx_to_1d(alpha, 0);
                     double dWdtau;
                     dWdtau = ((vis_array[idx][idx_1d_alpha0]
                                - vis_nbr_tau[idx][idx_1d_alpha0])
@@ -1746,7 +1746,7 @@ void Advance::MakeWSource(double tau, double qi_array[][5],
 
                     double sgp1, sgm1, bgp1, bgm1;
                     // x-direction
-                    idx_1d = util->map_2d_idx_to_1d(alpha, 1);
+                    idx_1d = map_2d_idx_to_1d(alpha, 1);
                     if (i + 1 < n_cell_x) {
                         idx_p_1 = j + (i+1)*n_cell_y + k*n_cell_x*n_cell_y;
                         sgp1 = vis_array[idx_p_1][idx_1d];
@@ -1785,7 +1785,7 @@ void Advance::MakeWSource(double tau, double qi_array[][5],
                         dPidx_perp += (bgp1 - bgm1)/(2.*DATA->delta_x);
                     }
                     // y-direction
-                    idx_1d = util->map_2d_idx_to_1d(alpha, 2);
+                    idx_1d = map_2d_idx_to_1d(alpha, 2);
                     if (j + 1 < n_cell_y) {
                         idx_p_1 = j + 1 + i*n_cell_y + k*n_cell_x*n_cell_y;
                         sgp1 = vis_array[idx_p_1][idx_1d];
@@ -1828,7 +1828,7 @@ void Advance::MakeWSource(double tau, double qi_array[][5],
                     double taufactor = tau;
                     double dWdeta = 0.0;
                     double dPideta = 0.0;
-                    idx_1d = util->map_2d_idx_to_1d(alpha, 3);
+                    idx_1d = map_2d_idx_to_1d(alpha, 3);
                     if (k + 1 < n_cell_eta) {
                         idx_p_1 = j + i*n_cell_y + (k+1)*n_cell_x*n_cell_y;
                         sgp1 = vis_array[idx_p_1][idx_1d];
@@ -2758,4 +2758,32 @@ double Advance::get_temperature_dependent_eta_s(double T) {
                       + 0.0818*(Tfrac*Tfrac - 1.));
     }
     return(shear_to_s);
+}
+
+int Advance::map_2d_idx_to_1d(int a, int b) {
+    // this function maps the 2d indeices of a symmetric matrix to the index
+    // in a 1-d array, which only stores the 10 independent components
+    if (a == 4)
+        return(10 + b);
+    else if (a > b)  // symmetric matrix
+        return(map_2d_idx_to_1d(b, a));
+    //if (b > 3) {
+    //    cout << "Util::map_2d_idx_to_1d: index exceed dimension! "
+    //         << "a = " << a << ", b = " << b << endl;
+    //    exit(1);
+    //}
+    if (a == 0) {
+        return(b);
+    } else if (a == 1) {
+        return(3 + b);
+    } else if (a == 2) {
+        return(5 + b);
+    } else if (a == 3) {
+        return(9);
+    }
+    //else {
+    //    cout << "Util::map_2d_idx_to_1d: index exceed dimension! "
+    //         << "a = " << a << ", b = " << b << endl;
+    //    exit(1);
+    //}
 }

@@ -215,6 +215,8 @@ class Advance {
     void get_qmu_from_grid_array(double tau, double *qi, double *grid_array);
 #pragma acc routine seq
     double minmod_dx(double up1, double u, double um1);
+#pragma acc routine seq
+    int map_2d_idx_to_1d(int a, int b);
 };
 
 #endif  // SRC_ADVANCE_H_
