@@ -361,61 +361,15 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Field *hydro_fields,
     int n_cell_eta = 1;
     int n_cell_x = 1;
     int n_cell_y = 1;
-    int ieta;
     const int cube_size=n_cell_x*n_cell_y*n_cell_eta;
     const int neigh_sizex=4*n_cell_y*n_cell_eta;
     const int neigh_sizey=4*n_cell_x*n_cell_eta;
     const int neigh_sizeeta=4*n_cell_x*n_cell_y;
     double grid_array[1][5], qi_array[1][5], qi_array_new[1][5], qi_rk0[1][5];
     double qi_nbr_x[4][5], qi_nbr_y[4][5], qi_nbr_eta[4][5];
-    //double **qi_array = new double* [cube_size];
-    //double **qi_array_new = new double* [cube_size];
-    //double **qi_rk0 = new double* [cube_size];
-    //double **grid_array = (
-	//	    new double* [cube_size]);
-    //for (int i = 0; i < cube_size; i++) {
-	//    qi_array[i] = new double[5];
-	//    qi_array_new[i] = new double[5];
-	//    qi_rk0[i] = new double[5];
-    ////    grid_array[i] = new double[5];
-    //}
-    //double **qi_nbr_x = new double* [neigh_sizex];
-    //double **qi_nbr_y = new double* [neigh_sizey];
-    //for (int i = 0; i < neigh_sizey; i++) {
-	//    qi_nbr_y[i] = new double[5];
-    //}
-    //for (int i = 0; i < neigh_sizex; i++) {
-	//    qi_nbr_x[i] = new double[5];
-    //}
-    //double **qi_nbr_eta = new double* [neigh_sizeeta];
-    //for (int i = 0; i < neigh_sizeeta; i++) {
-	//    qi_nbr_eta[i] = new double[5];
-    //}
     double vis_array[1][19], vis_array_new[1][19], vis_nbr_tau[1][19];
     double velocity_array[1][20];
     double vis_nbr_x[4][19], vis_nbr_y[4][19], vis_nbr_eta[4][19];
-    //double **vis_array = new double* [cube_size];
-    //double **vis_array_new = new double* [cube_size];
-    //double **vis_nbr_tau = new double* [cube_size];
-    //double **velocity_array = new double* [cube_size];
-    //for (int i = 0; i < cube_size; i++) {
-	//    vis_array[i] = new double[19];
-	//    vis_array_new[i] = new double[19];
-	//    vis_nbr_tau[i] = new double[19];
-	//    velocity_array[i] = new double[20];
-    //}
-    //double **vis_nbr_x = new double* [neigh_sizex];
-    //double **vis_nbr_y = new double* [neigh_sizey];
-    //for (int i = 0; i < neigh_sizey; i++) {
-	//    vis_nbr_y[i] = new double[19];
-    //}
-    //for (int i = 0; i < neigh_sizex; i++) {
-	//    vis_nbr_x[i] = new double[19];
-    //}
-    //double **vis_nbr_eta = new double* [neigh_sizeeta];
-    //for (int i = 0; i < neigh_sizeeta; i++) {
-	//    vis_nbr_eta[i] = new double[19];
-    //}
     double *grid_array_temp = new double[5];
     double *rhs = new double[5];
     double *qiphL = new double[5];
@@ -424,60 +378,6 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Field *hydro_fields,
     double *qimhR = new double[5];
     double *grid_array_hL = new double[5];
     double *grid_array_hR = new double[5];
-//#pragma acc parallel create ( qi_array[0:cube_size][0:5],\
-//                                    qi_array_new[0:cube_size][0:5],\
-//                                    qi_rk0[0:cube_size][0:5],\
-//                                    grid_array[0:cube_size][0:5],\
-//                                    qi_nbr_x[0:neigh_sizex][0:5],\
-//                                    qi_nbr_y[0:neigh_sizey][0:5],\
-//                                    qi_nbr_eta[0:neigh_sizeeta][0:5],\
-//                                    vis_array[0:cube_size][0:19],\
-//                                    vis_array_new[0:cube_size][0:19],\
-//                                    vis_nbr_tau[0:cube_size][0:19],\
-//                                    velocity_array[0:cube_size][0:20],\
-//                                    vis_nbr_x[0:neigh_sizex][0:19],\
-//                                    vis_nbr_y[0:neigh_sizey][0:19],\
-//                                    vis_nbr_eta[0:neigh_sizeeta][0:19], \
-//                                    grid_array_temp[0:5], rhs[0:5], \
-//                                    qiphL[0:5], qiphR[0:5], \
-//                                    qimhL[0:5], qimhR[0:5], \
-//                                    grid_array_hL[0:5], grid_array_hR[0:5])
-//#pragma acc loop private ( qi_array[0:cube_size][0:5],\
-//                                    qi_array_new[0:cube_size][0:5],\
-//                                    qi_rk0[0:cube_size][0:5],\
-//                                    grid_array[0:cube_size][0:5],\
-//                                    qi_nbr_x[0:neigh_sizex][0:5],\
-//                                    qi_nbr_y[0:neigh_sizey][0:5],\
-//                                    qi_nbr_eta[0:neigh_sizeeta][0:5],\
-//                                    vis_array[0:cube_size][0:19],\
-//                                    vis_array_new[0:cube_size][0:19],\
-//                                    vis_nbr_tau[0:cube_size][0:19],\
-//                                    velocity_array[0:cube_size][0:20],\
-//                                    vis_nbr_x[0:neigh_sizex][0:19],\
-//                                    vis_nbr_y[0:neigh_sizey][0:19],\
-//                                    vis_nbr_eta[0:neigh_sizeeta][0:19], \
-//                                    grid_array_temp[0:5], rhs[0:5], \
-//                                    qiphL[0:5], qiphR[0:5], \
-//                                    qimhL[0:5], qimhR[0:5], \
-//                                    grid_array_hL[0:5], grid_array_hR[0:5])
-//#pragma acc parallel create ( qi_array[0:1][0:5],\
-//                              qi_array_new[0:1][0:5],\
-//                              qi_rk0[0:1][0:5],\
-//                              grid_array[0:1][0:5],\
-//                              qi_nbr_x[0:4][0:5],\
-//                              qi_nbr_y[0:4][0:5],\
-//                              qi_nbr_eta[0:4][0:5], \
-//                              vis_array[0:1][0:19],\
-//                              vis_array_new[0:1][0:19],\
-//                              vis_nbr_tau[0:1][0:19],\
-//                              velocity_array[0:1][0:20],\
-//                              vis_nbr_x[0:4][0:19],\
-//                              vis_nbr_y[0:4][0:19],\
-//                              vis_nbr_eta[0:4][0:19], \
-//                              grid_array_temp[0:5], \
-//                              rhs[0:5], qiphL[0:5], qiphR[0:5], \
-//                              qimhL[0:5], qimhR[0:5], \
-//                              grid_array_hL[0:5], grid_array_hR[0:5])
 #pragma acc loop private ( qi_array[0:1][0:5],\
                            qi_array_new[0:1][0:5],\
                            qi_rk0[0:1][0:5],\
@@ -496,7 +396,7 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Field *hydro_fields,
                            rhs[0:5], qiphL[0:5], qiphR[0:5], \
                            qimhL[0:5], qimhR[0:5],\
                            grid_array_hL[0:5], grid_array_hR[0:5])
-    for (ieta = 0; ieta < grid_neta; ieta += n_cell_eta) {
+    for (int ieta = 0; ieta < grid_neta; ieta += n_cell_eta) {
 //        #pragma omp parallel private(ix)
 //        {
 //            #pragma omp for
