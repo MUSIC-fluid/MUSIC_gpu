@@ -39,7 +39,7 @@ class Advance {
         double tau, Field *hydro_fields, int rk_flag, int ieta, int ix, int iy,
         int n_cell_eta, int n_cell_x, int n_cell_y, double **qi_array,
         double **qi_nbr_x, double **qi_nbr_y, double **qi_nbr_eta,
-        double **qi_rk0, double **grid_array);
+        double **qi_rk0, double **grid_array, double *grid_array_temp);
 
     void prepare_vis_array(
         Field *hydro_fields, int rk_flag, int ieta, int ix, int iy,
@@ -51,15 +51,20 @@ class Advance {
                                 int ieta, int ix, int iy, int rk_flag,
                                 int n_cell_eta, int n_cell_x, int n_cell_y,
                                 double **velocity_array,
-                                double **grid_array, double **vis_array_new);
+                                double **grid_array, double **vis_array_new,
+                                double *grid_array_temp);
 
-    int FirstRKStepT(double tau, int rk_flag, int check,
-                     double **qi_array, double **qi_nbr_x, double **qi_nbr_y,
-                     double **qi_nbr_eta, int n_cell_eta, int n_cell_x,
-                     int n_cell_y, double **vis_array, double **vis_nbr_tau,
-                     double **vis_nbr_x, double **vis_nbr_y,
-                     double **vis_nbr_eta, double **qi_rk0,
-                     double **qi_array_new, double **grid_array);
+    int FirstRKStepT(double tau, int rk_flag,
+                          double **qi_array, double **qi_nbr_x,
+                          double **qi_nbr_y, double **qi_nbr_eta,
+                          int n_cell_eta, int n_cell_x, int n_cell_y,
+                          double **vis_array, double **vis_nbr_tau,
+                          double **vis_nbr_x, double **vis_nbr_y,
+                          double **vis_nbr_eta, double **qi_rk0,
+                          double **qi_array_new, double **grid_array,
+                          double *rhs, double *qiphL, double *qiphR,
+                          double *qimhL, double *qimhR,
+                          double *grid_array_hL, double *grid_array_hR);
 
     int FirstRKStepW(double tau_it, int rk_flag, int n_cell_eta, int n_cell_x,
                      int n_cell_y, double **vis_array,
@@ -100,9 +105,12 @@ class Advance {
     int QuestRevert_qmu(double tau, double *vis_array, double *grid_array);
 
     void MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
-                     double **qi_nbr_y, double **qi_nbr_eta,
-                     int n_cell_eta, int n_cell_x, int n_cell_y,
-                     double **qi_array_new, double **grid_array);
+                          double **qi_nbr_y, double **qi_nbr_eta,
+                          int n_cell_eta, int n_cell_x, int n_cell_y,
+                          double **qi_array_new, double **grid_array,
+                          double *rhs, double *qiphL, double *qiphR,
+                          double *qimhL, double *qimhR,
+                          double *grid_array_hL, double *grid_array_hR);
 
     double MaxSpeed(double tau, int direc, double *grid_array);
 

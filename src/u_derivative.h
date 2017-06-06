@@ -38,9 +38,12 @@ class U_derivative {
     //! This funciton returns the velocity shear tensor sigma^\mu\nu
     void calculate_velocity_shear_tensor(double tau, Grid ***arena,
         int ieta, int ix, int iy, int rk_flag, double *a_local, double *sigma);
-    void calculate_velocity_shear_tensor_1(double tau, Field *hydro_fields,
-                                           int idx, int rk_flag,
-                                           double *a_local, double *sigma);
+    void calculate_velocity_shear_tensor_1(
+                    double tau, Field *hydro_fields, int idx, int rk_flag,
+                    double *a_local, double *sigma);
+    void calculate_velocity_shear_tensor_2(
+                    double tau, Field *hydro_fields, int idx, int rk_flag,
+                    double *velocity_array);
     int MakeDSpatial(double tau, InitData *DATA, Grid *grid_pt, int rk_flag);
     int MakeDSpatial_1(double tau, Field *hydro_fields, int ieta, int ix, int iy, int rk_flag);
     int MakeDTau(double tau, InitData *DATA, Grid *grid_pt, int rk_flag);

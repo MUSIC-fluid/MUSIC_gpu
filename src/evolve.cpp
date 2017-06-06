@@ -121,23 +121,23 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
 
         //convert_grid_to_field(arena, hydro_fields);
         
-        //if (DATA->Initial_profile == 0) {
-        //    if (fabs(tau - 1.0) < 1e-8) {
-        //        grid_info->Gubser_flow_check_file(hydro_fields, tau);
-        //    }
-        //    if (fabs(tau - 1.2) < 1e-8) {
-        //        grid_info->Gubser_flow_check_file(hydro_fields, tau);
-        //    }
-        //    if (fabs(tau - 1.5) < 1e-8) {
-        //        grid_info->Gubser_flow_check_file(hydro_fields, tau);
-        //    }
-        //    if (fabs(tau - 2.0) < 1e-8) {
-        //        grid_info->Gubser_flow_check_file(hydro_fields, tau);
-        //    }
-        //    if (fabs(tau - 3.0) < 1e-8) {
-        //        grid_info->Gubser_flow_check_file(hydro_fields, tau);
-        //    }
-        //}
+        if (DATA->Initial_profile == 0) {
+            if (fabs(tau - 1.0) < 1e-8) {
+                grid_info->Gubser_flow_check_file(hydro_fields, tau);
+            }
+            if (fabs(tau - 1.2) < 1e-8) {
+                grid_info->Gubser_flow_check_file(hydro_fields, tau);
+            }
+            if (fabs(tau - 1.5) < 1e-8) {
+                grid_info->Gubser_flow_check_file(hydro_fields, tau);
+            }
+            if (fabs(tau - 2.0) < 1e-8) {
+                grid_info->Gubser_flow_check_file(hydro_fields, tau);
+            }
+            if (fabs(tau - 3.0) < 1e-8) {
+                grid_info->Gubser_flow_check_file(hydro_fields, tau);
+            }
+        }
 
         //if (it % Nskip_timestep == 0) {
         //    if (outputEvo_flag == 1) {

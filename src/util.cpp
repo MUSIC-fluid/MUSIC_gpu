@@ -313,22 +313,23 @@ int Util::map_2d_idx_to_1d(int a, int b) {
         return(10 + b);
     else if (a > b)  // symmetric matrix
         return(map_2d_idx_to_1d(b, a));
-    if (b > 3) {
-        cout << "Util::map_2d_idx_to_1d: index exceed dimension! "
-             << "a = " << a << ", b = " << b << endl;
-        exit(1);
-    }
-    if (a == 0)
+    //if (b > 3) {
+    //    cout << "Util::map_2d_idx_to_1d: index exceed dimension! "
+    //         << "a = " << a << ", b = " << b << endl;
+    //    exit(1);
+    //}
+    if (a == 0) {
         return(b);
-    else if (a == 1)
+    } else if (a == 1) {
         return(3 + b);
-    else if (a == 2)
+    } else if (a == 2) {
         return(5 + b);
-    else if (a == 3)
+    } else if (a == 3) {
         return(9);
-    else {
-        cout << "Util::map_2d_idx_to_1d: index exceed dimension! "
-             << "a = " << a << ", b = " << b << endl;
-        exit(1);
     }
+    //else {
+    //    cout << "Util::map_2d_idx_to_1d: index exceed dimension! "
+    //         << "a = " << a << ", b = " << b << endl;
+    //    exit(1);
+    //}
 }
