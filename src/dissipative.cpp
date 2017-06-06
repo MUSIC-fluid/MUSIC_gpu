@@ -260,28 +260,28 @@ double Diss::Make_uWSource(double tau, int n_cell_eta, int n_cell_x,
         include_Vorticity_term = 0;
     }
 
-    double sigma[4][4];
-    double Wmunu[4][4];
+    //double sigma[4][4];
+    //double Wmunu[4][4];
     for (int k = 0; k < n_cell_eta; k++) {
         for (int i = 0; i < n_cell_x; i++) {
             for (int j = 0; j < n_cell_y; j++) {
                 int idx = j + i*n_cell_y + k*n_cell_x*n_cell_y;
 
-                for (int a = 0; a < 4; a++) {
-                    for (int b = a; b < 4; b++) {
-                        int idx_1d = util->map_2d_idx_to_1d(a, b);
-                        //Wmunu[a][b] = grid_pt->Wmunu[rk_flag][idx_1d];
-                        //sigma[a][b] = sigma_1d[idx_1d];
-                        Wmunu[a][b] = vis_array[idx][idx_1d];
-                        sigma[a][b] = velocity_array[idx][6+idx_1d];
-                    }
-                }
-                for (int a = 0; a < 4; a++) {
-                    for (int b = a+1; b < 4; b++) {
-                        Wmunu[b][a] = Wmunu[a][b];
-                        sigma[b][a] = sigma[a][b];
-                    }
-                }
+                //for (int a = 0; a < 4; a++) {
+                //    for (int b = a; b < 4; b++) {
+                //        int idx_1d = util->map_2d_idx_to_1d(a, b);
+                //        //Wmunu[a][b] = grid_pt->Wmunu[rk_flag][idx_1d];
+                //        //sigma[a][b] = sigma_1d[idx_1d];
+                //        Wmunu[a][b] = vis_array[idx][idx_1d];
+                //        sigma[a][b] = velocity_array[idx][6+idx_1d];
+                //    }
+                //}
+                //for (int a = 0; a < 4; a++) {
+                //    for (int b = a+1; b < 4; b++) {
+                //        Wmunu[b][a] = Wmunu[a][b];
+                //        sigma[b][a] = sigma[a][b];
+                //    }
+                //}
 
                 // Useful variables to define
                 double epsilon = grid_array[idx][0];
@@ -301,8 +301,8 @@ double Diss::Make_uWSource(double tau, int n_cell_eta, int n_cell_x,
                 double pressure = eos->get_pressure(epsilon, rhob);
                 double shear = (shear_to_s)*(epsilon + pressure)/(T + 1e-15);
                 double tau_pi = 5.0*shear/(epsilon + pressure + 1e-15);
-                if (tau_pi < DATA_ptr->delta_tau) {
-                    tau_pi = DATA_ptr->delta_tau;
+                if (tau_pi < 0.01) {
+                    tau_pi = 0.01;
                 }
 
                 // transport coefficient for nonlinear terms
@@ -327,170 +327,312 @@ double Diss::Make_uWSource(double tau, int n_cell_eta, int n_cell_x,
 
                 // Wmunu + transport_coefficient2*Wmunu*theta
 
-                for (int mu = 1; mu < 4; mu++) {
-                    for (int nu = mu; nu < 4; nu++) {
-                        int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                        // full term is
-                        //- (1.0 + transport_coefficient2*theta_local)
-                        double tempf = (
+                for (int idx_1d = 4; idx_1d < 10; idx_1d++) {
+                    // full term is
+                    //- (1.0 + transport_coefficient2*theta_local)
+                    double tempf = (
                         - (1.0 + transport_coefficient2*velocity_array[idx][0])
-                          *(Wmunu[mu][nu]));
+                          *(vis_array[idx][idx_1d]));
 
-                        // Navier-Stokes Term -- -2.*shear*sigma^munu
-                        // full Navier-Stokes term is
-                        // sign changes according to metric sign convention
-                        double NS_term = - 2.*shear*sigma[mu][nu];
+                    // Navier-Stokes Term -- -2.*shear*sigma^munu
+                    // full Navier-Stokes term is
+                    // sign changes according to metric sign convention
+                    double NS_term = - 2.*shear*velocity_array[idx][6+idx_1d];
 
-                        // Vorticity Term
-                        double Vorticity_term = 0.0;
-                        // for future
-                        // remember: dUsup[m][n] = partial^n u^m  ///
-                        // remember:  a[n]  =  u^m*partial_m u^n  ///
-                        //if (include_Vorticity_term == 1) {
-                        //    double term1_Vorticity;
-                        //    double omega[4][4];
-                        //    for (a = 0; a < 4; a++) {
-                        //        for (b = 0; b <4; b++) {
-                        //            omega[a][b] = (
-                        //                (grid_pt->dUsup[0][a][b]
-                        //                 - grid_pt->dUsup[0][b][a])/2.
-                        //                + ueta/tau/2.*(DATA->gmunu[a][0]*DATA->gmunu[b][3]
-                        //                               - DATA->gmunu[b][0]*DATA->gmunu[a][3])
-                        //                - ueta*gamma/tau/2.
-                        //                  *(DATA->gmunu[a][3]*grid_pt->u[rk_flag][b]
-                        //                    - DATA->gmunu[b][3]*grid_pt->u[rk_flag][a])
-                        //                + ueta*ueta/tau/2.
-                        //                  *(DATA->gmunu[a][0]*grid_pt->u[rk_flag][b]
-                        //                     - DATA->gmunu[b][0]*grid_pt->u[rk_flag][a])
-                        //                + (grid_pt->u[rk_flag][a]*a_local[b]
-                        //                   - grid_pt->u[rk_flag][b]*a_local[a])/2.);
-                        //        }
-                        //    }
-                        //    term1_Vorticity = (- Wmunu[mu][0]*omega[nu][0]
-                        //                       - Wmunu[nu][0]*omega[mu][0]
-                        //                       + Wmunu[mu][1]*omega[nu][1]
-                        //                       + Wmunu[nu][1]*omega[mu][1]
-                        //                       + Wmunu[mu][2]*omega[nu][2]
-                        //                       + Wmunu[nu][2]*omega[mu][2]
-                        //                       + Wmunu[mu][3]*omega[nu][3]
-                        //                       + Wmunu[nu][3]*omega[mu][3])/2.;
-                        //    // multiply term by its respective transport coefficient
-                        //    term1_Vorticity = transport_coefficient4*term1_Vorticity;
-                        //    // full term is
-                        //    Vorticity_term = term1_Vorticity;
-                        //    Vorticity_term = 0.0;
-                        //} else {
-                        //    Vorticity_term = 0.0;
-                        //}
+                    // Vorticity Term
+                    double Vorticity_term = 0.0;
+                    // for future
+                    // remember: dUsup[m][n] = partial^n u^m  ///
+                    // remember:  a[n]  =  u^m*partial_m u^n  ///
+                    //if (include_Vorticity_term == 1) {
+                    //    double term1_Vorticity;
+                    //    double omega[4][4];
+                    //    for (a = 0; a < 4; a++) {
+                    //        for (b = 0; b <4; b++) {
+                    //            omega[a][b] = (
+                    //                (grid_pt->dUsup[0][a][b]
+                    //                 - grid_pt->dUsup[0][b][a])/2.
+                    //                + ueta/tau/2.*(DATA->gmunu[a][0]*DATA->gmunu[b][3]
+                    //                               - DATA->gmunu[b][0]*DATA->gmunu[a][3])
+                    //                - ueta*gamma/tau/2.
+                    //                  *(DATA->gmunu[a][3]*grid_pt->u[rk_flag][b]
+                    //                    - DATA->gmunu[b][3]*grid_pt->u[rk_flag][a])
+                    //                + ueta*ueta/tau/2.
+                    //                  *(DATA->gmunu[a][0]*grid_pt->u[rk_flag][b]
+                    //                     - DATA->gmunu[b][0]*grid_pt->u[rk_flag][a])
+                    //                + (grid_pt->u[rk_flag][a]*a_local[b]
+                    //                   - grid_pt->u[rk_flag][b]*a_local[a])/2.);
+                    //        }
+                    //    }
+                    //    term1_Vorticity = (- Wmunu[mu][0]*omega[nu][0]
+                    //                       - Wmunu[nu][0]*omega[mu][0]
+                    //                       + Wmunu[mu][1]*omega[nu][1]
+                    //                       + Wmunu[nu][1]*omega[mu][1]
+                    //                       + Wmunu[mu][2]*omega[nu][2]
+                    //                       + Wmunu[nu][2]*omega[mu][2]
+                    //                       + Wmunu[mu][3]*omega[nu][3]
+                    //                       + Wmunu[nu][3]*omega[mu][3])/2.;
+                    //    // multiply term by its respective transport coefficient
+                    //    term1_Vorticity = transport_coefficient4*term1_Vorticity;
+                    //    // full term is
+                    //    Vorticity_term = term1_Vorticity;
+                    //    Vorticity_term = 0.0;
+                    //} else {
+                    //    Vorticity_term = 0.0;
+                    //}
 
-                        // Add nonlinear term in shear-stress tensor
-                        //  transport_coefficient3*Delta(mu nu)(alpha beta)*Wmu
-                        //  gamma sigma nu gamma
-                        double Wsigma, Wsigma_term;
-                        double term1_Wsigma, term2_Wsigma;
-                        if (include_Wsigma_term == 1) {
-                            Wsigma = (
-                                   Wmunu[0][0]*sigma[0][0]
-                                 + Wmunu[1][1]*sigma[1][1]
-                                 + Wmunu[2][2]*sigma[2][2]
-                                 + Wmunu[3][3]*sigma[3][3]
-                                 - 2.*(  Wmunu[0][1]*sigma[0][1]
-                                       + Wmunu[0][2]*sigma[0][2]
-                                       + Wmunu[0][3]*sigma[0][3])
-                                 +2.*(  Wmunu[1][2]*sigma[1][2]
-                                      + Wmunu[1][3]*sigma[1][3]
-                                      + Wmunu[2][3]*sigma[2][3]));
-                            term1_Wsigma = ( - Wmunu[mu][0]*sigma[nu][0]
-                                             - Wmunu[nu][0]*sigma[mu][0]
-                                             + Wmunu[mu][1]*sigma[nu][1]
-                                             + Wmunu[nu][1]*sigma[mu][1]
-                                             + Wmunu[mu][2]*sigma[nu][2]
-                                             + Wmunu[nu][2]*sigma[mu][2]
-                                             + Wmunu[mu][3]*sigma[nu][3]
-                                             + Wmunu[nu][3]*sigma[mu][3])/2.;
+                    // Add nonlinear term in shear-stress tensor
+                    //  transport_coefficient3*Delta(mu nu)(alpha beta)*Wmu
+                    //  gamma sigma nu gamma
+                    double Wsigma, Wsigma_term;
+                    double term1_Wsigma, term2_Wsigma;
+                    if (include_Wsigma_term == 1) {
+                        Wsigma = (
+                             //  Wmunu[0][0]*sigma[0][0]
+                             //+ Wmunu[1][1]*sigma[1][1]
+                             //+ Wmunu[2][2]*sigma[2][2]
+                             //+ Wmunu[3][3]*sigma[3][3]
+                               vis_array[idx][0]*velocity_array[idx][6]
+                             + vis_array[idx][4]*velocity_array[idx][10]
+                             + vis_array[idx][7]*velocity_array[idx][13]
+                             + vis_array[idx][9]*velocity_array[idx][15]
+                             //- 2.*(  Wmunu[0][1]*sigma[0][1]
+                             //      + Wmunu[0][2]*sigma[0][2]
+                             //      + Wmunu[0][3]*sigma[0][3])
+                             - 2.*(  vis_array[idx][1]*velocity_array[idx][7]
+                                   + vis_array[idx][2]*velocity_array[idx][8]
+                                   + vis_array[idx][3]*velocity_array[idx][9])
+                             //+2.*(  Wmunu[1][2]*sigma[1][2]
+                             //     + Wmunu[1][3]*sigma[1][3]
+                             //     + Wmunu[2][3]*sigma[2][3]));
+                             +2.*(  vis_array[idx][5]*velocity_array[idx][11]
+                                  + vis_array[idx][6]*velocity_array[idx][12]
+                                  + vis_array[idx][8]*velocity_array[idx][14]));
 
-                            term2_Wsigma = (-(1./3.)*(DATA_ptr->gmunu[mu][nu]
-                                                      //+ grid_pt->u[rk_flag][mu]
-                                                      //  *grid_pt->u[rk_flag][nu])*Wsigma);
-                                                      + vis_array[idx][15+mu]
-                                                        *vis_array[idx][15+nu])
+                        //term1_Wsigma = ( - Wmunu[mu][0]*sigma[nu][0]
+                        //                 - Wmunu[nu][0]*sigma[mu][0]
+                        //                 + Wmunu[mu][1]*sigma[nu][1]
+                        //                 + Wmunu[nu][1]*sigma[mu][1]
+                        //                 + Wmunu[mu][2]*sigma[nu][2]
+                        //                 + Wmunu[nu][2]*sigma[mu][2]
+                        //                 + Wmunu[mu][3]*sigma[nu][3]
+                        //                 + Wmunu[nu][3]*sigma[mu][3])/2.;
+                        //term2_Wsigma = (-(1./3.)*(DATA_ptr->gmunu[mu][nu]
+                        //                          + vis_array[idx][15+mu]
+                        //                            *vis_array[idx][15+nu])
+                        //                         *Wsigma);
+                        if (idx_1d == 4) {  // pi^xx
+                            term1_Wsigma = (
+                                - vis_array[idx][1]*velocity_array[idx][7]
+                                + vis_array[idx][4]*velocity_array[idx][10]
+                                + vis_array[idx][5]*velocity_array[idx][11]
+                                + vis_array[idx][6]*velocity_array[idx][12]);
+                            term2_Wsigma = (-(1./3.)*(1.+ vis_array[idx][16]
+                                                          *vis_array[idx][16])
                                                      *Wsigma);
-                            // multiply term by its respective transport coefficient
-                            term1_Wsigma = transport_coefficient3*term1_Wsigma;
-                            term2_Wsigma = transport_coefficient3*term2_Wsigma;
-
-                            // full term is
-                            Wsigma_term = -term1_Wsigma - term2_Wsigma;
-                        } else {
-                            Wsigma_term = 0.0;
+                        } else if (idx_1d == 5) {  // pi^xy
+                            term1_Wsigma = 0.5*(
+                                - (vis_array[idx][1]*velocity_array[idx][8]
+                                    + vis_array[idx][2]*velocity_array[idx][7])
+                                + (vis_array[idx][4]*velocity_array[idx][11]
+                                    + vis_array[idx][5]*velocity_array[idx][10])
+                                + (vis_array[idx][5]*velocity_array[idx][13]
+                                    + vis_array[idx][7]*velocity_array[idx][11])
+                                + (vis_array[idx][6]*velocity_array[idx][14]
+                                    + vis_array[idx][8]*velocity_array[idx][12])
+                            );
+                            term2_Wsigma = (-(1./3.)*(vis_array[idx][16]
+                                                      *vis_array[idx][17])
+                                                     *Wsigma);
+                        } else if (idx_1d == 6) {  // pi^xeta
+                            term1_Wsigma = 0.5*(
+                                - (vis_array[idx][1]*velocity_array[idx][9]
+                                    + vis_array[idx][3]*velocity_array[idx][7])
+                                + (vis_array[idx][4]*velocity_array[idx][12]
+                                    + vis_array[idx][6]*velocity_array[idx][10])
+                                + (vis_array[idx][5]*velocity_array[idx][14]
+                                    + vis_array[idx][8]*velocity_array[idx][11])
+                                + (vis_array[idx][6]*velocity_array[idx][15]
+                                    + vis_array[idx][9]*velocity_array[idx][12])
+                            );
+                            term2_Wsigma = (-(1./3.)*(vis_array[idx][16]
+                                                          *vis_array[idx][18])
+                                                     *Wsigma);
+                        } else if (idx_1d == 7) {  // pi^yy
+                            term1_Wsigma = (
+                                - vis_array[idx][2]*velocity_array[idx][8]
+                                + vis_array[idx][5]*velocity_array[idx][11]
+                                + vis_array[idx][7]*velocity_array[idx][13]
+                                + vis_array[idx][8]*velocity_array[idx][14]);
+                            term2_Wsigma = (-(1./3.)*(1.+ vis_array[idx][17]
+                                                          *vis_array[idx][17])
+                                                     *Wsigma);
+                        } else if (idx_1d == 8) {  // pi^yeta
+                            term1_Wsigma = 0.5*(
+                                - (vis_array[idx][2]*velocity_array[idx][9]
+                                    + vis_array[idx][3]*velocity_array[idx][8])
+                                + (vis_array[idx][5]*velocity_array[idx][12]
+                                    + vis_array[idx][6]*velocity_array[idx][11])
+                                + (vis_array[idx][7]*velocity_array[idx][14]
+                                    + vis_array[idx][8]*velocity_array[idx][13])
+                                + (vis_array[idx][8]*velocity_array[idx][15]
+                                    + vis_array[idx][9]*velocity_array[idx][14])
+                            );
+                            term2_Wsigma = (-(1./3.)*(vis_array[idx][17]
+                                                          *vis_array[idx][18])
+                                                     *Wsigma);
+                        } else if (idx_1d == 9) {  // pi^etaeta
+                            term1_Wsigma = (
+                                - vis_array[idx][3]*velocity_array[idx][9]
+                                + vis_array[idx][6]*velocity_array[idx][12]
+                                + vis_array[idx][8]*velocity_array[idx][14]
+                                + vis_array[idx][9]*velocity_array[idx][15]);
+                            term2_Wsigma = (-(1./3.)*(1.+ vis_array[idx][18]
+                                                          *vis_array[idx][18])
+                                                     *Wsigma);
                         }
-                        // Add nonlinear term in shear-stress tensor
-                        // transport_coefficient*Delta(mu nu)(alpha beta)*Wmu
-                        // gamma Wnu gamma
-                        double Wsquare, WW_term;
-                        double term1_WW, term2_WW;
-                        if (include_WWterm == 1) {
-                            Wsquare = (  Wmunu[0][0]*Wmunu[0][0]
-                                       + Wmunu[1][1]*Wmunu[1][1]
-                                       + Wmunu[2][2]*Wmunu[2][2]
-                                       + Wmunu[3][3]*Wmunu[3][3]
-                                - 2.*(  Wmunu[0][1]*Wmunu[0][1]
-                                      + Wmunu[0][2]*Wmunu[0][2]
-                                      + Wmunu[0][3]*Wmunu[0][3])
-                                + 2.*(  Wmunu[1][2]*Wmunu[1][2]
-                                      + Wmunu[1][3]*Wmunu[1][3]
-                                      + Wmunu[2][3]*Wmunu[2][3]));
-                            term1_WW = ( - Wmunu[mu][0]*Wmunu[nu][0]
-                                         + Wmunu[mu][1]*Wmunu[nu][1]
-                                         + Wmunu[mu][2]*Wmunu[nu][2]
-                                         + Wmunu[mu][3]*Wmunu[nu][3]);
-
-                            term2_WW = (
-                                -(1./3.)*(DATA_ptr->gmunu[mu][nu]
-                                          //+ grid_pt->u[rk_flag][mu]*grid_pt->u[rk_flag][nu])
-                                          + vis_array[idx][15+mu]
-                                            *vis_array[idx][15+nu])
-                                *Wsquare);
-
-                            // multiply term by its respective transport coefficient
-                            term1_WW = term1_WW*transport_coefficient;
-                            term2_WW = term2_WW*transport_coefficient;
-
-                            // full term is
-                            // sign changes according to metric sign convention
-                            WW_term = -term1_WW - term2_WW;
-                        } else {
-                            WW_term = 0.0;
-                        }
-
-                        // Add coupling to bulk viscous pressure
-                        // transport_coefficient_b*Bulk*sigma^mu nu
-                        // transport_coefficient2_b*Bulk*W^mu nu
-                        double Bulk_Sigma, Bulk_Sigma_term;
-                        double Bulk_W, Bulk_W_term;
-                        double Coupling_to_Bulk;
-
-                        //Bulk_Sigma = grid_pt->pi_b[rk_flag]*sigma[mu][nu];
-                        //Bulk_W = grid_pt->pi_b[rk_flag]*Wmunu[mu][nu];
-                        Bulk_Sigma = vis_array[idx][14]*sigma[mu][nu];
-                        Bulk_W = vis_array[idx][14]*Wmunu[mu][nu];
 
                         // multiply term by its respective transport coefficient
-                        Bulk_Sigma_term = Bulk_Sigma*transport_coefficient_b;
-                        Bulk_W_term = Bulk_W*transport_coefficient2_b;
+                        term1_Wsigma = transport_coefficient3*term1_Wsigma;
+                        term2_Wsigma = transport_coefficient3*term2_Wsigma;
 
                         // full term is
-                        // first term: 
-                        // sign changes according to metric sign convention
-                        Coupling_to_Bulk = -Bulk_Sigma_term + Bulk_W_term;
-
-                        // final answer is
-                        double SW = ((NS_term + tempf + Vorticity_term
-                                      + Wsigma_term + WW_term
-                                      + Coupling_to_Bulk)
-                                     /(tau_pi));
-                        vis_array_new[idx][idx_1d] += SW*(DATA_ptr->delta_tau);
+                        Wsigma_term = -term1_Wsigma - term2_Wsigma;
+                    } else {
+                        Wsigma_term = 0.0;
                     }
+                    // Add nonlinear term in shear-stress tensor
+                    // transport_coefficient*Delta(mu nu)(alpha beta)*Wmu
+                    // gamma Wnu gamma
+                    double Wsquare, WW_term;
+                    double term1_WW, term2_WW;
+                    if (include_WWterm == 1) {
+                        //Wsquare = (  Wmunu[0][0]*Wmunu[0][0]
+                        //           + Wmunu[1][1]*Wmunu[1][1]
+                        //           + Wmunu[2][2]*Wmunu[2][2]
+                        //           + Wmunu[3][3]*Wmunu[3][3]
+                        //    - 2.*(  Wmunu[0][1]*Wmunu[0][1]
+                        //          + Wmunu[0][2]*Wmunu[0][2]
+                        //          + Wmunu[0][3]*Wmunu[0][3])
+                        //    + 2.*(  Wmunu[1][2]*Wmunu[1][2]
+                        //          + Wmunu[1][3]*Wmunu[1][3]
+                        //          + Wmunu[2][3]*Wmunu[2][3]));
+                        Wsquare = (  vis_array[idx][0]*vis_array[idx][0]
+                                   + vis_array[idx][4]*vis_array[idx][4]
+                                   + vis_array[idx][7]*vis_array[idx][7]
+                                   + vis_array[idx][9]*vis_array[idx][9]
+                            - 2.*(  vis_array[idx][1]*vis_array[idx][1]
+                                  + vis_array[idx][2]*vis_array[idx][2]
+                                  + vis_array[idx][3]*vis_array[idx][3])
+                            + 2.*(  vis_array[idx][5]*vis_array[idx][5]
+                                  + vis_array[idx][6]*vis_array[idx][6]
+                                  + vis_array[idx][8]*vis_array[idx][8]));
+
+                        //term1_WW = ( - Wmunu[mu][0]*Wmunu[nu][0]
+                        //             + Wmunu[mu][1]*Wmunu[nu][1]
+                        //             + Wmunu[mu][2]*Wmunu[nu][2]
+                        //             + Wmunu[mu][3]*Wmunu[nu][3]);
+                        //term2_WW = (
+                        //    -(1./3.)*(DATA_ptr->gmunu[mu][nu]
+                        //              + vis_array[idx][15+mu]
+                        //                *vis_array[idx][15+nu])
+                        //    *Wsquare);
+                        if (idx_1d == 4) {  // pi^xx
+                            term1_WW = (
+                                - vis_array[idx][1]*vis_array[idx][1]
+                                + vis_array[idx][4]*vis_array[idx][4]
+                                + vis_array[idx][5]*vis_array[idx][5]
+                                + vis_array[idx][6]*vis_array[idx][6]);
+                            term2_WW = (- (1./3.)*(1.+ vis_array[idx][16]
+                                                       *vis_array[idx][16])
+                                                  *Wsquare);
+                        } else if (idx_1d == 5) {  // pi^xy
+                            term1_WW = (
+                                - vis_array[idx][1]*vis_array[idx][2]
+                                + vis_array[idx][4]*vis_array[idx][5]
+                                + vis_array[idx][5]*vis_array[idx][7]
+                                + vis_array[idx][6]*vis_array[idx][8]);
+                            term2_WW = (- (1./3.)*(vis_array[idx][16]
+                                                       *vis_array[idx][17])
+                                                  *Wsquare);
+                        } else if (idx_1d == 6) {  // pi^xeta
+                            term1_WW = (
+                                - vis_array[idx][1]*vis_array[idx][3]
+                                + vis_array[idx][4]*vis_array[idx][6]
+                                + vis_array[idx][5]*vis_array[idx][8]
+                                + vis_array[idx][6]*vis_array[idx][9]);
+                            term2_WW = (- (1./3.)*(vis_array[idx][16]
+                                                       *vis_array[idx][18])
+                                                  *Wsquare);
+                        } else if (idx_1d == 7) {  // pi^yy
+                            term1_WW = (
+                                - vis_array[idx][2]*vis_array[idx][2]
+                                + vis_array[idx][5]*vis_array[idx][5]
+                                + vis_array[idx][7]*vis_array[idx][7]
+                                + vis_array[idx][8]*vis_array[idx][8]);
+                            term2_WW = (- (1./3.)*(1.+ vis_array[idx][17]
+                                                       *vis_array[idx][17])
+                                                  *Wsquare);
+                        } else if (idx_1d == 8) {  // pi^yeta
+                            term1_WW = (
+                                - vis_array[idx][2]*vis_array[idx][3]
+                                + vis_array[idx][5]*vis_array[idx][6]
+                                + vis_array[idx][7]*vis_array[idx][8]
+                                + vis_array[idx][8]*vis_array[idx][9]);
+                            term2_WW = (- (1./3.)*(vis_array[idx][17]
+                                                       *vis_array[idx][18])
+                                                  *Wsquare);
+                        } else if (idx_1d == 9) {  // pi^etaeta
+                            term1_WW = (
+                                - vis_array[idx][3]*vis_array[idx][3]
+                                + vis_array[idx][6]*vis_array[idx][6]
+                                + vis_array[idx][8]*vis_array[idx][8]
+                                + vis_array[idx][9]*vis_array[idx][9]);
+                            term2_WW = (- (1./3.)*(1.+ vis_array[idx][18]
+                                                       *vis_array[idx][18])
+                                                  *Wsquare);
+                        }
+
+
+                        // multiply term by its respective transport coefficient
+                        term1_WW = term1_WW*transport_coefficient;
+                        term2_WW = term2_WW*transport_coefficient;
+
+                        // full term is
+                        // sign changes according to metric sign convention
+                        WW_term = -term1_WW - term2_WW;
+                    } else {
+                        WW_term = 0.0;
+                    }
+
+                    // Add coupling to bulk viscous pressure
+                    // transport_coefficient_b*Bulk*sigma^mu nu
+                    // transport_coefficient2_b*Bulk*W^mu nu
+                    double Bulk_Sigma, Bulk_Sigma_term;
+                    double Bulk_W, Bulk_W_term;
+                    double Coupling_to_Bulk;
+
+                    //Bulk_Sigma = grid_pt->pi_b[rk_flag]*sigma[mu][nu];
+                    //Bulk_W = grid_pt->pi_b[rk_flag]*Wmunu[mu][nu];
+                    Bulk_Sigma = (vis_array[idx][14]
+                                    *velocity_array[idx][6+idx_1d]);
+                    Bulk_W = vis_array[idx][14]*vis_array[idx][idx_1d];
+
+                    // multiply term by its respective transport coefficient
+                    Bulk_Sigma_term = Bulk_Sigma*transport_coefficient_b;
+                    Bulk_W_term = Bulk_W*transport_coefficient2_b;
+
+                    // full term is
+                    // first term: 
+                    // sign changes according to metric sign convention
+                    Coupling_to_Bulk = -Bulk_Sigma_term + Bulk_W_term;
+
+                    // final answer is
+                    double SW = ((NS_term + tempf + Vorticity_term
+                                  + Wsigma_term + WW_term
+                                  + Coupling_to_Bulk)
+                                 /(tau_pi));
+                    vis_array_new[idx][idx_1d] += SW*(DATA_ptr->delta_tau);
                 }
             }
         }
