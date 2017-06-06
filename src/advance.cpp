@@ -624,11 +624,11 @@ int Advance::FirstRKStepW(double tau, int rk_flag, int n_cell_eta,
         tau_rk = tau_next;
     }
 
-    int mu_max;
-    if (DATA_ptr->turn_on_rhob == 1)
-        mu_max = 4;
-    else 
-        mu_max = 3;
+    //int mu_max;
+    //if (DATA_ptr->turn_on_rhob == 1)
+    //    mu_max = 4;
+    //else 
+    //    mu_max = 3;
  
     // Solve partial_a (u^a W^{mu nu}) = 0
     // Update W^{mu nu}
@@ -682,55 +682,46 @@ int Advance::FirstRKStepW(double tau, int rk_flag, int n_cell_eta,
     }
 
     // reconstruct other components
-    double tempf;
-    double u_new[4];
+    double u0, u1, u2, u3;
     for (int k = 0; k < n_cell_eta; k++) {
         for (int i = 0; i < n_cell_x; i++) {
             for (int j = 0; j < n_cell_y; j++) {
                 int idx = j + i*n_cell_y + k*n_cell_x*n_cell_y;
-                u_new[0] = vis_array_new[idx][15];
-                u_new[1] = vis_array_new[idx][16];
-                u_new[2] = vis_array_new[idx][17]; 
-                u_new[3] = vis_array_new[idx][18]; 
+                u0 = vis_array_new[idx][15];
+                u1 = vis_array_new[idx][16];
+                u2 = vis_array_new[idx][17]; 
+                u3 = vis_array_new[idx][18]; 
 
                 // re-make Wmunu[3][3] so that Wmunu[mu][nu] is traceless
                 vis_array_new[idx][9] = (
-                        (2.*(u_new[1]*u_new[2]*vis_array_new[idx][5]
-                             + u_new[1]*u_new[3]*vis_array_new[idx][6]
-                             + u_new[2]*u_new[3]*vis_array_new[idx][8])
-                            - (u_new[0]*u_new[0] - u_new[1]*u_new[1])
-                              *vis_array_new[idx][4] 
-                            - (u_new[0]*u_new[0] - u_new[2]*u_new[2])
-                              *vis_array_new[idx][7])
-                        /(u_new[0]*u_new[0] - u_new[3]*u_new[3]));
+                        (2.*(u1*u2*vis_array_new[idx][5]
+                             + u1*u3*vis_array_new[idx][6]
+                             + u2*u3*vis_array_new[idx][8])
+                            - (u0*u0 - u1*u1)*vis_array_new[idx][4] 
+                            - (u0*u0 - u2*u2)*vis_array_new[idx][7])
+                        /(u0*u0 - u3*u3));
 
-                // make Wmunu[i][0] using the transversality
-                for (int mu = 1; mu < 4; mu++) {
-                    tempf = 0.0;
-                    for (int nu = 1; nu < 4; nu++) {
-                        int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                        tempf += vis_array_new[idx][idx_1d]*u_new[nu];
-                    }
-                    vis_array_new[idx][mu] = tempf/u_new[0];
-                }
+                // make Wmunu^0i using the transversality
+                vis_array_new[idx][1] = (vis_array_new[idx][4]*u1
+                                         + vis_array_new[idx][5]*u2
+                                         + vis_array_new[idx][6]*u3)/u0;
+                vis_array_new[idx][2] = (vis_array_new[idx][5]*u1
+                                         + vis_array_new[idx][7]*u2
+                                         + vis_array_new[idx][8]*u3)/u0;
+                vis_array_new[idx][3] = (vis_array_new[idx][6]*u1
+                                         + vis_array_new[idx][8]*u2
+                                         + vis_array_new[idx][9]*u3)/u0;
 
-                // make Wmunu[0][0]
-                tempf = 0.0;
-                for (int nu = 1; nu < 4; nu++) {
-                    tempf += vis_array_new[idx][nu]*u_new[nu];
-                }
-                vis_array_new[idx][0] = tempf/u_new[0];
- 
+                // make Wmunu^00
+                vis_array_new[idx][0] = (vis_array_new[idx][1]*u1
+                                         + vis_array_new[idx][2]*u2
+                                         + vis_array_new[idx][3]*u3)/u0;
+
                 if (DATA_ptr->turn_on_diff == 1) {
                     // make qmu[0] using transversality
-                    for (int mu = 4; mu < mu_max + 1; mu++) {
-                        tempf = 0.0;
-                        for (int nu = 1; nu < 4; nu++) {
-                            int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                            tempf += (vis_array_new[idx][idx_1d]*u_new[nu]);
-                        }
-                        vis_array_new[idx][10] = tempf/u_new[0];
-                    }
+                    vis_array_new[idx][10] = (vis_array_new[idx][11]*u1
+                                              + vis_array_new[idx][12]*u2
+                                              + vis_array_new[idx][13]*u3)/u0;
                 } else {
                     vis_array_new[idx][10] = 0.0;
                 }
@@ -923,34 +914,41 @@ void Advance::update_grid_array_to_hydro_fields(
 //! in the dilute region to stablize numerical simulations
 int Advance::QuestRevert(double tau, double *vis_array, double *grid_array) {
     int revert_flag = 0;
-    const double energy_density_warning = 0.01;  // GeV/fm^3, T~100 MeV
+    //const double energy_density_warning = 0.01;  // GeV/fm^3, T~100 MeV
 
     double eps_scale = 1.0;  // 1/fm^4
     double e_local = grid_array[0];
     double factor = 300.*tanh(e_local/eps_scale);
 
-    double pi_00 = vis_array[0];
-    double pi_01 = vis_array[1];
-    double pi_02 = vis_array[2];
-    double pi_03 = vis_array[3];
-    double pi_11 = vis_array[4];
-    double pi_12 = vis_array[5];
-    double pi_13 = vis_array[6];
-    double pi_22 = vis_array[7];
-    double pi_23 = vis_array[8];
-    double pi_33 = vis_array[9];
+    //double pi_00 = vis_array[0];
+    //double pi_01 = vis_array[1];
+    //double pi_02 = vis_array[2];
+    //double pi_03 = vis_array[3];
+    //double pi_11 = vis_array[4];
+    //double pi_12 = vis_array[5];
+    //double pi_13 = vis_array[6];
+    //double pi_22 = vis_array[7];
+    //double pi_23 = vis_array[8];
+    //double pi_33 = vis_array[9];
 
-    double pisize = (pi_00*pi_00 + pi_11*pi_11 + pi_22*pi_22 + pi_33*pi_33
-                     - 2.*(pi_01*pi_01 + pi_02*pi_02 + pi_03*pi_03)
-                     + 2.*(pi_12*pi_12 + pi_13*pi_13 + pi_23*pi_23));
+    double pisize = (vis_array[0]*vis_array[0]
+                     + vis_array[4]*vis_array[4]
+                     + vis_array[7]*vis_array[7]
+                     + vis_array[9]*vis_array[9]
+                     - 2.*(vis_array[1]*vis_array[1]
+                           + vis_array[2]*vis_array[2]
+                           + vis_array[3]*vis_array[3])
+                     + 2.*(vis_array[5]*vis_array[5]
+                           + vis_array[6]*vis_array[6]
+                           + vis_array[8]*vis_array[8]));
   
     //double pi_local = grid_pt->pi_b[trk_flag];
-    double pi_local = vis_array[14];
-    double bulksize = 3.*pi_local*pi_local;
+    //double pi_local = vis_array[14];
+    double bulksize = 3.*vis_array[14]*vis_array[14];
 
     //double rhob_local = grid_pt->rhob;
-    double rhob_local = grid_array[4];
-    double p_local = eos->get_pressure(e_local, rhob_local);
+    //double rhob_local = grid_array[4];
+    double p_local = eos->get_pressure(e_local, grid_array[4]);
     double eq_size = e_local*e_local + 3.*p_local*p_local;
        
     double rho_shear = sqrt(pisize/eq_size)/factor; 
@@ -959,16 +957,13 @@ int Advance::QuestRevert(double tau, double *vis_array, double *grid_array) {
     // Reducing the shear stress tensor 
     double rho_shear_max = 0.1;
     if (rho_shear > rho_shear_max) {
-        if (e_local*hbarc > energy_density_warning) {
-            printf("energy density = %lf -- |pi/(epsilon+3*P)| = %lf\n",
-                   e_local*hbarc, rho_shear);
-        }
-        for (int mu = 0; mu < 4; mu++) {
-            for (int nu = mu; nu < 4; nu++) {
-                int idx_1d = util->map_2d_idx_to_1d(mu, nu);
-                vis_array[idx_1d] = ((rho_shear_max/rho_shear)
-                                      *vis_array[idx_1d]);
-            }
+        //if (e_local*hbarc > energy_density_warning) {
+        //    printf("energy density = %lf -- |pi/(epsilon+3*P)| = %lf\n",
+        //           e_local*hbarc, rho_shear);
+        //}
+        double ratio = rho_shear_max/rho_shear;
+        for (int mu = 0; mu < 10; mu++) {
+            vis_array[mu] *= ratio;
         }
         revert_flag = 1;
     }
@@ -976,14 +971,13 @@ int Advance::QuestRevert(double tau, double *vis_array, double *grid_array) {
     // Reducing bulk viscous pressure 
     double rho_bulk_max = 0.1;
     if (rho_bulk > rho_bulk_max) {
-        if (e_local*hbarc > energy_density_warning) {
-            printf("energy density = %lf --  |Pi/(epsilon+3*P)| = %lf\n",
-                   e_local*hbarc, rho_bulk);
-        }
+        //if (e_local*hbarc > energy_density_warning) {
+        //    printf("energy density = %lf --  |Pi/(epsilon+3*P)| = %lf\n",
+        //           e_local*hbarc, rho_bulk);
+        //}
         vis_array[14] = (rho_bulk_max/rho_bulk)*vis_array[14];
         revert_flag = 1;
     }
-
     return(revert_flag);
 }
 
@@ -993,51 +987,45 @@ int Advance::QuestRevert(double tau, double *vis_array, double *grid_array) {
 int Advance::QuestRevert_qmu(double tau, double *vis_array,
                              double *grid_array) {
     int revert_flag = 0;
-    const double energy_density_warning = 0.01;  // GeV/fm^3, T~100 MeV
+    //const double energy_density_warning = 0.01;  // GeV/fm^3, T~100 MeV
     double eps_scale = 1.0;   // in 1/fm^4
-    double e_local = grid_array[0];
-    double factor = 300.*tanh(e_local/eps_scale);
-
-    double q_mu_local[4];
-    for (int i = 0; i < 4; i++) {
-        // copy the value from the grid
-        int idx_1d = util->map_2d_idx_to_1d(4, i);
-        q_mu_local[i] = vis_array[idx_1d];
-    }
+    //double e_local = grid_array[0];
+    double factor = 300.*tanh(grid_array[0]/eps_scale);
 
     // calculate the size of q^\mu
-    double q_size = 0.0;
-    for (int i = 0; i < 4; i++) {
-        double gfac = (i == 0 ? -1.0 : 1.0);
-        q_size += gfac*q_mu_local[i]*q_mu_local[i];
-    }
+    double q_size = (- vis_array[10]*vis_array[10]
+                     + vis_array[11]*vis_array[11]
+                     + vis_array[12]*vis_array[12]
+                     + vis_array[13]*vis_array[13]);
 
     // first check the positivity of q^mu q_mu 
     // (in the conversion of gmn = diag(-+++))
     if (q_size < 0.0) {
-        cout << "Advance::QuestRevert_qmu: q^mu q_mu = " << q_size << " < 0!"
-             << endl;
-        cout << "Reset it to zero!!!!" << endl;
-        for (int i = 0; i < 4; i++) {
-            int idx_1d = util->map_2d_idx_to_1d(4, i);
-            vis_array[idx_1d] = 0.0;
-        }
+        //cout << "Advance::QuestRevert_qmu: q^mu q_mu = " << q_size << " < 0!"
+        //     << endl;
+        //cout << "Reset it to zero!!!!" << endl;
+        vis_array[10] = 0.0;
+        vis_array[11] = 0.0;
+        vis_array[12] = 0.0;
+        vis_array[13] = 0.0;
         revert_flag = 1;
+        return(revert_flag);
     }
 
     // reduce the size of q^mu according to rhoB
-    double rhob_local = grid_array[4];
-    double rho_q = sqrt(q_size/(rhob_local*rhob_local))/factor;
+    //double rhob_local = grid_array[4];
+    double rho_q = sqrt(q_size/(grid_array[4]*grid_array[4]))/factor;
     double rho_q_max = 0.1;
     if (rho_q > rho_q_max) {
-        if (e_local*hbarc > energy_density_warning) {
-            printf("energy density = %lf, rhob = %lf -- |q/rhob| = %lf\n",
-                   e_local*hbarc, rhob_local, rho_q);
-        }
-        for (int i = 0; i < 4; i++) {
-            int idx_1d = util->map_2d_idx_to_1d(4, i);
-            vis_array[idx_1d] =rho_q_max/rho_q*q_mu_local[i];
-        }
+        //if (e_local*hbarc > energy_density_warning) {
+        //    printf("energy density = %lf, rhob = %lf -- |q/rhob| = %lf\n",
+        //           e_local*hbarc, rhob_local, rho_q);
+        //}
+        double ratio = rho_q_max/rho_q;
+        vis_array[10] *= ratio;
+        vis_array[11] *= ratio;
+        vis_array[12] *= ratio;
+        vis_array[13] *= ratio;
         revert_flag = 1;
     }
     return(revert_flag);
@@ -1597,11 +1585,6 @@ void Advance::update_grid_cell(double **grid_array, Field *hydro_fields, int rk_
 void Advance::update_grid_cell_viscous(double **vis_array, Field *hydro_fields,
         int rk_flag, int ieta, int ix, int iy, int n_cell_eta, int n_cell_x,
         int n_cell_y) {
-
-    int trk_flag = 1;
-    if (rk_flag == 1) {
-        trk_flag = 0;
-    }
 
     int field_idx;
     int field_ny = DATA_ptr->ny + 1;
