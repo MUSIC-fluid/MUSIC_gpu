@@ -561,28 +561,6 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Field *hydro_fields,
     delete[] qimhR;
     delete[] grid_array_hL;
     delete[] grid_array_hR;
-    for (int i = 0; i < cube_size; i++) {
-	    delete[] vis_array[i];
-	    delete[] vis_nbr_tau[i];
-	    delete[] velocity_array[i];
-	    delete[] vis_array_new[i];
-    }
-    delete[] vis_array;
-    delete[] vis_nbr_tau;
-    delete[] velocity_array;
-    delete[] vis_array_new;
-    for (int i = 0; i < neigh_sizey; i++) {
-	    delete[] vis_nbr_y[i];
-    }
-    for (int i = 0; i < neigh_sizex; i++) {
-	    delete[] vis_nbr_x[i];
-    }
-    delete[] vis_nbr_x;
-    delete[] vis_nbr_y;
-    for (int i = 0; i < neigh_sizeeta; i++) {
-	    delete[] vis_nbr_eta[i];
-    }
-    delete[] vis_nbr_eta;
 
     return(1);
 }/* AdvanceIt */
