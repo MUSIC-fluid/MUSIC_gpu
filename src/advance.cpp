@@ -624,12 +624,6 @@ int Advance::FirstRKStepW(double tau, int rk_flag, int n_cell_eta,
         tau_rk = tau_next;
     }
 
-    //int mu_max;
-    //if (DATA_ptr->turn_on_rhob == 1)
-    //    mu_max = 4;
-    //else 
-    //    mu_max = 3;
- 
     // Solve partial_a (u^a W^{mu nu}) = 0
     // Update W^{mu nu}
     // mu = 4 is the baryon current qmu

@@ -507,37 +507,22 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x, int n_cell_y,
     if (DATA_ptr->turn_on_shear == 0)
         return(1);
 
-    int temp[6] = {4, 5, 6, 7, 8 ,9};
-    vector<int> idx_1d_list(temp, temp+6);  // shear components
-    if (DATA_ptr->turn_on_diff == 1) {  // diffusion components
-        for (int ii = 10; ii < 14; ii++) {
-            idx_1d_list.push_back(ii);
-        }
-    }
-    if (DATA_ptr->turn_on_bulk == 1) {  // bulk viscous pressure
-        idx_1d_list.push_back(14);
-    }
+    //int temp[6] = {4, 5, 6, 7, 8 ,9};
+    //vector<int> idx_1d_list(temp, temp+6);  // shear components
+    //if (DATA_ptr->turn_on_diff == 1) {  // diffusion components
+    //    for (int ii = 10; ii < 14; ii++) {
+    //        idx_1d_list.push_back(ii);
+    //    }
+    //}
+    //if (DATA_ptr->turn_on_bulk == 1) {  // bulk viscous pressure
+    //    idx_1d_list.push_back(14);
+    //}
 
-    int mu_list[] = {1, 1, 1, 2, 2, 3};
-    int nu_list[] = {1, 2, 3, 2, 3, 3};
-
-    double Wmunu_local[4][4];
     for (int k = 0; k < n_cell_eta; k++) {
         for (int i = 0; i < n_cell_x; i++) {
             for (int j = 0; j < n_cell_y; j++) {
                 int idx = j + i*n_cell_y + k*n_cell_x*n_cell_y;
 
-                for (int aa = 0; aa < 4; aa++) {
-                    for (int bb = aa; bb < 4; bb++) {
-                        int idx_1d = util->map_2d_idx_to_1d(aa, bb);
-                        Wmunu_local[aa][bb] = vis_array[idx][idx_1d];
-                    }
-                }
-                for (int aa = 0; aa < 4; aa++) {
-                    for (int bb = aa+1; bb < 4; bb++) {
-                        Wmunu_local[bb][aa] = Wmunu_local[aa][bb];
-                    }
-                }
 
                 // Kurganov-Tadmor for Wmunu */
                 // implement 
@@ -558,32 +543,30 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x, int n_cell_y,
                 // This is the second step in the operator splitting. it uses
                 // rk_flag+1 as initial condition
     
+                double u0 = vis_array[idx][15];
+                double u1 = vis_array[idx][16];
+                double u2 = vis_array[idx][17];
+                double u3 = vis_array[idx][18];
+
                 double taufactor;
                 double g, gp1, gm1, gp2, gm2, a, am1, ap1, ax;
                 double f, fp1, fm1, fp2, fm2;
                 double uWphR, uWphL, uWmhR, uWmhL, WphR, WphL, WmhR, WmhL;
                 double HWph, HWmh, HW;
                 int idx_p_2, idx_p_1, idx_m_1, idx_m_2;
-                for (unsigned int ii = 0; ii < idx_1d_list.size(); ii++) {
-                    int idx_1d = idx_1d_list[ii];
-
+                double sum;
+                for (unsigned int idx_1d = 4; idx_1d < 15; idx_1d++) {
                     // the derivative part is the same for all viscous
                     // components
-                    vis_array_new[idx][idx_1d] = (
-                                vis_array[idx][idx_1d]*vis_array[idx][15]);
+                    vis_array_new[idx][idx_1d] = vis_array[idx][idx_1d]*u0;
 
-                    double sum = 0.0;
+                    sum = 0.0;
                     // x-direction
                     taufactor = 1.0;
                     /* Get_uWmns */
-                    //g = grid_pt->Wmunu[rk_flag][idx_1d];
-                    //f = g*grid_pt->u[rk_flag][direc];
-                    //g *= grid_pt->u[rk_flag][0];
-                    g = vis_array[idx][idx_1d];
-                    f = g*vis_array[idx][16];
-                    g *= vis_array[idx][15];
-                    //a = fabs(grid_pt->u[rk_flag][direc]);
-                    a = fabs(vis_array[idx][16])/vis_array[idx][15];
+                    g = vis_array[idx][idx_1d]*u0;
+                    f = vis_array[idx][idx_1d]*u1;
+                    a = fabs(u1)/u0;
 
                     if (i + 2 < n_cell_x) {
                         idx_p_2 = j + (i+2)*n_cell_y + k*n_cell_x*n_cell_y;
@@ -641,14 +624,16 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x, int n_cell_y,
                         gm2 *= vis_nbr_x[idx_m_2][15];
                     }
                     // MakeuWmnHalfs uWmn
-                    uWphR = fp1 - 0.5*minmod->minmod_dx(fp2, fp1, f);
-                    uWphL = f + 0.5*minmod->minmod_dx(fp1, f, fm1);
-                    uWmhR = f - 0.5*minmod->minmod_dx(fp1, f, fm1);
+                    uWphR = fp1 - 0.5*minmod->minmod_dx(fp1, f, fm1);
+                    double ddx = minmod->minmod_dx(fp1, f, fm1);
+                    uWphL = f + 0.5*ddx;
+                    uWmhR = f - 0.5*ddx;
                     uWmhL = fm1 + 0.5*minmod->minmod_dx(f, fm1, fm2);
                     // just Wmn
                     WphR = gp1 - 0.5*minmod->minmod_dx(gp2, gp1, g);
-                    WphL = g + 0.5*minmod->minmod_dx(gp1, g, gm1);
-                    WmhR = g - 0.5*minmod->minmod_dx(gp1, g, gm1);
+                    ddx = minmod->minmod_dx(gp1, g, gm1);
+                    WphL = g + 0.5*ddx;
+                    WmhR = g - 0.5*ddx;
                     WmhL = gm1 + 0.5*minmod->minmod_dx(g, gm1, gm2);
 
                     ax = maxi(a, ap1);
@@ -663,10 +648,9 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x, int n_cell_y,
                     // y-direction
                     taufactor = 1.0;
                     /* Get_uWmns */
-                    g = vis_array[idx][idx_1d];
-                    f = g*vis_array[idx][17];
-                    g *= vis_array[idx][15];
-                    a = fabs(vis_array[idx][17])/vis_array[idx][15];
+                    g = vis_array[idx][idx_1d]*u0;
+                    f = vis_array[idx][idx_1d]*u2;
+                    a = fabs(u2)/u0;
 
                     if (j + 2 < n_cell_y) {
                         idx_p_2 = j + 2 + i*n_cell_y + k*n_cell_x*n_cell_y;
@@ -725,13 +709,15 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x, int n_cell_y,
                     }
                     // MakeuWmnHalfs uWmn
                     uWphR = fp1 - 0.5*minmod->minmod_dx(fp2, fp1, f);
-                    uWphL = f + 0.5*minmod->minmod_dx(fp1, f, fm1);
-                    uWmhR = f - 0.5*minmod->minmod_dx(fp1, f, fm1);
+                    ddx = minmod->minmod_dx(fp1, f, fm1);
+                    uWphL = f + 0.5*ddx;
+                    uWmhR = f - 0.5*ddx;
                     uWmhL = fm1 + 0.5*minmod->minmod_dx(f, fm1, fm2);
                     // just Wmn
                     WphR = gp1 - 0.5*minmod->minmod_dx(gp2, gp1, g);
-                    WphL = g + 0.5*minmod->minmod_dx(gp1, g, gm1);
-                    WmhR = g - 0.5*minmod->minmod_dx(gp1, g, gm1);
+                    ddx = minmod->minmod_dx(gp1, g, gm1);
+                    WphL = g + 0.5*ddx;
+                    WmhR = g - 0.5*ddx;
                     WmhL = gm1 + 0.5*minmod->minmod_dx(g, gm1, gm2);
                     ax = maxi(a, ap1);
                     HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
@@ -744,10 +730,9 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x, int n_cell_y,
                     // eta-direction
                     taufactor = tau;
                     /* Get_uWmns */
-                    g = vis_array[idx][idx_1d];
-                    f = g*vis_array[idx][18];
-                    g *= vis_array[idx][15];
-                    a = fabs(vis_array[idx][18])/vis_array[idx][15];
+                    g = vis_array[idx][idx_1d]*u0;
+                    f = vis_array[idx][idx_1d]*u3;
+                    a = fabs(u3)/u0;
 
                     if (k + 2 < n_cell_eta) {
                         idx_p_2 = j + i*n_cell_y + (k+2)*n_cell_x*n_cell_y;
@@ -806,13 +791,15 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x, int n_cell_y,
                     }
                     // MakeuWmnHalfs uWmn
                     uWphR = fp1 - 0.5*minmod->minmod_dx(fp2, fp1, f);
-                    uWphL = f + 0.5*minmod->minmod_dx(fp1, f, fm1);
-                    uWmhR = f - 0.5*minmod->minmod_dx(fp1, f, fm1);
+                    ddx = minmod->minmod_dx(fp1, f, fm1);
+                    uWphL = f + 0.5*ddx;
+                    uWmhR = f - 0.5*ddx;
                     uWmhL = fm1 + 0.5*minmod->minmod_dx(f, fm1, fm2);
                     // just Wmn
                     WphR = gp1 - 0.5*minmod->minmod_dx(gp2, gp1, g);
-                    WphL = g + 0.5*minmod->minmod_dx(gp1, g, gm1);
-                    WmhR = g - 0.5*minmod->minmod_dx(gp1, g, gm1);
+                    ddx = minmod->minmod_dx(gp1, g, gm1);
+                    WphL = g + 0.5*ddx;
+                    WmhR = g - 0.5*ddx;
                     WmhL = gm1 + 0.5*minmod->minmod_dx(g, gm1, gm2);
                     ax = maxi(a, ap1);
                     HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
@@ -821,73 +808,154 @@ int Diss::Make_uWRHS(double tau, int n_cell_eta, int n_cell_x, int n_cell_y,
                     HW = (HWph - HWmh)/DATA_ptr->delta_eta/taufactor;
                     // make partial_i (u^i Wmn)
                     sum += -HW;
-
-                    // the following geometric parts are different for
-                    // individual pi^\mu\nu, q^\mu, and Pi
-
-                    if (idx_1d < 10) {
-                        // geometric terms for shear pi^\mu\nu
-                        int mu = mu_list[ii];
-                        int nu = nu_list[ii];
-                        // add a source term -u^tau Wmn/tau
-                        //   due to the coordinate change to tau-eta
-                        //sum += (- (grid_pt->u[rk_flag][0]*Wmunu_local[mu][nu])/tau
-                        //        + (theta_local*Wmunu_local[mu][nu]));
-                        sum += (- (vis_array[idx][15]*Wmunu_local[mu][nu])/tau
-                                + (velocity_array[idx][0]*Wmunu_local[mu][nu])
-                               );
-
-                        // this is from udW = d(uW) - Wdu = RHS
-                        // or d(uW) = udW + Wdu
-                        // this term is being added to the rhs so that
-                        // -4/3 + 1 = -1/3
-                        // other source terms due to the coordinate
-                        // change to tau-eta
-                        double tempf = 0.0;
-                        tempf = (
-                            - (DATA_ptr->gmunu[3][mu])*(Wmunu_local[0][nu])
-                            - (DATA_ptr->gmunu[3][nu])*(Wmunu_local[0][mu])
-                            + (DATA_ptr->gmunu[0][mu])*(Wmunu_local[3][nu])
-                            + (DATA_ptr->gmunu[0][nu])*(Wmunu_local[3][mu])
-                            + (Wmunu_local[3][nu])
-                              //*(grid_pt->u[rk_flag][mu])*(grid_pt->u[rk_flag][0])
-                              *(vis_array[idx][15+mu])*(vis_array[idx][15])
-                            + (Wmunu_local[3][mu])
-                              //*(grid_pt->u[rk_flag][nu])*(grid_pt->u[rk_flag][0])
-                              *(vis_array[idx][15+nu])*(vis_array[idx][15])
-                            - (Wmunu_local[0][nu])
-                              //*(grid_pt->u[rk_flag][mu])*(grid_pt->u[rk_flag][3])
-                              *(vis_array[idx][15+mu])*(vis_array[idx][18])
-                            - (Wmunu_local[0][mu])
-                              //*(grid_pt->u[rk_flag][nu])*(grid_pt->u[rk_flag][3]))
-                              //*(grid_pt->u[rk_flag][3]/tau);
-                              *(vis_array[idx][15+nu])*(vis_array[idx][18]))
-                              *(vis_array[idx][18]/tau);
-                        for (int ic = 0; ic < 4; ic++) {
-                            double ic_fac = (ic == 0 ? -1.0 : 1.0);
-                            //tempf += (
-                            //      (Wmunu_local[ic][nu])*(grid_pt->u[rk_flag][mu])
-                            //       *(a_local[ic])*ic_fac
-                            //    + (Wmunu_local[ic][mu])*(grid_pt->u[rk_flag][nu])
-                            //       *(a_local[ic])*ic_fac);
-                            tempf += (
-                                  (Wmunu_local[ic][nu])*(vis_array[idx][15+mu])
-                                   *(velocity_array[idx][1+ic])*ic_fac
-                                + (Wmunu_local[ic][mu])*(vis_array[idx][15+nu])
-                                   *(velocity_array[idx][1+ic])*ic_fac);
-                        }
-                        sum += tempf;
-                    } else if (idx_1d == 14) {
-                        // geometric terms for bulk Pi
-                        //sum -= (pi_b[rk_flag])*(u[rk_flag][0])/tau;
-                        //sum += (pi_b[rk_flag])*theta_local;
-                        sum -= vis_array[idx][14]*vis_array[idx][15]/tau;
-                        sum += vis_array[idx][14]*velocity_array[idx][0];
-                    }
+                    
                     //w_rhs[mu][nu] = sum*(DATA_ptr->delta_tau);
                     vis_array_new[idx][idx_1d] += (
                                         sum*(DATA_ptr->delta_tau));
                 }
+
+                // the following geometric parts are different for
+                // individual pi^\mu\nu, and Pi
+                // geometric terms for shear pi^\mu\nu
+                // add a source term -u^tau Wmn/tau
+                //   due to the coordinate change to tau-eta
+
+                // this is from udW = d(uW) - Wdu = RHS
+                // or d(uW) = udW + Wdu
+                // this term is being added to the rhs so that
+                // -4/3 + 1 = -1/3
+                // other source terms due to the coordinate
+                // change to tau-eta
+                //tempf = (
+                //    - (DATA_ptr->gmunu[3][mu])*(Wmunu_local[0][nu])
+                //    - (DATA_ptr->gmunu[3][nu])*(Wmunu_local[0][mu])
+                //    + (DATA_ptr->gmunu[0][mu])*(Wmunu_local[3][nu])
+                //    + (DATA_ptr->gmunu[0][nu])*(Wmunu_local[3][mu])
+                //    + (Wmunu_local[3][nu])
+                //      //*(grid_pt->u[rk_flag][mu])*(grid_pt->u[rk_flag][0])
+                //      *(vis_array[idx][15+mu])*(vis_array[idx][15])
+                //    + (Wmunu_local[3][mu])
+                //      //*(grid_pt->u[rk_flag][nu])*(grid_pt->u[rk_flag][0])
+                //      *(vis_array[idx][15+nu])*(vis_array[idx][15])
+                //    - (Wmunu_local[0][nu])
+                //      //*(grid_pt->u[rk_flag][mu])*(grid_pt->u[rk_flag][3])
+                //      *(vis_array[idx][15+mu])*(vis_array[idx][18])
+                //    - (Wmunu_local[0][mu])
+                //      //*(grid_pt->u[rk_flag][nu])*(grid_pt->u[rk_flag][3]))
+                //      //*(grid_pt->u[rk_flag][3]/tau);
+                //      *(vis_array[idx][15+nu])*(vis_array[idx][18]))
+                //      *(vis_array[idx][18]/tau);
+                //for (int ic = 0; ic < 4; ic++) {
+                //    double ic_fac = (ic == 0 ? -1.0 : 1.0);
+                //    tempf += (
+                //          (Wmunu_local[ic][nu])*(vis_array[idx][15+mu])
+                //           *(velocity_array[idx][1+ic])*ic_fac
+                //        + (Wmunu_local[ic][mu])*(vis_array[idx][15+nu])
+                //           *(velocity_array[idx][1+ic])*ic_fac);
+                //}
+                double tempf = 0.0;
+                // W^11
+                sum = (- (u0*vis_array[idx][4])/tau
+                       + (velocity_array[idx][0]*vis_array[idx][4]));
+                tempf = ((u3/tau)*2.*u1*(vis_array[idx][6]*u0
+                                         - vis_array[idx][1]*u3));
+                tempf += 2.*(
+                    - velocity_array[idx][1]*(vis_array[idx][1]*u1)
+                    + velocity_array[idx][2]*(vis_array[idx][4]*u1)
+                    + velocity_array[idx][3]*(vis_array[idx][5]*u1)
+                    + velocity_array[idx][4]*(vis_array[idx][6]*u1));
+                vis_array_new[idx][4] += (sum + tempf)*DATA_ptr->delta_tau;
+
+                // W^12
+                sum = (- (u0*vis_array[idx][5])/tau
+                       + (velocity_array[idx][0]*vis_array[idx][5]));
+                tempf = ((u3/tau)*((vis_array[idx][8]*u1
+                                    + vis_array[idx][6]*u2)*u0
+                                   - (vis_array[idx][1]*u2
+                                      + vis_array[idx][2]*u1)*u3));
+                tempf += (
+                    - velocity_array[idx][1]*(vis_array[idx][2]*u1
+                                              + vis_array[idx][1]*u2)
+                    + velocity_array[idx][2]*(vis_array[idx][5]*u1
+                                              + vis_array[idx][4]*u2)
+                    + velocity_array[idx][3]*(vis_array[idx][7]*u1
+                                              + vis_array[idx][5]*u2)
+                    + velocity_array[idx][4]*(vis_array[idx][8]*u1
+                                              + vis_array[idx][6]*u2));
+                vis_array_new[idx][5] += (sum + tempf)*DATA_ptr->delta_tau;
+
+                
+                // W^13
+                sum = (- (u0*vis_array[idx][6])/tau
+                       + (velocity_array[idx][0]*vis_array[idx][6]));
+                tempf = ((u3/tau)*(- vis_array[idx][1]
+                                   + (vis_array[idx][9]*u1
+                                      + vis_array[idx][6]*u3)*u0
+                                   - (vis_array[idx][1]*u3
+                                      + vis_array[idx][3]*u1)*u3));
+                tempf += (
+                    - velocity_array[idx][1]*(vis_array[idx][3]*u1
+                                              + vis_array[idx][1]*u3)
+                    + velocity_array[idx][2]*(vis_array[idx][6]*u1
+                                              + vis_array[idx][4]*u3)
+                    + velocity_array[idx][3]*(vis_array[idx][8]*u1
+                                              + vis_array[idx][5]*u3)
+                    + velocity_array[idx][4]*(vis_array[idx][9]*u1
+                                              + vis_array[idx][6]*u3));
+                vis_array_new[idx][6] += (sum + tempf)*DATA_ptr->delta_tau;
+                
+                // W^22
+                sum = (- (u0*vis_array[idx][7])/tau
+                       + (velocity_array[idx][0]*vis_array[idx][7]));
+                tempf = ((u3/tau)*2.*u2*(vis_array[idx][8]*u0
+                                         - vis_array[idx][2]*u3));
+                tempf += 2.*(
+                    - velocity_array[idx][1]*(vis_array[idx][2]*u2)
+                    + velocity_array[idx][2]*(vis_array[idx][5]*u2)
+                    + velocity_array[idx][3]*(vis_array[idx][7]*u2)
+                    + velocity_array[idx][4]*(vis_array[idx][8]*u2));
+                vis_array_new[idx][7] += (sum + tempf)*DATA_ptr->delta_tau;
+                
+                // W^23
+                sum = (- (u0*vis_array[idx][8])/tau
+                       + (velocity_array[idx][0]*vis_array[idx][8]));
+                tempf = ((u3/tau)*(- vis_array[idx][2]
+                                   + (vis_array[idx][9]*u2
+                                      + vis_array[idx][8]*u3)*u0
+                                   - (vis_array[idx][2]*u3
+                                      + vis_array[idx][3]*u2)*u3));
+                tempf += (
+                    - velocity_array[idx][1]*(vis_array[idx][2]*u3
+                                              + vis_array[idx][3]*u2)
+                    + velocity_array[idx][2]*(vis_array[idx][5]*u3
+                                              + vis_array[idx][6]*u2)
+                    + velocity_array[idx][3]*(vis_array[idx][7]*u3
+                                              + vis_array[idx][8]*u2)
+                    + velocity_array[idx][4]*(vis_array[idx][8]*u3
+                                              + vis_array[idx][9]*u2));
+                vis_array_new[idx][8] += (sum + tempf)*DATA_ptr->delta_tau;
+
+                // W^33
+                sum = (- (u0*vis_array[idx][9])/tau
+                       + (velocity_array[idx][0]*vis_array[idx][9]));
+                tempf = ((u3/tau)*2.*(u3*(vis_array[idx][9]*u0
+                                          - vis_array[idx][3]*u3)
+                                      - vis_array[idx][3]));
+                tempf += 2.*(
+                    - velocity_array[idx][1]*(vis_array[idx][3]*u3)
+                    + velocity_array[idx][2]*(vis_array[idx][6]*u3)
+                    + velocity_array[idx][3]*(vis_array[idx][8]*u3)
+                    + velocity_array[idx][4]*(vis_array[idx][9]*u3));
+                vis_array_new[idx][9] += (sum + tempf)*DATA_ptr->delta_tau;
+
+                // bulk pressure (idx_1d == 14)
+                // geometric terms for bulk Pi
+                //sum -= (pi_b[rk_flag])*(u[rk_flag][0])/tau;
+                //sum += (pi_b[rk_flag])*theta_local;
+                vis_array_new[idx][14] += (
+                    (- vis_array[idx][14]*vis_array[idx][15]/tau
+                     + vis_array[idx][14]*velocity_array[idx][0])
+                    *(DATA_ptr->delta_tau));
             }
         }
     }
