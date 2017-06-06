@@ -434,14 +434,14 @@ int Reconst::ReconstIt_velocity_iteration(
             // Warn only when the deviation from 1 is relatively large
             //cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
             //              << temp_usq - 1.0 << endl;
-            double f_res;
-            if (v_solution < v_critical) {
-                f_res = fabs(v_solution
-                             - reconst_velocity_f(v_solution, T00, M, J0));
-            } else {
-                f_res = fabs(u0_solution
-                             - reconst_u0_f(u0_solution, T00, K00, M, J0));
-            }
+            //double f_res = 0.0;
+            //if (v_solution < v_critical) {
+            //    f_res = fabs(v_solution
+            //                 - reconst_velocity_f(v_solution, T00, M, J0));
+            //} else {
+            //    f_res = fabs(u0_solution
+            //                 - reconst_u0_f(u0_solution, T00, K00, M, J0));
+            //}
             //cout << "with v = " << v_solution << ", u[0] = " << u[0]
             //              << ", res = " << f_res << endl;
             //cout << "with u[1] = " << u[1]
@@ -661,12 +661,12 @@ int Reconst::ReconstIt_velocity_Newton(
             // Warn only when the deviation from 1 is relatively large
             //cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
             //     << temp_usq - 1.0 << endl;
-            double f_res;
-            if (v_solution < v_critical) {
-                f_res = reconst_velocity_f_Newton(v_solution, T00, M, J0);
-            } else {
-                f_res = reconst_u0_f_Newton(u0_solution, T00, K00, M, J0);
-            }
+            //double f_res;
+            //if (v_solution < v_critical) {
+            //    f_res = reconst_velocity_f_Newton(v_solution, T00, M, J0);
+            //} else {
+            //    f_res = reconst_u0_f_Newton(u0_solution, T00, K00, M, J0);
+            //}
             //cout << "with v = " << v_solution << ", u[0] = " << u[0]
             //              << ", res = " << f_res << endl;
             //cout << "with u[1] = " << u[1]

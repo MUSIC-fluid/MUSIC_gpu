@@ -2,8 +2,8 @@
 #include <fstream>
 #include <iomanip>
 #include <string>
+#include <cmath>
 
-#include "./util.h"
 #include "./eos.h"
 #include "./data.h"
 using namespace std;
@@ -12,7 +12,6 @@ using namespace std;
 
 EOS::EOS(InitData *para_in) {
     parameters_ptr = para_in;
-    util = new Util;
     initialize_eos();
     whichEOS = parameters_ptr->whichEOS;
     eps_max = 1e5;  // [1/fm^4]
@@ -20,16 +19,15 @@ EOS::EOS(InitData *para_in) {
 
 // destructor
 EOS::~EOS() {
-    delete util;
 }
 
 void EOS::initialize_eos() {
     if (parameters_ptr->Initial_profile == 0) {
-        cout << "Using the ideal gas EOS" << endl;
+        //cout << "Using the ideal gas EOS" << endl;
         init_eos0();
-    } else {
-        exit(1);
-    }
+    } //else {
+      //  exit(1);
+    //}
 
 }
 
@@ -42,11 +40,11 @@ double EOS::get_cs2(double e, double rhob) {
     double f;
     if (whichEOS == 0) {
         f = cs2;
-    } else {
-        fprintf(stderr,"EOS::get_cs2: whichEOS = %d is out of range!\n",
-                whichEOS);
-        exit(0);
-    }
+    } //else {
+      //  fprintf(stderr,"EOS::get_cs2: whichEOS = %d is out of range!\n",
+      //          whichEOS);
+      //  exit(0);
+    //}
     return f;
 }
 
@@ -71,11 +69,11 @@ double EOS::p_rho_func(double e, double rhob) {
     double f;
     if (whichEOS == 0) {
         f = 0.0;
-    } else {
-        fprintf(stderr, "EOS::p_rho_func: whichEOS = %d is out of range!\n",
-                whichEOS);
-        exit(1);
-    }
+    } //else {
+      //  fprintf(stderr, "EOS::p_rho_func: whichEOS = %d is out of range!\n",
+      //          whichEOS);
+      //  exit(1);
+    //}
     return f;
 }/* p_rho_func */
 
@@ -135,73 +133,19 @@ double EOS::get_entropy(double epsilon, double rhob) {
     return f;
 }/* get_entropy */
 
-double EOS::Tsolve(double e, double rhob, double T) {
-    // takes e in GeV/fm^3 and passes it on in 1/fm^4 ...
-    return T-get_temperature(e/hbarc,rhob);
-}
-
-double EOS::findRoot(double (EOS::*func)(double, double, double), double rhob, double s, double e1, double e2, double eacc)
-{
-  int j, jmax;
-  jmax=40;
-  double emid, de, value, f, fmid;
-  fmid = (this->*func)(e2, rhob, s);
-  f = (this->*func)(e1, rhob, s);
- 
-  //  fprintf(stderr,"fmid=%f\n",fmid);
-  //fprintf(stderr,"fabs(f)=%f\n",fabs(f));
-  //fprintf(stderr,"eacc=%f\n",eacc);
-  
-  if(f*fmid>=0)
-    {
-      if( fabs(f) < eacc )
-    {
-     return 0.;
-    }
-      fprintf(stderr,"root must be bracketed in findRoot\n");
-      fprintf(stderr,"f=%f\n",f);
-      fprintf(stderr,"fmid=%f\n",fmid);
-      fprintf(stderr,"fabs(f)=%f\n",fabs(f));
-      fprintf(stderr,"eacc=%f\n",eacc);
-    }
-     
-  if (f<0)
-    {
-      value=e1;
-      de=e2-e1;
-    }
-  else
-    {
-      value=e2;
-      de=e1-e2;
-    }
-  for(j=1; j<=jmax; j++)
-    {
-      de*=0.5;
-      emid = value+de;
-      fmid = (this->*func)(emid, rhob, s);
-      //fprintf(stderr,"fmid(emid)=%f\n",fmid);
-      //fprintf(stderr,"emid=%f\n",emid);
-      //fprintf(stderr,"value=%f\n",value);
-      if (fmid<=0.) value = emid;
-      if (fabs(de)<eacc || fmid==0.) return value/hbarc;
-    }
-  fprintf(stderr,"too many bisections in findRoot\n");
-  return 0.;
-}
 
 
 //! This function returns the local temperature in [1/fm]
 //! input local energy density eps [1/fm^4] and rhob [1/fm^3]
 double EOS::get_temperature(double eps, double rhob) {
-    double T;
+    double T = 0.0;
     if (whichEOS == 0) {
         T = T_from_eps_ideal_gas(eps);
-    } else {
-        fprintf(stderr,"EOS::get_temperature: "
-                "whichEOS = %d is out of range!\n", whichEOS);
-        exit(0);
-    }
+    } //else {
+      //  fprintf(stderr,"EOS::get_temperature: "
+      //          "whichEOS = %d is out of range!\n", whichEOS);
+      //  exit(0);
+    //}
     return max(T, 1e-15);
 }
 
@@ -209,14 +153,14 @@ double EOS::get_temperature(double eps, double rhob) {
 //! This function returns the local baryon chemical potential  mu_B in [1/fm]
 //! input local energy density eps [1/fm^4] and rhob [1/fm^3]
 double EOS::get_mu(double eps, double rhob) {
-    double mu;
+    double mu = 0.0;
     if (whichEOS == 0) {
         mu = 0.0;
-    } else {
-        fprintf(stderr, "EOS::get_mu: whichEOS = %d is out of range!\n",
-                whichEOS);
-        exit(0);
-    }
+    } //else {
+      //  fprintf(stderr, "EOS::get_mu: whichEOS = %d is out of range!\n",
+      //          whichEOS);
+      //  exit(0);
+    //}
     return mu;
 }
 
@@ -226,23 +170,23 @@ double EOS::get_muS(double eps, double rhob) {
     double mu;
     if (whichEOS == 0) {
         mu = 0.0;
-    } else {
-        fprintf(stderr, "EOS::get_mu: whichEOS = %d is out of range!\n",
-                whichEOS);
-        exit(0);
-    }
+    } //else {
+      //  fprintf(stderr, "EOS::get_mu: whichEOS = %d is out of range!\n",
+      //          whichEOS);
+      //  exit(0);
+    //}
     return mu;
 }
 
 double EOS::get_s2e(double s, double rhob) {
     // s - entropy density in 1/fm^3
-    double e;  // epsilon - energy density
+    double e = 0.0;  // epsilon - energy density
     if (whichEOS == 0) {
         e = s2e_ideal_gas(s);
-    } else {
-        fprintf(stderr, "get_s2e:: whichEOS = %d out of range.\n", whichEOS);
-        exit(0);
-    }
+    } //else {
+      //  fprintf(stderr, "get_s2e:: whichEOS = %d out of range.\n", whichEOS);
+      //  exit(0);
+    //}
     return e;  // in 1/fm^4
 }
 

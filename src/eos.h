@@ -4,7 +4,6 @@
 
 #include <iostream>
 
-#include "./util.h"
 #include "./data.h"
 
 class EOS {
@@ -13,8 +12,6 @@ class EOS {
 
     int whichEOS;
     double eps_max;
-
-    Util *util;
 
  public:
     EOS(InitData *para_in);  // constructor
@@ -36,10 +33,6 @@ class EOS {
     double get_mu(double epsilon, double rhob);
     double get_muS(double epsilon, double rhob);
     double get_pressure(double epsilon, double rhob);
-    double ssolve(double e, double rhob, double s);
-    double Tsolve(double e, double rhob, double T);
-    double findRoot(double (EOS::*function)(double, double, double),
-                    double rhob, double s, double e1, double e2, double eacc);
     double s2e_ideal_gas(double s);
     double get_s2e(double s, double rhob);
 };
