@@ -38,9 +38,9 @@ Advance::~Advance() {
 void Advance::prepare_qi_array(
         double tau, Field *hydro_fields, int rk_flag, int ieta, int ix, int iy,
         int n_cell_eta, int n_cell_x, int n_cell_y,
-        double **qi_array, double **qi_nbr_x,
-        double **qi_nbr_y, double **qi_nbr_eta,
-        double **qi_rk0, double **grid_array, double *grid_array_temp) {
+        double qi_array[][5], double qi_nbr_x[][5],
+        double qi_nbr_y[][5], double qi_nbr_eta[][5],
+        double qi_rk0[][5], double grid_array[][5], double *grid_array_temp) {
 
     double tau_rk;
     if (rk_flag == 0) {
@@ -366,29 +366,31 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Field *hydro_fields,
     const int neigh_sizex=4*n_cell_y*n_cell_eta;
     const int neigh_sizey=4*n_cell_x*n_cell_eta;
     const int neigh_sizeeta=4*n_cell_x*n_cell_y;
-    double **qi_array = new double* [cube_size];
-    double **qi_array_new = new double* [cube_size];
-    double **qi_rk0 = new double* [cube_size];
-    double **grid_array = (
-		    new double* [cube_size]);
-    for (int i = 0; i < cube_size; i++) {
-	    qi_array[i] = new double[5];
-	    qi_array_new[i] = new double[5];
-	    qi_rk0[i] = new double[5];
-	    grid_array[i] = new double[5];
-    }
-    double **qi_nbr_x = new double* [neigh_sizex];
-    double **qi_nbr_y = new double* [neigh_sizey];
-    for (int i = 0; i < neigh_sizey; i++) {
-	    qi_nbr_y[i] = new double[5];
-    }
-    for (int i = 0; i < neigh_sizex; i++) {
-	    qi_nbr_x[i] = new double[5];
-    }
-    double **qi_nbr_eta = new double* [neigh_sizeeta];
-    for (int i = 0; i < neigh_sizeeta; i++) {
-	    qi_nbr_eta[i] = new double[5];
-    }
+    double grid_array[1][5], qi_array[1][5], qi_array_new[1][5], qi_rk0[1][5];
+    double qi_nbr_x[4][5], qi_nbr_y[4][5], qi_nbr_eta[4][5];
+    //double **qi_array = new double* [cube_size];
+    //double **qi_array_new = new double* [cube_size];
+    //double **qi_rk0 = new double* [cube_size];
+    //double **grid_array = (
+	//	    new double* [cube_size]);
+    //for (int i = 0; i < cube_size; i++) {
+	//    qi_array[i] = new double[5];
+	//    qi_array_new[i] = new double[5];
+	//    qi_rk0[i] = new double[5];
+    ////    grid_array[i] = new double[5];
+    //}
+    //double **qi_nbr_x = new double* [neigh_sizex];
+    //double **qi_nbr_y = new double* [neigh_sizey];
+    //for (int i = 0; i < neigh_sizey; i++) {
+	//    qi_nbr_y[i] = new double[5];
+    //}
+    //for (int i = 0; i < neigh_sizex; i++) {
+	//    qi_nbr_x[i] = new double[5];
+    //}
+    //double **qi_nbr_eta = new double* [neigh_sizeeta];
+    //for (int i = 0; i < neigh_sizeeta; i++) {
+	//    qi_nbr_eta[i] = new double[5];
+    //}
     double **vis_array = new double* [cube_size];
     double **vis_array_new = new double* [cube_size];
     double **vis_nbr_tau = new double* [cube_size];
@@ -419,30 +421,69 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Field *hydro_fields,
     double *qimhR = new double[5];
     double *grid_array_hL = new double[5];
     double *grid_array_hR = new double[5];
-#pragma acc parallel loop private ( qi_array[0:cube_size][0:5],\
-                                    qi_array_new[0:cube_size][0:5],\
-                                    qi_rk0[0:cube_size][0:5],\
-                                    grid_array[0:cube_size][0:5],\
-                                    qi_nbr_x[0:neigh_sizex][0:5],\
-                                    qi_nbr_y[0:neigh_sizey][0:5],\
-                                    qi_nbr_eta[0:neigh_sizeeta][0:5],\
-                                    vis_array[0:cube_size][0:5],\
-                                    vis_array_new[0:cube_size][0:5],\
-                                    vis_nbr_tau[0:cube_size][0:5],\
-                                    velocity_array[0:cube_size][0:5],\
-                                    vis_nbr_x[0:neigh_sizex][0:5],\
-                                    vis_nbr_y[0:neigh_sizey][0:5],\
-                                    vis_nbr_eta[0:neigh_sizeeta][0:5], \
-                                    grid_array_temp[0:5], rhs[0:5], \
-                                    qiphL[0:5], qiphR[0:5], \
-                                    qimhL[0:5], qimhR[0:5], \
-                                    grid_array_hL[0:5], grid_array_hR[0:5])
+//#pragma acc parallel create ( qi_array[0:cube_size][0:5],\
+//                                    qi_array_new[0:cube_size][0:5],\
+//                                    qi_rk0[0:cube_size][0:5],\
+//                                    grid_array[0:cube_size][0:5],\
+//                                    qi_nbr_x[0:neigh_sizex][0:5],\
+//                                    qi_nbr_y[0:neigh_sizey][0:5],\
+//                                    qi_nbr_eta[0:neigh_sizeeta][0:5],\
+//                                    vis_array[0:cube_size][0:19],\
+//                                    vis_array_new[0:cube_size][0:19],\
+//                                    vis_nbr_tau[0:cube_size][0:19],\
+//                                    velocity_array[0:cube_size][0:20],\
+//                                    vis_nbr_x[0:neigh_sizex][0:19],\
+//                                    vis_nbr_y[0:neigh_sizey][0:19],\
+//                                    vis_nbr_eta[0:neigh_sizeeta][0:19], \
+//                                    grid_array_temp[0:5], rhs[0:5], \
+//                                    qiphL[0:5], qiphR[0:5], \
+//                                    qimhL[0:5], qimhR[0:5], \
+//                                    grid_array_hL[0:5], grid_array_hR[0:5])
+//#pragma acc loop private ( qi_array[0:cube_size][0:5],\
+//                                    qi_array_new[0:cube_size][0:5],\
+//                                    qi_rk0[0:cube_size][0:5],\
+//                                    grid_array[0:cube_size][0:5],\
+//                                    qi_nbr_x[0:neigh_sizex][0:5],\
+//                                    qi_nbr_y[0:neigh_sizey][0:5],\
+//                                    qi_nbr_eta[0:neigh_sizeeta][0:5],\
+//                                    vis_array[0:cube_size][0:19],\
+//                                    vis_array_new[0:cube_size][0:19],\
+//                                    vis_nbr_tau[0:cube_size][0:19],\
+//                                    velocity_array[0:cube_size][0:20],\
+//                                    vis_nbr_x[0:neigh_sizex][0:19],\
+//                                    vis_nbr_y[0:neigh_sizey][0:19],\
+//                                    vis_nbr_eta[0:neigh_sizeeta][0:19], \
+//                                    grid_array_temp[0:5], rhs[0:5], \
+//                                    qiphL[0:5], qiphR[0:5], \
+//                                    qimhL[0:5], qimhR[0:5], \
+//                                    grid_array_hL[0:5], grid_array_hR[0:5])
+#pragma acc parallel create ( qi_array[0:1][0:5],\
+                              qi_array_new[0:1][0:5],\
+                              qi_rk0[0:1][0:5],\
+                              grid_array[0:1][0:5],\
+                              qi_nbr_x[0:4][0:5],\
+                              qi_nbr_y[0:4][0:5],\
+                              qi_nbr_eta[0:4][0:5], \
+                              grid_array_temp[0:5], \
+                              rhs[0:5], qiphL[0:5], qiphR[0:5], \
+                              qimhL[0:5], qimhR[0:5], \
+                              grid_array_hL[0:5], grid_array_hR[0:5])
+#pragma acc loop private ( qi_array[0:1][0:5],\
+                           qi_array_new[0:1][0:5],\
+                           qi_rk0[0:1][0:5],\
+                           grid_array[0:1][0:5],\
+                           qi_nbr_x[0:4][0:5],\
+                           qi_nbr_y[0:4][0:5],\
+                           qi_nbr_eta[0:4][0:5],\
+                           grid_array_temp[0:5],\
+                           rhs[0:5], qiphL[0:5], qiphR[0:5], \
+                           qimhL[0:5], qimhR[0:5],\
+                           grid_array_hL[0:5], grid_array_hR[0:5])
     for (ieta = 0; ieta < grid_neta; ieta += n_cell_eta) {
-        int ix;
 //        #pragma omp parallel private(ix)
 //        {
 //            #pragma omp for
-            for (ix = 0; ix <= grid_nx; ix += n_cell_x) {
+            for (int ix = 0; ix <= grid_nx; ix += n_cell_x) {
                 for (int iy = 0; iy <= grid_ny; iy += n_cell_y) {
                     prepare_qi_array(tau, hydro_fields, rk_flag, ieta, ix, iy,
                                      n_cell_eta, n_cell_x, n_cell_y, qi_array,
@@ -504,40 +545,26 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Field *hydro_fields,
     delete[] grid_array_hL;
     delete[] grid_array_hR;
     for (int i = 0; i < cube_size; i++) {
-	    delete[] qi_array[i];
-	    delete[] qi_array_new[i];
-	    delete[] qi_rk0[i];
-	    delete[] grid_array[i];
 	    delete[] vis_array[i];
 	    delete[] vis_nbr_tau[i];
 	    delete[] velocity_array[i];
 	    delete[] vis_array_new[i];
     }
-    delete[] qi_array;
-    delete[] qi_array_new;
-    delete[] qi_rk0;
-    delete[] grid_array;
     delete[] vis_array;
     delete[] vis_nbr_tau;
     delete[] velocity_array;
     delete[] vis_array_new;
     for (int i = 0; i < neigh_sizey; i++) {
-	    delete[] qi_nbr_y[i];
 	    delete[] vis_nbr_y[i];
     }
     for (int i = 0; i < neigh_sizex; i++) {
-	    delete[] qi_nbr_x[i];
 	    delete[] vis_nbr_x[i];
     }
-    delete[] qi_nbr_x;
-    delete[] qi_nbr_y;
     delete[] vis_nbr_x;
     delete[] vis_nbr_y;
     for (int i = 0; i < neigh_sizeeta; i++) {
-	    delete[] qi_nbr_eta[i];
 	    delete[] vis_nbr_eta[i];
     }
-    delete[] qi_nbr_eta;
     delete[] vis_nbr_eta;
 
     return(1);
@@ -546,13 +573,13 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Field *hydro_fields,
 
 /* %%%%%%%%%%%%%%%%%%%%%% First steps begins here %%%%%%%%%%%%%%%%%% */
 int Advance::FirstRKStepT(double tau, int rk_flag,
-                          double **qi_array, double **qi_nbr_x,
-                          double **qi_nbr_y, double **qi_nbr_eta,
+                          double qi_array[][5], double qi_nbr_x[][5],
+                          double qi_nbr_y[][5], double qi_nbr_eta[][5],
                           int n_cell_eta, int n_cell_x, int n_cell_y,
                           double **vis_array, double **vis_nbr_tau,
                           double **vis_nbr_x, double **vis_nbr_y,
-                          double **vis_nbr_eta, double **qi_rk0,
-                          double **qi_array_new, double **grid_array,
+                          double **vis_nbr_eta, double qi_rk0[][5],
+                          double qi_array_new[][5], double grid_array[][5],
                           double *rhs, double *qiphL, double *qiphR,
                           double *qimhL, double *qimhR,
                           double *grid_array_hL, double *grid_array_hR,
@@ -1191,10 +1218,10 @@ int Advance::QuestRevert_qmu(double tau, double *vis_array,
 
 //! This function computes the rhs array. It computes the spatial
 //! derivatives of T^\mu\nu using the KT algorithm
-void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
-                          double **qi_nbr_y, double **qi_nbr_eta,
+void Advance::MakeDeltaQI(double tau, double qi_array[][5], double qi_nbr_x[][5],
+                          double qi_nbr_y[][5], double qi_nbr_eta[][5],
                           int n_cell_eta, int n_cell_x, int n_cell_y,
-                          double **qi_array_new, double **grid_array,
+                          double qi_array_new[][5], double grid_array[][5],
                           double *rhs, double *qiphL, double *qiphR,
                           double *qimhL, double *qimhR,
                           double *grid_array_hL, double *grid_array_hR,
@@ -1649,7 +1676,7 @@ void Advance::get_qmu_from_grid_array(double tau, double *qi,
     qi[4] = tau*rhob*gamma;
 }
 
-void Advance::update_grid_cell(double **grid_array, Field *hydro_fields, int rk_flag,
+void Advance::update_grid_cell(double grid_array[][5], Field *hydro_fields, int rk_flag,
                                int ieta, int ix, int iy,
                                int n_cell_eta, int n_cell_x, int n_cell_y) {
     for (int k = 0; k < n_cell_eta; k++) {
