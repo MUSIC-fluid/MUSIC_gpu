@@ -154,6 +154,7 @@ class Advance {
     //! This function computes the vector [T^\tau\mu, J^\tau] from the
     //! grid_array [e, v^i, rhob]
     void get_qmu_from_grid_array(double tau, double *qi, double *grid_array);
+    double minmod_dx(double up1, double u, double um1);
 };
 
 #endif  // SRC_ADVANCE_H_

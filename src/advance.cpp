@@ -1298,10 +1298,10 @@ void Advance::MakeDeltaQI(double tau, double qi_array[][5], double qi_nbr_x[][5]
                         gmhL2 = qi_nbr_x[idx_m_2][alpha];
                     }
 
-                    double fphL = 0.5*minmod->minmod_dx(gphR, gp, gmhL);
-                    double fphR = -0.5*minmod->minmod_dx(gphR2, gphR, gp);
-                    double fmhL = 0.5*minmod->minmod_dx(gp, gmhL, gmhL2);
-                    double fmhR = -0.5*minmod->minmod_dx(gphR, gp, gmhL);
+                    double fphL = 0.5*minmod_dx(gphR, gp, gmhL);
+                    double fphR = -0.5*minmod_dx(gphR2, gphR, gp);
+                    double fmhL = 0.5*minmod_dx(gp, gmhL, gmhL2);
+                    double fmhR = -0.5*minmod_dx(gphR, gp, gmhL);
                     qiphL[alpha] = gphL + fphL;
                     qiphR[alpha] = gphR + fphR;
                     qimhL[alpha] = gmhL + fmhL;
@@ -1390,10 +1390,10 @@ void Advance::MakeDeltaQI(double tau, double qi_array[][5], double qi_nbr_x[][5]
                         gmhL2 = qi_nbr_y[idx_m_2][alpha];
                     }
 
-                    double fphL = 0.5*minmod->minmod_dx(gphR, gp, gmhL);
-                    double fphR = -0.5*minmod->minmod_dx(gphR2, gphR, gp);
-                    double fmhL = 0.5*minmod->minmod_dx(gp, gmhL, gmhL2);
-                    double fmhR = -0.5*minmod->minmod_dx(gphR, gp, gmhL);
+                    double fphL = 0.5*minmod_dx(gphR, gp, gmhL);
+                    double fphR = -0.5*minmod_dx(gphR2, gphR, gp);
+                    double fmhL = 0.5*minmod_dx(gp, gmhL, gmhL2);
+                    double fmhR = -0.5*minmod_dx(gphR, gp, gmhL);
                     qiphL[alpha] = gphL + fphL;
                     qiphR[alpha] = gphR + fphR;
                     qimhL[alpha] = gmhL + fmhL;
@@ -1482,10 +1482,10 @@ void Advance::MakeDeltaQI(double tau, double qi_array[][5], double qi_nbr_x[][5]
                         gmhL2 = qi_nbr_eta[idx_m_2][alpha];
                     }
 
-                    double fphL = 0.5*minmod->minmod_dx(gphR, gp, gmhL);
-                    double fphR = -0.5*minmod->minmod_dx(gphR2, gphR, gp);
-                    double fmhL = 0.5*minmod->minmod_dx(gp, gmhL, gmhL2);
-                    double fmhR = -0.5*minmod->minmod_dx(gphR, gp, gmhL);
+                    double fphL = 0.5*minmod_dx(gphR, gp, gmhL);
+                    double fphR = -0.5*minmod_dx(gphR2, gphR, gp);
+                    double fmhL = 0.5*minmod_dx(gp, gmhL, gmhL2);
+                    double fmhR = -0.5*minmod_dx(gphR, gp, gmhL);
                     qiphL[alpha] = gphL + fphL;
                     qiphR[alpha] = gphR + fphR;
                     qimhL[alpha] = gmhL + fmhL;
@@ -1756,3 +1756,21 @@ double Advance::p_rho_func(double e_local, double rhob) {
     double dPdrho = 0.0;
     return(dPdrho);
 }
+
+double Advance::minmod_dx(double up1, double u, double um1) {
+    double theta_flux = 1.8;
+    double diffup = (up1 - u)*theta_flux;
+    double diffdown = (u - um1)*theta_flux;
+    double diffmid = (up1 - um1)*0.5;
+
+    double tempf;
+    if ( (diffup > 0.0) && (diffdown > 0.0) && (diffmid > 0.0) ) {
+        tempf = mini(diffdown, diffmid);
+        return mini(diffup, tempf);
+    } else if ( (diffup < 0.0) && (diffdown < 0.0) && (diffmid < 0.0) ) {
+        tempf = maxi(diffdown, diffmid);
+        return maxi(diffup, tempf);
+    } else {
+      return 0.0;
+    }
+}/* minmod_dx */
