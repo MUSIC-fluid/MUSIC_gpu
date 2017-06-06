@@ -1537,7 +1537,7 @@ double Diss::Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
                 //double NS = kappa*(grid_pt->dUsup[0][4][nu] 
                 //                       + grid_pt->u[rk_flag][nu]*a_local[4]);
                 for (int nu = 1; nu < 4; nu++) {
-                    int idx_1d = util->map_2d_idx_to_1d(4, nu);
+                    int idx_1d = 10 + nu;
                     //double NS = kappa*(dUsup[0][4][nu] 
                     //                       + u[rk_flag][nu]*a_local[4]);
                     double NS = kappa*(velocity_array[idx][16+nu]
@@ -1558,38 +1558,38 @@ double Diss::Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
                                            *vis_array[idx][idx_1d]
                                            *velocity_array[idx][0]);
 
-                    double temptemp = 0.0;
+                    double tempf = 0.0;
                     //for (int iii = 0 ; iii < 4; iii++) {
                     //    temptemp += (vis_array[idx][10+iii]*sigma[iii][nu]
                     //                 *DATA_ptr->gmunu[iii][iii]);
                     //}
                     if (nu == 0) {
-                        temptemp = (
+                        tempf = (
                             - vis_array[idx][10]*velocity_array[idx][6]
                             + vis_array[idx][11]*velocity_array[idx][7]
                             + vis_array[idx][12]*velocity_array[idx][8]
                             + vis_array[idx][13]*velocity_array[idx][9]);
                     } else if (nu == 1) {
-                        temptemp = (
+                        tempf = (
                             - vis_array[idx][10]*velocity_array[idx][7]
                             + vis_array[idx][11]*velocity_array[idx][10]
                             + vis_array[idx][12]*velocity_array[idx][11]
                             + vis_array[idx][13]*velocity_array[idx][12]);
                     } else if (nu == 2) {
-                        temptemp = (
+                        tempf = (
                             - vis_array[idx][10]*velocity_array[idx][8]
                             + vis_array[idx][11]*velocity_array[idx][11]
                             + vis_array[idx][12]*velocity_array[idx][13]
                             + vis_array[idx][13]*velocity_array[idx][14]);
                     } else if (nu == 3) {
-                        temptemp = (
+                        tempf = (
                             - vis_array[idx][10]*velocity_array[idx][9]
                             + vis_array[idx][11]*velocity_array[idx][12]
                             + vis_array[idx][12]*velocity_array[idx][14]
                             + vis_array[idx][13]*velocity_array[idx][15]);
                     }
 
-                    double Nonlinear2 = - transport_coeff_2*temptemp;
+                    double Nonlinear2 = - transport_coeff_2*tempf;
 
                     double SW = ((-vis_array[idx][idx_1d]
                                   - NS + Nonlinear1 + Nonlinear2)
@@ -1609,7 +1609,6 @@ double Diss::Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
                     //}
 
                     // +Delta[a][tau] u[eta] q[eta]/tau 
-                    double tempf = 0.0;
                     //double tempf = ((DATA_ptr->gmunu[nu][0] 
                     //                //+ grid_pt->u[rk_flag][nu]*grid_pt->u[rk_flag][0])
                     //                //  *grid_pt->u[rk_flag][3]*q[3]/tau
