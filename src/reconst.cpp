@@ -71,15 +71,10 @@ int Reconst::ReconstIt(double *grid_array, double tau, double *uq,
        q[4] = Jtau */
     /* uq = qiphL, qiphR, qimhL, qimhR, qirk */
 
-    double q[5];
-    for (int alpha = 0; alpha < 5; alpha++) {
-        q[alpha] = uq[alpha]/tau;
-    }
-
-    double K00 = q[1]*q[1] + q[2]*q[2] + q[3]*q[3];
+    double K00 = (uq[1]*uq[1] + uq[2]*uq[2] + uq[3]*uq[3])/(tau*tau);
  
-    double T00 = q[0];
-    double J0 = q[4];
+    double T00 = uq[0]/tau;
+    double J0 = uq[4]/tau;
  
     if ((T00 - K00/T00) < 0.0 || (T00 < (abs_err))) {
         // can't make Tmunu with this. restore the previous value
@@ -96,11 +91,12 @@ int Reconst::ReconstIt(double *grid_array, double tau, double *uq,
     double epsilon_next = eps_guess;
      
     if (isnan(epsilon_next)) {
-        cout << "problem " << eps_guess << " T00=" << T00
-                      << " K00=" << K00 << " cs2=" << cs2
-                      << " q[0]=" << q[0]
-                      << " q[1]=" << q[1] << " q[2]=" << q[2]
-                      << endl;
+        //cout << "problem " << eps_guess << " T00=" << T00
+        //              << " K00=" << K00 << " cs2=" << cs2
+        //              << " q[0]=" << q[0]
+        //              << " q[1]=" << q[1] << " q[2]=" << q[2]
+        //              << endl;
+        return(-1);
     }
     double p_next = eos->get_pressure(epsilon_next, rhob_init);
 
@@ -112,9 +108,9 @@ int Reconst::ReconstIt(double *grid_array, double tau, double *uq,
         if (rhob_next < 0) {
             rhob_next = 0.0;
         }
-        if (rhob_next > LARGE) {
-            cout << "rhob_next is crazy! rhob = " << rhob_next << endl;
-        }
+        //if (rhob_next > LARGE) {
+        //    cout << "rhob_next is crazy! rhob = " << rhob_next << endl;
+        //}
     }
     double temperr = 0.0;
     double err = 1.0;
@@ -123,7 +119,7 @@ int Reconst::ReconstIt(double *grid_array, double tau, double *uq,
     for (iter = 0; iter < max_iter; iter++) {
         if (err < (RECONST_PRECISION)*0.01) {
             if (isnan(epsilon_next)) {
-                exit(-1);
+                return(-1);
             }
             p_next = eos->get_pressure(epsilon_next, rhob_next);
             break;
@@ -133,7 +129,7 @@ int Reconst::ReconstIt(double *grid_array, double tau, double *uq,
         }
    
         if (isnan(epsilon_prev)) {
-            exit(-1);
+            return(-1);
         }
 
         p_prev = eos->get_pressure(epsilon_prev, rhob_prev);
@@ -143,10 +139,8 @@ int Reconst::ReconstIt(double *grid_array, double tau, double *uq,
         if (DATA_ptr->turn_on_rhob == 1) {
             rhob_next = J0*sqrt((epsilon_prev + p_prev)/(T00 + p_prev));
             temperr = fabs((rhob_next-rhob_prev)/(rhob_prev+abs_err));
-            if (temperr > LARGE) {
-                err += temperr;
-            } else if (temperr > LARGE) {
-                err += 1000.0;  //big enough
+            if (temperr > 1e10) {
+                err += temperr + 1000.0;  //big enough
             } else if (isnan(temperr)) {
                 err += 1000.0;
             }
@@ -155,10 +149,8 @@ int Reconst::ReconstIt(double *grid_array, double tau, double *uq,
         }
    
         temperr = fabs((epsilon_next-epsilon_prev)/(epsilon_prev+abs_err));
-        if (temperr > LARGE) {
-            err += temperr;
-        } else if (temperr > LARGE) {
-            err += 1000.0;  // big enough
+        if (temperr > 1e10) {
+            err += temperr + 1000.0;
         } else if (isnan(temperr)) {
             err += 1000.0;
         }
@@ -178,77 +170,78 @@ int Reconst::ReconstIt(double *grid_array, double tau, double *uq,
     /* q[0] = Ttautau/tau, q[1] = Ttaux, q[2] = Ttauy, q[3] = Ttaueta,
        q[4] = Jtau */
 
-    double u[4];
-    u[0] = sqrt((q[0]/tau + p)/h);
+    double u0, u1, u2, u3;
+    u0 = sqrt((uq[0]/(tau*tau) + p)/h);
     double prev_u0 = 1./sqrt(1. - grid_array_p[1]*grid_array_p[1]
                              - grid_array_p[2]*grid_array_p[2]
                              - grid_array_p[3]*grid_array_p[3]);
-    double check_u0_var = (fabs(u[0] - prev_u0)/(prev_u0));
+    double check_u0_var = (fabs(u0 - prev_u0)/(prev_u0));
     if (check_u0_var > 100.) {
-        if (grid_array_p[0] > 1e-6 || echo_level > 5) {
-            cout << "u0 varies more than 100 times compared to "
-                          << "its value at previous time step";
-            cout << "e = " << grid_array_p[0]
-                          << ", u[0] = " << u[0]
-                          << ", prev_u[0] = " << prev_u0 << endl;
-        }
+        //if (grid_array_p[0] > 1e-6 || echo_level > 5) {
+        //    cout << "u0 varies more than 100 times compared to "
+        //                  << "its value at previous time step";
+        //    cout << "e = " << grid_array_p[0]
+        //                  << ", u[0] = " << u[0]
+        //                  << ", prev_u[0] = " << prev_u0 << endl;
+        //}
         return(-1);
     }
     
     if (epsilon > eos_eps_max) {
-        if (echo_level > 5) {
-            cout << "Reconst velocity: e = " << epsilon
-                          << " > e_max in the EoS table." << endl;
-	        cout << "e_max = " << eos_eps_max << " [1/fm^4]" << endl;
-	        cout << "previous epsilon = " << grid_array_p[0]
-                          << " [1/fm^4]" << endl;
-        }
+        //if (echo_level > 5) {
+        //    cout << "Reconst velocity: e = " << epsilon
+        //                  << " > e_max in the EoS table." << endl;
+	    //    cout << "e_max = " << eos_eps_max << " [1/fm^4]" << endl;
+	    //    cout << "previous epsilon = " << grid_array_p[0]
+        //                  << " [1/fm^4]" << endl;
+        //}
         return(-1);
     }
 
     double u_max = 242582597.70489514; // cosh(20)
-    if (u[0] > u_max) {
-        fprintf(stderr, "Reconst: u[0] = %e is too large.\n", u[0]);
-        if (grid_array_p[0] > 0.3) {
-	        fprintf(stderr, "Reconst: u[0] = %e is too large.\n", u[0]);
-	        fprintf(stderr, "epsilon = %e\n", grid_array_p[0]);
-	    }
+    if (u0 > u_max) {
+        //fprintf(stderr, "Reconst: u[0] = %e is too large.\n", u[0]);
+        //if (grid_array_p[0] > 0.3) {
+	    //    fprintf(stderr, "Reconst: u[0] = %e is too large.\n", u[0]);
+	    //    fprintf(stderr, "epsilon = %e\n", grid_array_p[0]);
+	    //}
         return(-1);
     } else {
-        u[1] = q[1]/tau/h/u[0]; 
-        u[2] = q[2]/tau/h/u[0]; 
-        u[3] = q[3]/tau/h/u[0]; 
+        u1 = uq[1]/tau/tau/h/u0; 
+        u2 = uq[2]/tau/tau/h/u0; 
+        u3 = uq[3]/tau/tau/h/u0; 
     }
 
     /* Correcting normalization of 4-velocity */
-    double temph = u[0]*u[0] - u[1]*u[1] - u[2]*u[2] - u[3]*u[3];
+    double temph = u0*u0 - u1*u1 - u2*u2 - u3*u3;
     // Correct velocity when unitarity is not satisfied to numerical accuracy
     if (fabs(temph - 1.0) > abs_err) {
         // If the deviation is too large, exit MUSIC
         if (fabs(temph - 1.0) > 0.1) {
-            fprintf(stderr, "In Reconst, reconstructed : u2 = %e\n", temph);
-            fprintf(stderr, "Can't happen.\n");
-            exit(0);
+            //fprintf(stderr, "In Reconst, reconstructed : u2 = %e\n", temph);
+            //fprintf(stderr, "Can't happen.\n");
+            //exit(0);
+            return(-1);
         } else if(fabs(temph - 1.0) > sqrt(abs_err)) {
             // Warn only when the deviation from 1 is relatively large
-            fprintf(stderr, "In Reconst, reconstructed : u2 = %e\n", temph);
-            fprintf(stderr, "with u[0] = %e\n", u[0]);
-            fprintf(stderr, "Correcting it...\n");
+            //fprintf(stderr, "In Reconst, reconstructed : u2 = %e\n", temph);
+            //fprintf(stderr, "with u[0] = %e\n", u[0]);
+            //fprintf(stderr, "Correcting it...\n");
         }   
 
         // Rescaling spatial components of velocity so that unitarity 
         // is exactly satisfied (u[0] is not modified)
-        double scalef = sqrt((u[0]*u[0]-1.0)
-                             /(u[1]*u[1] + u[2]*u[2] + u[3]*u[3]));
-        u[1] *= scalef;
-        u[2] *= scalef;
-        u[3] *= scalef;
+        double scalef = sqrt((u0*u0-1.0)
+                             /(u1*u1 + u2*u2 + u3*u3));
+        u1 *= scalef;
+        u2 *= scalef;
+        u3 *= scalef;
     }/* if u^mu u_\mu != 1 */
     /* End: Correcting normalization of 4-velocity */
 
-    for (int mu = 1; mu < 4; mu++) {
-        grid_array[mu] = u[mu]/u[0];
-    }
+    grid_array[1] = u1/u0;
+    grid_array[2] = u2/u0;
+    grid_array[3] = u3/u0;
 
     return(1);  // on successful execution
 }
@@ -282,27 +275,23 @@ int Reconst::ReconstIt_velocity_iteration(
        q[4] = Jtau */
     /* uq = qiphL, qiphR, qimhL, qimhR, qirk */
 
-    double q[5];
-    for (int alpha = 0; alpha < 5; alpha++) {
-        q[alpha] = uq[alpha]/tau;
-    }
 
-    double K00 = q[1]*q[1] + q[2]*q[2] + q[3]*q[3];
+    double K00 = (uq[1]*uq[1] + uq[2]*uq[2] + uq[3]*uq[3])/(tau*tau);
     double M = sqrt(K00);
-    double T00 = q[0];
-    double J0 = q[4];
+    double T00 = uq[0]/tau;
+    double J0 = uq[4]/tau;
 
     if ((T00 < abs_err) || ((T00 - K00/T00) < 0.0)) {
         // can't make Tmunu with this. restore the previous value 
         // remember that uq are eigher halfway cells or the final q_next 
         // at this point, the original values in grid_pt->TJb are not touched. 
-        if (echo_level > 9) {
-            cout << "T00 = " << T00 << ", K00 = " << K00 << endl;
-        }
+        //if (echo_level > 9) {
+        //    cout << "T00 = " << T00 << ", K00 = " << K00 << endl;
+        //}
         return(-2);
     }/* if t00-k00/t00 < 0.0 */
 
-    double u[4], epsilon, rhob;
+    double u0, u1, u2, u3, epsilon, rhob;
 
     int v_status = 1;
     int iter = 0;
@@ -326,79 +315,79 @@ int Reconst::ReconstIt_velocity_iteration(
     if (v_status == 1) {
         v_solution = v_next;
     } else {
-        if (echo_level > 5) {
-            cout << iter << "   [" << v_prev << ",  " << v_next
-                 << "]  " << abs_error_v << "  " << rel_error_v << endl;
-        }
+        //if (echo_level > 5) {
+        //    cout << iter << "   [" << v_prev << ",  " << v_next
+        //         << "]  " << abs_error_v << "  " << rel_error_v << endl;
+        //}
         return(-1);
     }/* if iteration is unsuccessful, revert */
    
     // for large velocity, solve u0
-    //double u0_solution = 1.0;
-    //if (v_solution > v_critical) {
-    //    double u0_prev = 1./sqrt(1. - v_solution*v_solution);
-    //    int u0_status = 1;
-    //    iter = 0;
-    //    double u0_next;
-    //    double abs_error_u0 = 1.0;
-    //    double rel_error_u0 = 1.0;
-    //    do {
-    //        iter++;
-    //        u0_next = reconst_u0_f(u0_prev, T00, K00, M, J0);
-    //        abs_error_u0 = fabs(u0_next - u0_prev);
-    //        rel_error_u0 = 2.*abs_error_u0/(u0_next + u0_prev + 1e-15);
-    //        u0_prev = u0_next;
-    //        if (iter > max_iter) {
-    //            u0_status = 0;
-    //            break;
-    //        }
-    //    } while (abs_error_u0 > abs_err && rel_error_u0 > rel_err);
+    double u0_solution = 1.0;
+    if (v_solution > v_critical) {
+        double u0_prev = 1./sqrt(1. - v_solution*v_solution);
+        int u0_status = 1;
+        iter = 0;
+        double u0_next;
+        double abs_error_u0 = 1.0;
+        double rel_error_u0 = 1.0;
+        do {
+            iter++;
+            u0_next = reconst_u0_f(u0_prev, T00, K00, M, J0);
+            abs_error_u0 = fabs(u0_next - u0_prev);
+            rel_error_u0 = 2.*abs_error_u0/(u0_next + u0_prev + 1e-15);
+            u0_prev = u0_next;
+            if (iter > max_iter) {
+                u0_status = 0;
+                break;
+            }
+        } while (abs_error_u0 > abs_err && rel_error_u0 > rel_err);
 
-    //    if (u0_status == 1) {
-    //        u0_solution = u0_next;
-    //    } else {
-    //        if (echo_level > 5) {
-    //            cout << iter << "   [" << u0_prev << ",  " << u0_next
-    //                 << "]  " << abs_error_u0 << "  " << rel_error_u0 << endl;
-    //        }
-    //        return(-1);
-    //    } /* if iteration is unsuccessful, revert */
-    //}
+        if (u0_status == 1) {
+            u0_solution = u0_next;
+        } else {
+            //if (echo_level > 5) {
+            //    cout << iter << "   [" << u0_prev << ",  " << u0_next
+            //         << "]  " << abs_error_u0 << "  " << rel_error_u0 << endl;
+            //}
+            return(-1);
+        } /* if iteration is unsuccessful, revert */
+    }
 
     // successfully found velocity, now update everything else
-    //if (v_solution < v_critical) {
-        u[0] = 1./(sqrt(1. - v_solution*v_solution) + v_solution*abs_err);
+    if (v_solution < v_critical) {
+        u0 = 1./(sqrt(1. - v_solution*v_solution) + v_solution*abs_err);
         epsilon = T00 - v_solution*sqrt(K00);
-        rhob = J0/u[0];
-    //} else {
-    //    u[0] = u0_solution;
-    //    epsilon = T00 - sqrt((1. - 1./(u0_solution*u0_solution))*K00);
-    //    rhob = J0/u0_solution;
-    //}
+        rhob = J0/u0;
+    } else {
+        u0 = u0_solution;
+        epsilon = T00 - sqrt((1. - 1./(u0_solution*u0_solution))*K00);
+        rhob = J0/u0_solution;
+    }
     
     double prev_u0 = 1./sqrt(1. - grid_array_p[1]*grid_array_p[1]
                              - grid_array_p[2]*grid_array_p[2]
                              - grid_array_p[3]*grid_array_p[3]);
-    double check_u0_var = (fabs(u[0] - prev_u0)/(prev_u0));
+    double check_u0_var = (fabs(u0 - prev_u0)/(prev_u0));
     if (check_u0_var > 100.) {
-        if (grid_array_p[0] > 1e-6 || echo_level > 5) {
-            cout << "u0 varies more than 100 times compared to "
-                          << "its value at previous time step";
-            cout << "e = " << grid_array_p[0]
-                          << ", u[0] = " << u[0]
-                          << ", prev_u[0] = " << prev_u0 << endl;
-        }
+        //if (grid_array_p[0] > 1e-6 || echo_level > 5) {
+        //    cout << "u0 varies more than 100 times compared to "
+        //                  << "its value at previous time step";
+        //    cout << "e = " << grid_array_p[0]
+        //                  << ", u[0] = " << u[0]
+        //                  << ", prev_u[0] = " << prev_u0 << endl;
+        //}
         return(-1);
     }
 
     if (epsilon > eos_eps_max) {
-        if (echo_level > 5) {
-            cout << "Reconst velocity: e = " << epsilon
-                          << " > e_max in the EoS table.";
-	        cout << "e_max = " << eos_eps_max << " [1/fm^4]";
-	        cout << "previous epsilon = " << grid_array_p[0]
-                          << " [1/fm^4]" << endl;
-        }
+        //if (echo_level > 5) {
+        //    cout << "Reconst velocity: e = " << epsilon
+        //                  << " > e_max in the EoS table.";
+	    //    cout << "e_max = " << eos_eps_max << " [1/fm^4]";
+	    //    cout << "previous epsilon = " << grid_array_p[0]
+        //                  << " [1/fm^4]" << endl;
+        //}
         return(-1);
     }
 
@@ -409,71 +398,72 @@ int Reconst::ReconstIt_velocity_iteration(
 
     double u_max = 242582597.70489514; // cosh(20)
     //remove if for speed
-    if(u[0] > u_max) {
+    if(u0 > u_max) {
         // check whether velocity is too large
-        if (echo_level > 5) {
-            cout << "Reconst velocity: u[0] = " << u[0]
-                          << " is too large!"
-                          << "epsilon = " << grid_array_p[0] << endl;
-        }
+        //if (echo_level > 5) {
+        //    cout << "Reconst velocity: u[0] = " << u[0]
+        //                  << " is too large!"
+        //                  << "epsilon = " << grid_array_p[0] << endl;
+        //}
         return(-1);
     } else {
         // individual components of velocity
-        double velocity_inverse_factor = u[0]/(T00 + pressure);
-        u[1] = q[1]*velocity_inverse_factor; 
-        u[2] = q[2]*velocity_inverse_factor; 
-        u[3] = q[3]*velocity_inverse_factor; 
+        double velocity_inverse_factor = u0/(T00 + pressure);
+        u1 = uq[1]*velocity_inverse_factor/tau; 
+        u2 = uq[2]*velocity_inverse_factor/tau; 
+        u3 = uq[3]*velocity_inverse_factor/tau; 
     }
 
     // Correcting normalization of 4-velocity
-    double temp_usq = u[0]*u[0] - u[1]*u[1] - u[2]*u[2] - u[3]*u[3];
+    double temp_usq = u0*u0 - u1*u1 - u2*u2 - u3*u3;
     // Correct velocity when unitarity is not satisfied to numerical accuracy
     if (fabs(temp_usq - 1.0) > abs_err) {
         // If the deviation is too large, exit MUSIC
-        if (fabs(temp_usq - 1.0) > 0.1*u[0]) {
-            cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
-                          << temp_usq - 1.0 << endl;
-            cout << "u[0]=" << u[0] << ", u[1]=" << u[1]
-                          << ", u[2]=" << u[2] << ", u[3]=" << u[3] << endl;
-            cout << "e=" << epsilon << ", rhob=" << rhob
-                          << ", p=" << pressure << endl;
-            cout << "with q1 = " << q[1] << ", q2 = " << q[2]
-                          << ", q3 = " << q[3] << endl;
-            exit(0);
-        } else if (fabs(temp_usq - 1.0) > sqrt(abs_err)*u[0]
-                                                && echo_level > 5) {
+        if (fabs(temp_usq - 1.0) > 0.1*u0) {
+            //cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
+            //              << temp_usq - 1.0 << endl;
+            //cout << "u[0]=" << u[0] << ", u[1]=" << u[1]
+            //              << ", u[2]=" << u[2] << ", u[3]=" << u[3] << endl;
+            //cout << "e=" << epsilon << ", rhob=" << rhob
+            //              << ", p=" << pressure << endl;
+            //cout << "with q1 = " << q[1] << ", q2 = " << q[2]
+            //              << ", q3 = " << q[3] << endl;
+            //exit(0);
+            return(-1);
+        } else if (fabs(temp_usq - 1.0) > sqrt(abs_err)*u0) {
             // Warn only when the deviation from 1 is relatively large
-            cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
-                          << temp_usq - 1.0 << endl;
+            //cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
+            //              << temp_usq - 1.0 << endl;
             double f_res;
-            //if (v_solution < v_critical)
+            if (v_solution < v_critical) {
                 f_res = fabs(v_solution
                              - reconst_velocity_f(v_solution, T00, M, J0));
-            //else
-            //    f_res = fabs(u0_solution
-            //                 - reconst_u0_f(u0_solution, T00, K00, M, J0));
-            cout << "with v = " << v_solution << ", u[0] = " << u[0]
-                          << ", res = " << f_res << endl;
-            cout << "with u[1] = " << u[1]
-                          << "with u[2] = " << u[2]
-                          << "with u[3] = " << u[3] << endl;
-            cout << "with T00 = " << T00 << ", K = " << K00 << endl;
-            cout << "with q1 = " << q[1] << ", q2 = " << q[2]
-                          << ", q3 = " << q[3] << endl;
+            } else {
+                f_res = fabs(u0_solution
+                             - reconst_u0_f(u0_solution, T00, K00, M, J0));
+            }
+            //cout << "with v = " << v_solution << ", u[0] = " << u[0]
+            //              << ", res = " << f_res << endl;
+            //cout << "with u[1] = " << u[1]
+            //              << "with u[2] = " << u[2]
+            //              << "with u[3] = " << u[3] << endl;
+            //cout << "with T00 = " << T00 << ", K = " << K00 << endl;
+            //cout << "with q1 = " << q[1] << ", q2 = " << q[2]
+            //              << ", q3 = " << q[3] << endl;
         }
         // Rescaling spatial components of velocity so that unitarity 
         // is exactly satisfied (u[0] is not modified)
-        double scalef = sqrt((u[0]*u[0] - 1.0)
-                             /(u[1]*u[1] + u[2]*u[2] + u[3]*u[3] + abs_err));
-        u[1] *= scalef;
-        u[2] *= scalef;
-        u[3] *= scalef;
+        double scalef = sqrt((u0*u0 - 1.0)
+                             /(u1*u1 + u2*u2 + u3*u3 + abs_err));
+        u1 *= scalef;
+        u2 *= scalef;
+        u3 *= scalef;
     }// if u^mu u_\mu != 1 
     // End: Correcting normalization of 4-velocity
    
-    for (int mu = 1; mu < 4; mu++) {
-        grid_array[mu] = u[mu]/u[0];
-    }
+    grid_array[1] = u1/u0;
+    grid_array[2] = u2/u0;
+    grid_array[3] = u3/u0;
 
     return(1);  /* on successful execution */
 }/* Reconst */
@@ -499,15 +489,10 @@ int Reconst::ReconstIt_velocity_Newton(
        q[4] = Jtau */
     /* uq = qiphL, qiphR, qimhL, qimhR, qirk */
 
-    double q[5];
-    for (int alpha = 0; alpha < 5; alpha++) {
-        q[alpha] = uq[alpha]/tau;
-    }
-
-    double K00 = q[1]*q[1] + q[2]*q[2] + q[3]*q[3];
+    double K00 = (uq[1]*uq[1] + uq[2]*uq[2] + uq[3]*uq[3])/(tau*tau);
     double M = sqrt(K00);
-    double T00 = q[0];
-    double J0 = q[4];
+    double T00 = uq[0]/tau;
+    double J0 = uq[4]/tau;
 
     if ((T00 < abs_err) || ((T00 - K00/T00) < 0.0)) {
         // can't make Tmunu with this. restore the previous value 
@@ -519,7 +504,7 @@ int Reconst::ReconstIt_velocity_Newton(
         return(-2);
     }/* if t00-k00/t00 < 0.0 */
 
-    double u[4], epsilon, pressure, rhob;
+    double u0, u1, u2, u3, epsilon, pressure, rhob;
 
     double u0_guess = 1./sqrt(1. - grid_array_p[1]*grid_array_p[1]
                               - grid_array_p[2]*grid_array_p[2]
@@ -599,35 +584,35 @@ int Reconst::ReconstIt_velocity_Newton(
 
     // successfully found velocity, now update everything else
     if (v_solution < v_critical) {
-        u[0] = 1./(sqrt(1. - v_solution*v_solution) + v_solution*abs_err);
+        u0 = 1./(sqrt(1. - v_solution*v_solution) + v_solution*abs_err);
         epsilon = T00 - v_solution*sqrt(K00);
-        rhob = J0/u[0];
+        rhob = J0/u0;
     } else {
-        u[0] = u0_solution;
+        u0 = u0_solution;
         epsilon = T00 - sqrt((1. - 1./(u0_solution*u0_solution))*K00);
         rhob = J0/u0_solution;
     }
 
-    double check_u0_var = (fabs(u[0] - u0_guess)/u0_guess);
+    double check_u0_var = (fabs(u0 - u0_guess)/u0_guess);
     if (check_u0_var > 100.) {
-        if (grid_array_p[0] > 1e-6 || echo_level > 5) {
-            cout << "u0 varies more than 100 times compared to "
-                          << "its value at previous time step";
-            cout << "e = " << grid_array_p[0]
-                          << ", u[0] = " << u[0]
-                          << ", prev_u[0] = " << u0_guess << endl;
-        }
+        //if (grid_array_p[0] > 1e-6 || echo_level > 5) {
+        //    cout << "u0 varies more than 100 times compared to "
+        //                  << "its value at previous time step";
+        //    cout << "e = " << grid_array_p[0]
+        //                  << ", u[0] = " << u[0]
+        //                  << ", prev_u[0] = " << u0_guess << endl;
+        //}
         return(-1);
     }
 
     if (epsilon > eos_eps_max) {
-        if (echo_level > 5) {
-            cout << "Reconst velocity: e = " << epsilon
-                          << " > e_max in the EoS table.";
-	        cout << "e_max = " << eos_eps_max << " [1/fm^4]";
-	        cout << "previous epsilon = " << grid_array_p[0]
-                          << " [1/fm^4]" << endl;
-        }
+        //if (echo_level > 5) {
+        //    cout << "Reconst velocity: e = " << epsilon
+        //                  << " > e_max in the EoS table.";
+	    //    cout << "e_max = " << eos_eps_max << " [1/fm^4]";
+	    //    cout << "previous epsilon = " << grid_array_p[0]
+        //                  << " [1/fm^4]" << endl;
+        //}
         return(-1);
     }
 
@@ -637,71 +622,73 @@ int Reconst::ReconstIt_velocity_Newton(
     pressure = eos->get_pressure(epsilon, rhob);
 
     // individual components of velocity
-    double velocity_inverse_factor = u[0]/(T00 + pressure);
+    double velocity_inverse_factor = u0/(T00 + pressure);
 
     double u_max = 242582597.70489514; // cosh(20)
     //remove if for speed
-    if(u[0] > u_max) {
+    if(u0 > u_max) {
         // check whether velocity is too large
-        if (echo_level > 5) {
-            cout << "Reconst velocity: u[0] = " << u[0]
-                          << " is too large!"
-                          << "epsilon = " << grid_array_p[0] << endl;
-        }
+        //if (echo_level > 5) {
+        //    cout << "Reconst velocity: u[0] = " << u[0]
+        //                  << " is too large!"
+        //                  << "epsilon = " << grid_array_p[0] << endl;
+        //}
         return(-1);
     } else {
-        u[1] = q[1]*velocity_inverse_factor; 
-        u[2] = q[2]*velocity_inverse_factor; 
-        u[3] = q[3]*velocity_inverse_factor; 
+        u1 = uq[1]*velocity_inverse_factor/tau; 
+        u2 = uq[2]*velocity_inverse_factor/tau; 
+        u3 = uq[3]*velocity_inverse_factor/tau;
     }
 
     // Correcting normalization of 4-velocity
-    double temp_usq = u[0]*u[0] - u[1]*u[1] - u[2]*u[2] - u[3]*u[3];
+    double temp_usq = u0*u0 - u1*u1 - u2*u2 - u3*u3;
     // Correct velocity when unitarity is not satisfied to numerical accuracy
     if (fabs(temp_usq - 1.0) > abs_err) {
         // If the deviation is too large, exit MUSIC
-        if (fabs(temp_usq - 1.0) > 0.1*u[0]) {
-            cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
-                          << temp_usq - 1.0 << endl;
-            cout << "u[0]=" << u[0] << ", u[1]=" << u[1]
-                          << ", u[2]=" << u[2] << ", u[3]=" << u[3] << endl;
-            cout << "e=" << epsilon << ", rhob=" << rhob
-                          << ", p=" << pressure << endl;
-            cout << "with q1 = " << q[1] << ", q2 = " << q[2]
-                          << ", q3 = " << q[3] << endl;
-            exit(0);
-        } else if (fabs(temp_usq - 1.0) > sqrt(abs_err)*u[0]
-                                                && echo_level > 5) {
+        if (fabs(temp_usq - 1.0) > 0.1*u0) {
+            //cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
+            //              << temp_usq - 1.0 << endl;
+            //cout << "u[0]=" << u[0] << ", u[1]=" << u[1]
+            //              << ", u[2]=" << u[2] << ", u[3]=" << u[3] << endl;
+            //cout << "e=" << epsilon << ", rhob=" << rhob
+            //              << ", p=" << pressure << endl;
+            //cout << "with q1 = " << q[1] << ", q2 = " << q[2]
+            //              << ", q3 = " << q[3] << endl;
+            //
+            //exit(0);
+            return(-1);
+        } else if (fabs(temp_usq - 1.0) > sqrt(abs_err)*u0) {
             // Warn only when the deviation from 1 is relatively large
-            cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
-                 << temp_usq - 1.0 << endl;
+            //cout << "In Reconst velocity, reconstructed: u^2 - 1 = "
+            //     << temp_usq - 1.0 << endl;
             double f_res;
-            if (v_solution < v_critical)
+            if (v_solution < v_critical) {
                 f_res = reconst_velocity_f_Newton(v_solution, T00, M, J0);
-            else
+            } else {
                 f_res = reconst_u0_f_Newton(u0_solution, T00, K00, M, J0);
-            cout << "with v = " << v_solution << ", u[0] = " << u[0]
-                          << ", res = " << f_res << endl;
-            cout << "with u[1] = " << u[1]
-                          << "with u[2] = " << u[2]
-                          << "with u[3] = " << u[3] << endl;
-            cout << "with T00 = " << T00 << ", K = " << K00 << endl;
-            cout << "with q1 = " << q[1] << ", q2 = " << q[2]
-                          << ", q3 = " << q[3] << endl;
+            }
+            //cout << "with v = " << v_solution << ", u[0] = " << u[0]
+            //              << ", res = " << f_res << endl;
+            //cout << "with u[1] = " << u[1]
+            //              << "with u[2] = " << u[2]
+            //              << "with u[3] = " << u[3] << endl;
+            //cout << "with T00 = " << T00 << ", K = " << K00 << endl;
+            //cout << "with q1 = " << q[1] << ", q2 = " << q[2]
+            //              << ", q3 = " << q[3] << endl;
         }
         // Rescaling spatial components of velocity so that unitarity 
         // is exactly satisfied (u[0] is not modified)
-        double scalef = sqrt((u[0]*u[0] - 1.0)
-                             /(u[1]*u[1] + u[2]*u[2] + u[3]*u[3] + abs_err));
-        u[1] *= scalef;
-        u[2] *= scalef;
-        u[3] *= scalef;
+        double scalef = sqrt((u0*u0 - 1.0)
+                             /(u1*u1 + u2*u2 + u3*u3 + abs_err));
+        u1 *= scalef;
+        u2 *= scalef;
+        u3 *= scalef;
     }  // if u^mu u_\mu != 1 
     // End: Correcting normalization of 4-velocity
    
-    for (int mu = 1; mu < 4; mu++) {
-        grid_array[mu] = u[mu]/u[0];
-    }
+    grid_array[1] = u1/u0;
+    grid_array[2] = u2/u0;
+    grid_array[3] = u3/u0;
 
     return(1);  /* on successful execution */
 }/* Reconst */

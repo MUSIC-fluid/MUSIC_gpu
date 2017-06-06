@@ -81,14 +81,14 @@ double EOS::p_rho_func(double e, double rhob) {
 
 double EOS::p_e_func(double e, double rhob) {
     // return dP/de
-    double f;
+    double f = 0.0;
     if (whichEOS == 0) {
         f = cs2;
-    } else {
-        fprintf(stderr, "EOS::p_e_func: whichEOS = %d is out of range!\n",
-                whichEOS);
-        exit(1);
-    }
+    } //else {
+        //fprintf(stderr, "EOS::p_e_func: whichEOS = %d is out of range!\n",
+        //        whichEOS);
+        //exit(1);
+    //}
     return f;
 }/* p_e_func */
 
