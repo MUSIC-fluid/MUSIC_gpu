@@ -444,27 +444,27 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Field *hydro_fields,
 //            #pragma omp for
             for (ix = 0; ix <= grid_nx; ix += n_cell_x) {
                 for (int iy = 0; iy <= grid_ny; iy += n_cell_y) {
-//                    prepare_qi_array(tau, hydro_fields, rk_flag, ieta, ix, iy,
-//                                     n_cell_eta, n_cell_x, n_cell_y, qi_array,
-//                                     qi_nbr_x, qi_nbr_y, qi_nbr_eta,
-//                                     qi_rk0, grid_array, grid_array_temp);
+                    prepare_qi_array(tau, hydro_fields, rk_flag, ieta, ix, iy,
+                                     n_cell_eta, n_cell_x, n_cell_y, qi_array,
+                                     qi_nbr_x, qi_nbr_y, qi_nbr_eta,
+                                     qi_rk0, grid_array, grid_array_temp);
 //                    // viscous source terms
 //                    prepare_vis_array(hydro_fields, rk_flag, ieta, ix, iy,
 //                                      n_cell_eta, n_cell_x, n_cell_y,
 //                                      vis_array, vis_nbr_tau, vis_nbr_x,
 //                                      vis_nbr_y, vis_nbr_eta);
-//
-//                    FirstRKStepT(tau, rk_flag,
-//                                 qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
-//                                 n_cell_eta, n_cell_x, n_cell_y,
-//                                 vis_array, vis_nbr_tau,
-//                                 vis_nbr_x, vis_nbr_y, vis_nbr_eta,
-//                                 qi_rk0, qi_array_new, grid_array,
-//                                 rhs, qiphL, qiphR, qimhL, qimhR,
-//                                 grid_array_hL, grid_array_hR);
-//
-//                    update_grid_cell(grid_array, hydro_fields, rk_flag, ieta, ix, iy,
-//                                     n_cell_eta, n_cell_x, n_cell_y);
+
+                   FirstRKStepT(tau, rk_flag,
+                                qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
+                                n_cell_eta, n_cell_x, n_cell_y,
+                                vis_array, vis_nbr_tau,
+                                vis_nbr_x, vis_nbr_y, vis_nbr_eta,
+                                qi_rk0, qi_array_new, grid_array,
+                                rhs, qiphL, qiphR, qimhL, qimhR,
+                                grid_array_hL, grid_array_hR, DATA);
+
+                    update_grid_cell(grid_array, hydro_fields, rk_flag, ieta, ix, iy,
+                                     n_cell_eta, n_cell_x, n_cell_y);
 //
 //                    if (DATA_ptr->viscosity_flag == 1) {
 //                        double tau_rk = tau;
@@ -540,7 +540,6 @@ int Advance::AdvanceIt(double tau, InitData *DATA, Field *hydro_fields,
     delete[] qi_nbr_eta;
     delete[] vis_nbr_eta;
 
-
     return(1);
 }/* AdvanceIt */
 
@@ -556,10 +555,11 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
                           double **qi_array_new, double **grid_array,
                           double *rhs, double *qiphL, double *qiphR,
                           double *qimhL, double *qimhR,
-                          double *grid_array_hL, double *grid_array_hR) {
+                          double *grid_array_hL, double *grid_array_hR,
+                          InitData *DATA) {
 
     // this advances the ideal part
-    double tau_next = tau + (DATA_ptr->delta_tau);
+    double tau_next = tau + (DATA->delta_tau);
     double tau_rk;
     if (rk_flag == 0) {
         tau_rk = tau;
@@ -578,13 +578,14 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
     // (including geometric terms)
     MakeDeltaQI(tau_rk, qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
                 n_cell_eta, n_cell_x, n_cell_y, qi_array_new, grid_array,
-                rhs, qiphL, qiphR, qimhL, qimhR, grid_array_hL, grid_array_hR);
+                rhs, qiphL, qiphR, qimhL, qimhR, grid_array_hL, grid_array_hR,
+                DATA);
 
     // now MakeWSource returns partial_a W^{a mu}
     // (including geometric terms) 
-    diss->MakeWSource(tau_rk, qi_array, n_cell_eta, n_cell_x, n_cell_y,
-                      vis_array, vis_nbr_tau, vis_nbr_x, vis_nbr_y,
-                      vis_nbr_eta, qi_array_new);
+    //diss->MakeWSource(tau_rk, qi_array, n_cell_eta, n_cell_x, n_cell_y,
+    //                  vis_array, vis_nbr_tau, vis_nbr_x, vis_nbr_y,
+    //                  vis_nbr_eta, qi_array_new);
     
     if (rk_flag == 1) {
         // if rk_flag == 1, we now have q0 + k1 + k2. 
@@ -606,15 +607,241 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
         for (int i = 0; i < n_cell_x; i++) {
             for (int j = 0; j < n_cell_y; j++) {
                 int idx = j + i*n_cell_y + k*n_cell_x*n_cell_y;
-                reconst_ptr->ReconstIt_shell(grid_array[idx], tau_next,
-                                             qi_array_new[idx],
-                                             grid_array[idx]);
+                ReconstIt_velocity_Newton(grid_array[idx], tau_next,
+                                          qi_array_new[idx],
+                                          grid_array[idx]);
             }
         }
     }
-
-    // clean up
     return(0);
+}
+
+int Advance::ReconstIt_velocity_Newton(
+    double *grid_array, double tau, double *uq, double *grid_array_p) {
+    double abs_err = 1e-9;
+    double rel_err = 1e-8;
+    int max_iter = 100;
+    double v_critical = 0.53;
+    /* prepare for the iteration */
+    /* uq = qiphL, qiphR, etc 
+       qiphL[alpha] means, for instance, TJ[alpha][0] 
+       in the cell at x+dx/2 calculated from the left */
+    
+    /* uq are the conserved charges. That is, the ones appearing in
+       d_tau (Ttautau/tau) + d_eta(Ttaueta/tau) + d_perp(Tperptau) = -Tetaeta
+       d_tau (Ttaueta) + d_eta(Tetaeta) + d_v(tau Tveta) = -Ttaueta/tau 
+       d_tau (Ttauv) + d_eta(Tetav) + d_w(tau Twv) = 0
+       d_tau (Jtau) + d_eta Jeta + d_perp(tau Jperp) = 0 */
+    
+    /* q[0] = Ttautau/tau, q[1] = Ttaux, q[2] = Ttauy, q[3] = Ttaueta
+       q[4] = Jtau */
+    /* uq = qiphL, qiphR, qimhL, qimhR, qirk */
+
+    double K00 = (uq[1]*uq[1] + uq[2]*uq[2] + uq[3]*uq[3])/(tau*tau);
+    double M = sqrt(K00);
+    double T00 = uq[0]/tau;
+    double J0 = uq[4]/tau;
+
+    if ((T00 < abs_err) || ((T00 - K00/T00) < 0.0)) {
+        revert_grid(grid_array, grid_array_p);
+    }/* if t00-k00/t00 < 0.0 */
+
+    double u0, u1, u2, u3, epsilon, pressure, rhob;
+
+    double u0_guess = 1./sqrt(1. - grid_array_p[1]*grid_array_p[1]
+                              - grid_array_p[2]*grid_array_p[2]
+                              - grid_array_p[3]*grid_array_p[3]);
+    double v_guess = sqrt(1. - 1./(u0_guess*u0_guess + 1e-15));
+    if (isnan(v_guess)) {
+        v_guess = 0.0;
+    }
+    int v_status = 1;
+    int iter = 0;
+    double rel_error_v = 10.0;
+    double v_next = 1.0;
+    double v_prev = v_guess;
+    double abs_error_v = reconst_velocity_f_Newton(v_prev, T00, M, J0);
+    do {
+        iter++;
+        v_next = (v_prev
+                  - (abs_error_v/reconst_velocity_df(v_prev, T00, M, J0)));
+        if (v_next < 0.0) {
+            v_next = 0.0 + 1e-10;
+        } else if (v_next > 1.0) {
+            v_next = 1.0 - 1e-10;
+        }
+        abs_error_v = reconst_velocity_f_Newton(v_next, T00, M, J0);
+        rel_error_v = 2.*abs_error_v/(v_next + v_prev + 1e-15);
+        v_prev = v_next;
+        if (iter > max_iter) {
+            v_status = 0;
+            break;
+        }
+    } while (abs_error_v > abs_err && rel_error_v > rel_err);
+
+    double v_solution;
+    if (v_status == 1) {
+        v_solution = v_next;
+    } else {
+        revert_grid(grid_array, grid_array_p);
+    }/* if iteration is unsuccessful, revert */
+   
+    // for large velocity, solve u0
+    double u0_solution = 1.0;
+    if (v_solution > v_critical) {
+        double u0_prev = 1./sqrt(1. - v_solution*v_solution);
+        int u0_status = 1;
+        iter = 0;
+        double u0_next;
+        double abs_error_u0 = reconst_u0_f_Newton(u0_prev, T00, K00, M, J0);
+        double rel_error_u0 = 1.0;
+        do {
+            iter++;
+            u0_next = (u0_prev
+                       - abs_error_u0/reconst_u0_df(u0_prev, T00, K00, M, J0));
+            abs_error_u0 = reconst_u0_f_Newton(u0_next, T00, K00, M, J0);
+            rel_error_u0 = 2.*abs_error_u0/(u0_next + u0_prev + 1e-15);
+            u0_prev = u0_next;
+            if (iter > max_iter) {
+                u0_status = 0;
+                break;
+            }
+        } while (abs_error_u0 > abs_err && rel_error_u0 > rel_err);
+
+        if (u0_status == 1) {
+            u0_solution = u0_next;
+        } else {
+        }  // if iteration is unsuccessful, revert
+    }
+
+    // successfully found velocity, now update everything else
+    if (v_solution < v_critical) {
+        u0 = 1./(sqrt(1. - v_solution*v_solution) + v_solution*abs_err);
+        epsilon = T00 - v_solution*sqrt(K00);
+        rhob = J0/u0;
+    } else {
+        u0 = u0_solution;
+        epsilon = T00 - sqrt((1. - 1./(u0_solution*u0_solution))*K00);
+        rhob = J0/u0_solution;
+    }
+
+    double check_u0_var = (fabs(u0 - u0_guess)/u0_guess);
+    if (check_u0_var > 100.) {
+        revert_grid(grid_array, grid_array_p);
+    }
+
+    grid_array[0] = epsilon;
+    grid_array[4] = rhob;
+
+    pressure = get_pressure(epsilon, rhob);
+
+    // individual components of velocity
+    double velocity_inverse_factor = u0/(T00 + pressure);
+
+    double u_max = 242582597.70489514; // cosh(20)
+    //remove if for speed
+    if(u0 > u_max) {
+        revert_grid(grid_array, grid_array_p);
+    } else {
+        u1 = uq[1]*velocity_inverse_factor/tau; 
+        u2 = uq[2]*velocity_inverse_factor/tau; 
+        u3 = uq[3]*velocity_inverse_factor/tau;
+    }
+
+    // Correcting normalization of 4-velocity
+    double temp_usq = u0*u0 - u1*u1 - u2*u2 - u3*u3;
+    // Correct velocity when unitarity is not satisfied to numerical accuracy
+    if (fabs(temp_usq - 1.0) > abs_err) {
+        // If the deviation is too large, exit MUSIC
+        if (fabs(temp_usq - 1.0) > 0.1*u0) {
+            revert_grid(grid_array, grid_array_p);
+        }
+        // Rescaling spatial components of velocity so that unitarity 
+        // is exactly satisfied (u[0] is not modified)
+        double scalef = sqrt((u0*u0 - 1.0)
+                             /(u1*u1 + u2*u2 + u3*u3 + abs_err));
+        u1 *= scalef;
+        u2 *= scalef;
+        u3 *= scalef;
+    }  // if u^mu u_\mu != 1 
+    // End: Correcting normalization of 4-velocity
+   
+    grid_array[1] = u1/u0;
+    grid_array[2] = u2/u0;
+    grid_array[3] = u3/u0;
+
+    return(1);  /* on successful execution */
+}
+
+double Advance::reconst_velocity_f(double v, double T00, double M,
+                                   double J0) {
+    // this function returns f(v) = M/(M0 + P)
+    double epsilon = T00 - v*M;
+    double rho = J0*sqrt(1 - v*v);
+   
+    double pressure = get_pressure(epsilon, rho);
+    double fv = M/(T00 + pressure);
+    return(fv);
+}
+
+double Advance::reconst_velocity_f_Newton(double v, double T00, double M,
+                                          double J0) {
+    double fv = v - reconst_velocity_f(v, T00, M, J0);
+    return(fv);
+}
+
+double Advance::reconst_velocity_df(double v, double T00, double M,
+                                    double J0) {
+    // this function returns df'(v)/dv where f' = v - f(v)
+    double epsilon = T00 - v*M;
+    double temp = sqrt(1. - v*v);
+    double rho = J0*temp;
+    double temp2 = v/temp;
+   
+    double pressure = get_pressure(epsilon, rho);
+    double dPde = p_e_func(epsilon, rho);
+    double dPdrho = p_rho_func(epsilon, rho);
+    
+    double temp1 = T00 + pressure;
+
+    double dfdv = 1. - M/(temp1*temp1)*(M*dPde + J0*temp2*dPdrho);
+    return(dfdv);
+}
+
+double Advance::reconst_u0_f(double u0, double T00, double K00, double M,
+                             double J0) {
+    // this function returns f(u0) = (M0+P)/sqrt((M0+P)^2 - M^2)
+    double epsilon = T00 - sqrt(1. - 1./u0/u0)*M;
+    double rho = J0/u0;
+    
+    double pressure = get_pressure(epsilon, rho);
+    double fu = (T00 + pressure)/sqrt((T00 + pressure)*(T00 + pressure) - K00);
+    return(fu);
+}
+
+double Advance::reconst_u0_f_Newton(double u0, double T00, double K00,
+                                    double M, double J0) {
+    // this function returns f(u0) = u0 - (M0+P)/sqrt((M0+P)^2 - M^2)
+    double fu = u0 - reconst_u0_f(u0, T00, K00, M, J0);
+    return(fu);
+}
+
+double Advance::reconst_u0_df(double u0, double T00, double K00, double M,
+                              double J0) {
+    // this function returns df'/du0 where f'(u0) = u0 - f(u0)
+    double v = sqrt(1. - 1./(u0*u0));
+    double epsilon = T00 - v*M;
+    double rho = J0/u0;
+    double dedu0 = - M/(u0*u0*u0*v);
+    double drhodu0 = - J0/(u0*u0);
+    
+    double pressure = get_pressure(epsilon, rho);
+    double dPde = p_e_func(epsilon, rho);
+    double dPdrho = p_rho_func(epsilon, rho);
+
+    double denorm = pow(((T00 + pressure)*(T00 + pressure) - K00), 1.5);
+    double dfdu0 = 1. + (dedu0*dPde + drhodu0*dPdrho)*K00/denorm;
+    return(dfdu0);
 }
 
 
@@ -752,19 +979,6 @@ int Advance::FirstRKStepW(double tau, int rk_flag, int n_cell_eta,
 }
 
 
-void Advance::update_grid_array_from_grid_cell(
-                Grid *grid_p, double *grid_array, int rk_flag) {
-    if (rk_flag == 0) {
-        grid_array[0] = grid_p->epsilon;
-        grid_array[4] = grid_p->rhob;
-    } else {
-        grid_array[0] = grid_p->epsilon_t;
-        grid_array[4] = grid_p->rhob_t;
-    }
-    grid_array[1] = grid_p->u[rk_flag][1]/grid_p->u[rk_flag][0];
-    grid_array[2] = grid_p->u[rk_flag][2]/grid_p->u[rk_flag][0];
-    grid_array[3] = grid_p->u[rk_flag][3]/grid_p->u[rk_flag][0];
-}
 
 void Advance::update_grid_array_from_field(
                 Field *hydro_fields, int idx, double *grid_array, int rk_flag) {
@@ -785,17 +999,6 @@ void Advance::update_grid_array_from_field(
     }
 }
 
-
-void Advance::update_vis_array_from_grid_cell(Grid *grid_p, double *vis_array,
-                                              int rk_flag) {
-    for (int i = 0; i < 14; i++) {
-        vis_array[i] = grid_p->Wmunu[rk_flag][i];
-    }
-    vis_array[14] = grid_p->pi_b[rk_flag];
-    for (int i = 0; i < 4; i++) {
-        vis_array[15+i] = grid_p->u[rk_flag][i];
-    }
-}
 
 void Advance::update_vis_array_from_field(Field *hydro_fields, int idx,
                                           double *vis_array, int rk_flag) {
@@ -818,28 +1021,6 @@ void Advance::update_vis_array_from_field(Field *hydro_fields, int idx,
     }
 }
 
-void Advance::update_vis_prev_tau_from_grid_cell(
-                    Grid *grid_p, double *vis_array,int rk_flag) {
-    for (int i = 0; i < 14; i++) {
-        if (rk_flag == 0) {
-            vis_array[i] = grid_p->prevWmunu[0][i];
-        } else {
-            vis_array[i] = grid_p->Wmunu[0][i];
-        }
-    }
-    if (rk_flag == 0) {
-        vis_array[14] = grid_p->prev_pi_b[0];
-    } else {
-        vis_array[14] = grid_p->pi_b[0];
-    }
-    for (int i = 0; i < 4; i++) {
-        if (rk_flag == 0) {
-            vis_array[15+i] = grid_p->prev_u[0][i];
-        } else {
-            vis_array[15+i] = grid_p->u[0][i];
-        }
-    }
-}
 
 void Advance::update_vis_prev_tau_from_field(Field *hydro_fields, int idx,
                                              double *vis_array,int rk_flag) {
@@ -862,40 +1043,7 @@ void Advance::update_vis_prev_tau_from_field(Field *hydro_fields, int idx,
     }
 }
 
-void Advance::update_grid_cell_from_grid_array(Grid *grid_p,
-                                               double *grid_array) {
-    grid_p->epsilon = grid_array[0];
-    grid_p->rhob = grid_array[4];
-    grid_p->u[0][0] = 1./sqrt(1. - grid_array[1]*grid_array[1]
-                                 - grid_array[2]*grid_array[2]
-                                 - grid_array[3]*grid_array[3]);
-    grid_p->u[0][1] = grid_p->u[0][0]*grid_array[1];
-    grid_p->u[0][2] = grid_p->u[0][0]*grid_array[2];
-    grid_p->u[0][3] = grid_p->u[0][0]*grid_array[3];
-}
 
-//! update results after RK evolution to grid_pt
-void Advance::UpdateTJbRK(double *grid_array, Grid *grid_pt, int rk_flag) {
-    int trk_flag = rk_flag + 1;
-    if (rk_flag == 1) {
-        trk_flag = 0;
-    }
-
-    if (rk_flag == 0) {
-        grid_pt->epsilon_t = grid_array[0];
-        grid_pt->rhob_t = grid_array[4];
-    } else {
-        grid_pt->epsilon = grid_array[0];
-        grid_pt->rhob = grid_array[4];
-    }
-
-    grid_pt->u[trk_flag][0] = 1./sqrt(1. - grid_array[1]*grid_array[1]
-                                         - grid_array[2]*grid_array[2]
-                                         - grid_array[3]*grid_array[3]);
-    grid_pt->u[trk_flag][1] = grid_pt->u[trk_flag][0]*grid_array[1];
-    grid_pt->u[trk_flag][2] = grid_pt->u[trk_flag][0]*grid_array[2];
-    grid_pt->u[trk_flag][3] = grid_pt->u[trk_flag][0]*grid_array[3];
-}
 
 void Advance::update_grid_array_to_hydro_fields(
             double *grid_array, Field *hydro_fields, int idx, int rk_flag) {
@@ -957,7 +1105,7 @@ int Advance::QuestRevert(double tau, double *vis_array, double *grid_array) {
 
     //double rhob_local = grid_pt->rhob;
     //double rhob_local = grid_array[4];
-    double p_local = eos->get_pressure(e_local, grid_array[4]);
+    double p_local = get_pressure(e_local, grid_array[4]);
     double eq_size = e_local*e_local + 3.*p_local*p_local;
        
     double rho_shear = sqrt(pisize/eq_size)/factor; 
@@ -1049,7 +1197,8 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                           double **qi_array_new, double **grid_array,
                           double *rhs, double *qiphL, double *qiphR,
                           double *qimhL, double *qimhR,
-                          double *grid_array_hL, double *grid_array_hR) {
+                          double *grid_array_hL, double *grid_array_hR,
+                          InitData *DATA) {
     /* \partial_tau (tau Ttautau) + \partial_eta Tetatau 
             + \partial_x (tau Txtau) + \partial_y (tau Tytau) + Tetaeta = 0 */
     /* \partial_tau (tau Ttaueta) + \partial_eta Teteta 
@@ -1133,11 +1282,11 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                 }
                 // for each direction, reconstruct half-way cells
                 // reconstruct e, rhob, and u[4] for half way cells
-                int flag = reconst_ptr->ReconstIt_shell(
+                int flag = ReconstIt_velocity_Newton(
                                 grid_array_hL, tau, qiphL, grid_array[idx]);
                 double aiphL = MaxSpeed(tau, direc, grid_array_hL);
 
-                flag *= reconst_ptr->ReconstIt_shell(
+                flag *= ReconstIt_velocity_Newton(
                                 grid_array_hR, tau, qiphR, grid_array[idx]);
                 double aiphR = MaxSpeed(tau, direc, grid_array_hR);
                 double aiph = maxi(aiphL, aiphR);
@@ -1151,14 +1300,14 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                     double Fiph = 0.5*((FiphL + FiphR)
                                         - aiph*(qiphR[alpha] - qiphL[alpha]));
 
-                    rhs[alpha] = -Fiph/DATA_ptr->delta_x*DATA_ptr->delta_tau;
+                    rhs[alpha] = -Fiph/DATA->delta_x*DATA->delta_tau;
                 }
 
-                flag *= reconst_ptr->ReconstIt_shell(grid_array_hL, tau,
+                flag *= ReconstIt_velocity_Newton(grid_array_hL, tau,
                                                      qimhL, grid_array[idx]);
                 double aimhL = MaxSpeed(tau, direc, grid_array_hL);
 
-                flag *= reconst_ptr->ReconstIt_shell(grid_array_hR, tau,
+                flag *= ReconstIt_velocity_Newton(grid_array_hR, tau,
                                                      qimhR, grid_array[idx]);
                 double aimhR = MaxSpeed(tau, direc, grid_array_hR);
                 double aimh = maxi(aimhL, aimhR);
@@ -1172,7 +1321,7 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                     //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
                     double Fimh = 0.5*((FimhL + FimhR)
                                         - aimh*(qimhR[alpha] - qimhL[alpha]));
-                    rhs[alpha] += Fimh/DATA_ptr->delta_x*DATA_ptr->delta_tau;
+                    rhs[alpha] += Fimh/DATA->delta_x*DATA->delta_tau;
                 }
                 //cout << "x-direction" << endl;
                 
@@ -1225,11 +1374,11 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                 }
                 // for each direction, reconstruct half-way cells
                 // reconstruct e, rhob, and u[4] for half way cells
-                flag = reconst_ptr->ReconstIt_shell(
+                flag = ReconstIt_velocity_Newton(
                                 grid_array_hL, tau, qiphL, grid_array[idx]);
                 aiphL = MaxSpeed(tau, direc, grid_array_hL);
 
-                flag *= reconst_ptr->ReconstIt_shell(
+                flag *= ReconstIt_velocity_Newton(
                                 grid_array_hR, tau, qiphR, grid_array[idx]);
                 aiphR = MaxSpeed(tau, direc, grid_array_hR);
                 aiph = maxi(aiphL, aiphR);
@@ -1243,14 +1392,14 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                     double Fiph = 0.5*((FiphL + FiphR)
                                         - aiph*(qiphR[alpha] - qiphL[alpha]));
 
-                    rhs[alpha] -= Fiph/DATA_ptr->delta_y*DATA_ptr->delta_tau;
+                    rhs[alpha] -= Fiph/DATA->delta_y*DATA->delta_tau;
                 }
 
-                flag *= reconst_ptr->ReconstIt_shell(grid_array_hL, tau,
+                flag *= ReconstIt_velocity_Newton(grid_array_hL, tau,
                                                      qimhL, grid_array[idx]);
                 aimhL = MaxSpeed(tau, direc, grid_array_hL);
 
-                flag *= reconst_ptr->ReconstIt_shell(grid_array_hR, tau,
+                flag *= ReconstIt_velocity_Newton(grid_array_hR, tau,
                                                      qimhR, grid_array[idx]);
                 aimhR = MaxSpeed(tau, direc, grid_array_hR);
                 aimh = maxi(aimhL, aimhR);
@@ -1264,7 +1413,7 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                     //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
                     double Fimh = 0.5*((FimhL + FimhR)
                                         - aimh*(qimhR[alpha] - qimhL[alpha]));
-                    rhs[alpha] += Fimh/DATA_ptr->delta_y*DATA_ptr->delta_tau;
+                    rhs[alpha] += Fimh/DATA->delta_y*DATA->delta_tau;
                 }
                 //cout << "y-direction" << endl;
                 
@@ -1317,11 +1466,11 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                 }
                 // for each direction, reconstruct half-way cells
                 // reconstruct e, rhob, and u[4] for half way cells
-                flag = reconst_ptr->ReconstIt_shell(
+                flag = ReconstIt_velocity_Newton(
                                 grid_array_hL, tau, qiphL, grid_array[idx]);
                 aiphL = MaxSpeed(tau, direc, grid_array_hL);
 
-                flag *= reconst_ptr->ReconstIt_shell(
+                flag *= ReconstIt_velocity_Newton(
                                 grid_array_hR, tau, qiphR, grid_array[idx]);
                 aiphR = MaxSpeed(tau, direc, grid_array_hR);
                 aiph = maxi(aiphL, aiphR);
@@ -1335,14 +1484,14 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                     double Fiph = 0.5*((FiphL + FiphR)
                                         - aiph*(qiphR[alpha] - qiphL[alpha]));
 
-                    rhs[alpha] -= Fiph/DATA_ptr->delta_eta*DATA_ptr->delta_tau;
+                    rhs[alpha] -= Fiph/DATA->delta_eta*DATA->delta_tau;
                 }
 
-                flag *= reconst_ptr->ReconstIt_shell(grid_array_hL, tau,
+                flag *= ReconstIt_velocity_Newton(grid_array_hL, tau,
                                                      qimhL, grid_array[idx]);
                 aimhL = MaxSpeed(tau, direc, grid_array_hL);
 
-                flag *= reconst_ptr->ReconstIt_shell(grid_array_hR, tau,
+                flag *= ReconstIt_velocity_Newton(grid_array_hR, tau,
                                                      qimhR, grid_array[idx]);
                 aimhR = MaxSpeed(tau, direc, grid_array_hR);
                 aimh = maxi(aimhL, aimhR);
@@ -1356,15 +1505,15 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
                     //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
                     double Fimh = 0.5*((FimhL + FimhR)
                                         - aimh*(qimhR[alpha] - qimhL[alpha]));
-                    rhs[alpha] += Fimh/DATA_ptr->delta_eta*DATA_ptr->delta_tau;
+                    rhs[alpha] += Fimh/DATA->delta_eta*DATA->delta_tau;
                 }
                 //cout << "eta-direction" << endl;
 
                 // geometric terms
                 rhs[0] -= (get_TJb_new(grid_array[idx], 3, 3)
-                           *DATA_ptr->delta_tau);
+                           *DATA->delta_tau);
                 rhs[3] -= (get_TJb_new(grid_array[idx], 3, 0)
-                           *DATA_ptr->delta_tau);
+                           *DATA->delta_tau);
                 
                 for (int alpha = 0; alpha < 5; alpha++) {
                     qi_array_new[idx][alpha] = qi_array[idx][alpha] + rhs[alpha];
@@ -1373,14 +1522,6 @@ void Advance::MakeDeltaQI(double tau, double **qi_array, double **qi_nbr_x,
         }
     }
 
-    // clean up
-    //delete[] qiphL;
-    //delete[] qiphR;
-    //delete[] qimhL;
-    //delete[] qimhR;
-
-    //delete[] grid_array_hL;
-    //delete[] grid_array_hR;
 }
 
 
@@ -1418,7 +1559,7 @@ double Advance::MaxSpeed(double tau, int direc, double *grid_array) {
     double eps = grid_array[0];
     double rhob = grid_array[4];
   
-    double vs2 = eos->get_cs2(eps, rhob);
+    double vs2 = get_cs2(eps, rhob);
 
     double den = utau2*(1. - vs2) + vs2;
     double num_temp_sqrt = (ut2mux2 - (ut2mux2 - 1.)*vs2)*vs2;
@@ -1426,94 +1567,30 @@ double Advance::MaxSpeed(double tau, int direc, double *grid_array) {
     if (num_temp_sqrt >= 0) {
         num = utau*ux*(1. - vs2) + sqrt(num_temp_sqrt);
     } else {
-        double dpde = eos->p_e_func(eps, rhob);
-        double p = eos->get_pressure(eps, rhob);
+        double dpde = p_e_func(eps, rhob);
+        double p = get_pressure(eps, rhob);
         double h = p + eps;
         if (dpde < 0.001) {
             num = (sqrt(-(h*dpde*h*(dpde*(-1.0 + ut2mux2) - ut2mux2))) 
                    - h*(-1.0 + dpde)*utau*ux);
         } else {
-            fprintf(stderr,"WARNING: in MaxSpeed. \n");
-            fprintf(stderr, "Expression under sqrt in num=%lf. \n",
-                    num_temp_sqrt);
-            fprintf(stderr,"at value e=%lf. \n",eps);
-            fprintf(stderr,"at value p=%lf. \n",p);
-            fprintf(stderr,"at value h=%lf. \n",h);
-            fprintf(stderr,"at value rhob=%lf. \n",rhob);
-            fprintf(stderr,"at value utau=%lf. \n", utau);
-            fprintf(stderr,"at value uk=%lf. \n", ux);
-            fprintf(stderr,"at value vs^2=%lf. \n", vs2);
-            fprintf(stderr,"at value dpde=%lf. \n", eos->p_e_func(eps, rhob));
-            fprintf(stderr,"at value dpdrhob=%lf. \n",
-                    eos->p_rho_func(eps, rhob));
-            fprintf(stderr, "MaxSpeed: exiting.\n");
-            exit(1);
+            num = 0.0;
         }
     }
     
     double f = num/(den + 1e-15);
-    if (f < 0.0) {
-        fprintf(stderr, "SpeedMax = %e\n is negative.\n", f);
-        fprintf(stderr, "Can't happen.\n");
-        exit(0);
-    } else if (f <  ux/utau) {
-        if (num != 0.0) {
-            if (fabs(f-ux/utau)<0.0001) {
-                f = ux/utau;
-            } else {
-	            fprintf(stderr, "SpeedMax-v = %lf\n", f-ux/utau);
-	            fprintf(stderr, "SpeedMax = %e\n is smaller than v = %e.\n",
-                        f, ux/utau);
-	            fprintf(stderr, "Can't happen.\n");
-	            exit(0);
-            }
-        }
-    } else if (f >  1.0) {
-        fprintf(stderr, "SpeedMax = %e\n is bigger than 1.\n", f);
-        fprintf(stderr, "Can't happen.\n");
-        fprintf(stderr, "SpeedMax = num/den, num = %e, den = %e \n", num, den);
-        fprintf(stderr, "cs2 = %e \n", vs2);
-        f =1.;
-        exit(1);
+    if (f > 1.0) {
+        f = 1.0;
     }
-    if (direc == 3)
+    if (f < ux/utau) {
+        f = ux/utau;
+    }
+
+    if (direc == 3) {
         f /= tau;
+    }
 
     return(f);
-}
-
-double Advance::get_TJb(Grid *grid_p, int rk_flag, int mu, int nu) {
-    double rhob = grid_p->rhob;
-    if (rk_flag == 1) {
-        rhob = grid_p->rhob_t;
-    }
-    double u_nu = grid_p->u[rk_flag][nu];
-    if (mu == 4) {
-        double J_nu = rhob*u_nu;
-        return(J_nu);
-    } else if (mu < 4) {
-        double e = grid_p->epsilon;
-        if (rk_flag == 1) {
-            e = grid_p->epsilon_t;
-        }
-        double gfac = 0.0;
-        double u_mu = 0.0;
-        if (mu == nu) {
-            u_mu = u_nu;
-            if (mu == 0) {
-                gfac = -1.0;
-            } else {
-                gfac = 1.0;
-            }
-        } else {
-            u_mu = grid_p->u[rk_flag][mu];
-        }
-        double pressure = eos->get_pressure(e, rhob);
-        double T_munu = (e + pressure)*u_mu*u_nu + pressure*gfac;
-        return(T_munu);
-    } else {
-        return(0.0);
-    }
 }
 
 double Advance::get_TJb_new(double *grid_array, int mu, int nu) {
@@ -1545,7 +1622,7 @@ double Advance::get_TJb_new(double *grid_array, int mu, int nu) {
                 u_mu *= grid_array[mu];
             }
         }
-        double pressure = eos->get_pressure(e, rhob);
+        double pressure = get_pressure(e, rhob);
         double T_munu = (e + pressure)*u_mu*u_nu + pressure*gfac;
         return(T_munu);
     } else {
@@ -1560,7 +1637,7 @@ void Advance::get_qmu_from_grid_array(double tau, double *qi,
                                       double *grid_array) {
     double rhob = grid_array[4];
     double e = grid_array[0];
-    double pressure = eos->get_pressure(e, rhob);
+    double pressure = get_pressure(e, rhob);
     double gamma = 1./sqrt(1. - grid_array[1]*grid_array[1]
                               - grid_array[2]*grid_array[2]
                               - grid_array[3]*grid_array[3]);
@@ -1624,3 +1701,31 @@ void Advance::update_grid_cell_viscous(double **vis_array, Field *hydro_fields,
         }
     }
 }           
+
+//! This function reverts the grid information back its values
+//! at the previous time step
+void Advance::revert_grid(double *grid_array, double *grid_prev) {
+    for (int i = 0; i < 5; i++) {
+        grid_array[i] = grid_prev[i];
+    }
+}
+
+double Advance::get_pressure(double e_local, double rhob) {
+    double p = e_local/3.;
+    return(p);
+}
+
+double Advance::get_cs2(double e_local, double rhob) {
+    double cs2 = 1./3.;
+    return(cs2);
+}
+
+double Advance::p_e_func(double e_local, double rhob) {
+    double dPde = 1./3.;
+    return(dPde);
+}
+
+double Advance::p_rho_func(double e_local, double rhob) {
+    double dPdrho = 0.0;
+    return(dPdrho);
+}
