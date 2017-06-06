@@ -696,9 +696,9 @@ int Advance::ReconstIt_velocity_Newton(
                               - grid_array_p[2]*grid_array_p[2]
                               - grid_array_p[3]*grid_array_p[3]);
     double v_guess = sqrt(1. - 1./(u0_guess*u0_guess + 1e-15));
-    if (isnan(v_guess)) {
-        v_guess = 0.0;
-    }
+    //if (isnan(v_guess)) {
+    //    v_guess = 0.0;
+    //}
     int v_status = 1;
     int iter = 0;
     double rel_error_v = 10.0;
