@@ -338,12 +338,12 @@ void Advance::prepare_velocity_array(double tau_rk, Field *hydro_fields,
                 vis_array_new[idx][18] = u0*grid_array_temp[3];
 
                 velocity_array[idx][0] = (
-                        u_derivative_ptr->calculate_expansion_rate_1(
+                        calculate_expansion_rate_1(
                                     tau_rk, hydro_fields, field_idx, rk_flag));
-                u_derivative_ptr->calculate_Du_supmu_1(
+                calculate_Du_supmu_1(
                         tau_rk, hydro_fields, field_idx, rk_flag,
                         velocity_array[idx]);
-                u_derivative_ptr->calculate_velocity_shear_tensor_2(
+                calculate_velocity_shear_tensor_2(
                             tau_rk, hydro_fields, field_idx, rk_flag,
                             velocity_array[idx]);
                 for (int alpha = 0; alpha < 4; alpha++) {
@@ -2787,3 +2787,105 @@ int Advance::map_2d_idx_to_1d(int a, int b) {
     //    exit(1);
     //}
 }
+
+//! this function returns the expansion rate on the grid
+double Advance::calculate_expansion_rate_1(
+            double tau, Field *hydro_fields, int idx, int rk_flag) {
+    double partial_mu_u_supmu = (- hydro_fields->dUsup[idx][0]
+                                 + hydro_fields->dUsup[idx][5]
+                                 + hydro_fields->dUsup[idx][10]
+                                 + hydro_fields->dUsup[idx][15]);
+    double theta = partial_mu_u_supmu;
+    if (rk_flag == 0) {
+        theta += hydro_fields->u_rk0[idx][0]/tau;
+    } else {
+        theta += hydro_fields->u_rk1[idx][0]/tau;
+    }
+    return(theta);
+}
+
+void Advance::calculate_Du_supmu_1(double tau, Field *hydro_fields,
+                                        int idx, int rk_flag, double *a) {
+    // the array idx is corresponds to the velocity array in advanced
+    if (rk_flag == 0) {
+        for (int mu = 0; mu < 5; mu++) {
+            a[1+mu] = (
+                - hydro_fields->u_rk0[idx][0]*hydro_fields->dUsup[idx][4*mu]
+                + hydro_fields->u_rk0[idx][1]*hydro_fields->dUsup[idx][4*mu+1]
+                + hydro_fields->u_rk0[idx][2]*hydro_fields->dUsup[idx][4*mu+2]
+                + hydro_fields->u_rk0[idx][3]*hydro_fields->dUsup[idx][4*mu+3]
+            );
+        }
+    } else {
+        for (int mu = 0; mu < 5; mu++) {
+            a[1+mu] = (
+                - hydro_fields->u_rk1[idx][0]*hydro_fields->dUsup[idx][4*mu]
+                + hydro_fields->u_rk1[idx][1]*hydro_fields->dUsup[idx][4*mu+1]
+                + hydro_fields->u_rk1[idx][2]*hydro_fields->dUsup[idx][4*mu+2]
+                + hydro_fields->u_rk1[idx][3]*hydro_fields->dUsup[idx][4*mu+3]
+            );
+        }
+    }
+}
+
+void Advance::calculate_velocity_shear_tensor_2(
+                    double tau, Field *hydro_fields, int idx, int rk_flag,
+                    double *velocity_array) {
+    double theta_u_local = velocity_array[0];
+    double u0, u1, u2, u3;
+    if (rk_flag == 0) {
+        u0 = hydro_fields->u_rk0[idx][0];
+        u1 = hydro_fields->u_rk0[idx][1];
+        u2 = hydro_fields->u_rk0[idx][2];
+        u3 = hydro_fields->u_rk0[idx][3];
+    } else {
+        u0 = hydro_fields->u_rk1[idx][0];
+        u1 = hydro_fields->u_rk1[idx][1];
+        u2 = hydro_fields->u_rk1[idx][2];
+        u3 = hydro_fields->u_rk1[idx][3];
+    }
+    // sigma^11
+    velocity_array[10] = (
+        hydro_fields->dUsup[idx][5] - (1. + u1*u1)*theta_u_local/3.
+        + (u1*velocity_array[2]));
+    // sigma^12
+    velocity_array[11] = (
+        (hydro_fields->dUsup[idx][6] + hydro_fields->dUsup[idx][9])/2.
+        - (0. + u1*u2)*theta_u_local/3.
+        + (u1*velocity_array[3] + u2*velocity_array[2])/2.);
+    // sigma^13
+    velocity_array[12] = (
+        (hydro_fields->dUsup[idx][7] + hydro_fields->dUsup[idx][13])/2.
+        - (0. + u1*u3)*theta_u_local/3.
+        + (u1*velocity_array[4] + u3*velocity_array[2])/2.
+        + u3*u0/(2.*tau)*u1);
+    // sigma^22
+    velocity_array[13] = (
+        hydro_fields->dUsup[idx][10] - (1. + u2*u2)*theta_u_local/3.
+        + u2*velocity_array[3]);
+    // sigma^23
+    velocity_array[14] = (
+        (hydro_fields->dUsup[idx][11] + hydro_fields->dUsup[idx][14])/2.
+        - (0. + u2*u3)*theta_u_local/3.
+        + (u2*velocity_array[4] + u3*velocity_array[3])/2.
+        + u3*u0/(2.*tau)*u2);
+
+    // make sigma^33 using traceless condition
+    velocity_array[15] = (
+        (2.*(u1*u2*velocity_array[11]
+             + u1*u3*velocity_array[12]
+             + u2*u3*velocity_array[14])
+         - (u0*u0 - u1*u1)*velocity_array[10]
+         - (u0*u0 - u2*u2)*velocity_array[13])
+        /(u0*u0 - u3*u3));
+    // make sigma^01 using transversality
+    velocity_array[7] = ((velocity_array[10]*u1 + velocity_array[11]*u2
+                          + velocity_array[12]*u3)/u0);
+    velocity_array[8] = ((velocity_array[11]*u1 + velocity_array[13]*u2
+                          + velocity_array[14]*u3)/u0);
+    velocity_array[9] = ((velocity_array[12]*u1 + velocity_array[14]*u2
+                          + velocity_array[15]*u3)/u0);
+    velocity_array[6] = ((velocity_array[7]*u1 + velocity_array[8]*u2
+                          + velocity_array[9]*u3)/u0);
+}
+

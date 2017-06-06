@@ -177,6 +177,19 @@ class Advance {
                          double vis_array_new[][19]);
 
 #pragma acc routine seq
+    double calculate_expansion_rate_1(
+            double tau, Field *hydro_fields, int idx, int rk_flag);
+
+#pragma acc routine seq
+    void calculate_Du_supmu_1(double tau, Field *hydro_fields,
+                                        int idx, int rk_flag, double *a);
+
+#pragma acc routine seq
+    void calculate_velocity_shear_tensor_2(
+                    double tau, Field *hydro_fields, int idx, int rk_flag,
+                    double *velocity_array);
+
+#pragma acc routine seq
     double get_temperature_dependent_eta_s(double T);
 
 #pragma acc routine seq
