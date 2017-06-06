@@ -1367,8 +1367,8 @@ double Diss::Make_uPiSource(double tau, int n_cell_eta, int n_cell_x,
                 //         - transport_coeff1*theta_local
                 //           *(grid_pt->pi_b[rk_flag]));
                 double tempf = (- vis_array[idx][14]
-                    - transport_coeff1*velocity_array[idx][0]
-                      *vis_array[idx][14]);
+                                - transport_coeff1*velocity_array[idx][0]
+                                  *vis_array[idx][14]);
 
                 // Computing nonlinear term: + transport_coeff2*Bulk*Bulk
                 double BB_term = 0.0;
@@ -1385,36 +1385,57 @@ double Diss::Make_uPiSource(double tau, int n_cell_eta, int n_cell_x,
 
                 if (include_coupling_to_shear == 1) {
                     // Computing sigma^mu^nu
-                    double sigma[4][4], Wmunu[4][4];
-                    for (int a = 0; a < 4 ; a++) {
-                        for (int b = a; b < 4; b++) {
-                            int idx_1d = util->map_2d_idx_to_1d(a, b);
-                            sigma[a][b] = velocity_array[idx][6+idx_1d];
-                            Wmunu[a][b] = vis_array[idx][idx_1d];
-                        }
-                    }
+                    //double sigma[4][4], Wmunu[4][4];
+                    //for (int a = 0; a < 4 ; a++) {
+                    //    for (int b = a; b < 4; b++) {
+                    //        int idx_1d = util->map_2d_idx_to_1d(a, b);
+                    //        sigma[a][b] = velocity_array[idx][6+idx_1d];
+                    //        Wmunu[a][b] = vis_array[idx][idx_1d];
+                    //    }
+                    //}
 
-                    Wsigma = (  Wmunu[0][0]*sigma[0][0]
-                              + Wmunu[1][1]*sigma[1][1]
-                              + Wmunu[2][2]*sigma[2][2]
-                              + Wmunu[3][3]*sigma[3][3]
-                              - 2.*(  Wmunu[0][1]*sigma[0][1]
-                                    + Wmunu[0][2]*sigma[0][2]
-                                    + Wmunu[0][3]*sigma[0][3])
-                              + 2.*(  Wmunu[1][2]*sigma[1][2]
-                                    + Wmunu[1][3]*sigma[1][3]
-                                    + Wmunu[2][3]*sigma[2][3]));
+                    //Wsigma = (  Wmunu[0][0]*sigma[0][0]
+                    //          + Wmunu[1][1]*sigma[1][1]
+                    //          + Wmunu[2][2]*sigma[2][2]
+                    //          + Wmunu[3][3]*sigma[3][3]
+                    //          - 2.*(  Wmunu[0][1]*sigma[0][1]
+                    //                + Wmunu[0][2]*sigma[0][2]
+                    //                + Wmunu[0][3]*sigma[0][3])
+                    //          + 2.*(  Wmunu[1][2]*sigma[1][2]
+                    //                + Wmunu[1][3]*sigma[1][3]
+                    //                + Wmunu[2][3]*sigma[2][3]));
+                    Wsigma = (  vis_array[idx][0]*velocity_array[idx][6]
+                              + vis_array[idx][4]*velocity_array[idx][10]
+                              + vis_array[idx][7]*velocity_array[idx][13]
+                              + vis_array[idx][9]*velocity_array[idx][15]
+                              - 2.*(  vis_array[idx][1]*velocity_array[idx][7]
+                                    + vis_array[idx][2]*velocity_array[idx][8]
+                                    + vis_array[idx][3]*velocity_array[idx][9])
+                              + 2.*(  vis_array[idx][5]*velocity_array[idx][11]
+                                    + vis_array[idx][6]*velocity_array[idx][12]
+                                    + vis_array[idx][8]*velocity_array[idx][14])
+                              );
 
-                    WW = (   Wmunu[0][0]*Wmunu[0][0]
-                           + Wmunu[1][1]*Wmunu[1][1]
-                           + Wmunu[2][2]*Wmunu[2][2]
-                           + Wmunu[3][3]*Wmunu[3][3]
-                           - 2.*(  Wmunu[0][1]*Wmunu[0][1]
-                                 + Wmunu[0][2]*Wmunu[0][2]
-                                 + Wmunu[0][3]*Wmunu[0][3])
-                           + 2.*(  Wmunu[1][2]*Wmunu[1][2]
-                                 + Wmunu[1][3]*Wmunu[1][3]
-                                 + Wmunu[2][3]*Wmunu[2][3]));
+                    //WW = (   Wmunu[0][0]*Wmunu[0][0]
+                    //       + Wmunu[1][1]*Wmunu[1][1]
+                    //       + Wmunu[2][2]*Wmunu[2][2]
+                    //       + Wmunu[3][3]*Wmunu[3][3]
+                    //       - 2.*(  Wmunu[0][1]*Wmunu[0][1]
+                    //             + Wmunu[0][2]*Wmunu[0][2]
+                    //             + Wmunu[0][3]*Wmunu[0][3])
+                    //       + 2.*(  Wmunu[1][2]*Wmunu[1][2]
+                    //             + Wmunu[1][3]*Wmunu[1][3]
+                    //             + Wmunu[2][3]*Wmunu[2][3]));
+                    WW = (  vis_array[idx][0]*vis_array[idx][0]
+                          + vis_array[idx][4]*vis_array[idx][4]
+                          + vis_array[idx][8]*vis_array[idx][8]
+                          + vis_array[idx][9]*vis_array[idx][9]
+                          - 2.*(  vis_array[idx][1]*vis_array[idx][1]
+                                + vis_array[idx][2]*vis_array[idx][2]
+                                + vis_array[idx][3]*vis_array[idx][3])
+                          + 2.*(  vis_array[idx][5]*vis_array[idx][5]
+                                + vis_array[idx][6]*vis_array[idx][6]
+                                + vis_array[idx][8]*vis_array[idx][8]));
                     // multiply term by its transport coefficient
                     Shear_Sigma_term = Wsigma*transport_coeff1_s;
                     Shear_Shear_term = WW*transport_coeff2_s;
@@ -1456,7 +1477,7 @@ double Diss::Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
 
     if (DATA_ptr->turn_on_diff == 0) return 0.0;
  
-    double sigma[4][4];
+    //double sigma[4][4];
 
     for (int k = 0; k < n_cell_eta; k++) {
         for (int i = 0; i < n_cell_x; i++) {
@@ -1478,18 +1499,18 @@ double Diss::Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
                                   - rhob*rhob/(epsilon + pressure)));
 
 
-                for (int ii = 0; ii < 4; ii++) {
-                    for (int jj = ii; jj < 4; jj++) {
-                        int idx_1d = util->map_2d_idx_to_1d(ii, jj);
-                        //sigma[ii][jj] = sigma_1d[idx_1d];
-                        sigma[ii][jj] = velocity_array[idx][6+idx_1d];
-                    }
-                }
-                for (int ii = 0; ii < 4; ii++) {
-                    for (int jj = ii+1; jj < 4; jj++) {
-                        sigma[jj][ii] = sigma[ii][jj];
-                    }
-                }
+                //for (int ii = 0; ii < 4; ii++) {
+                //    for (int jj = ii; jj < 4; jj++) {
+                //        int idx_1d = util->map_2d_idx_to_1d(ii, jj);
+                //        //sigma[ii][jj] = sigma_1d[idx_1d];
+                //        sigma[ii][jj] = velocity_array[idx][6+idx_1d];
+                //    }
+                //}
+                //for (int ii = 0; ii < 4; ii++) {
+                //    for (int jj = ii+1; jj < 4; jj++) {
+                //        sigma[jj][ii] = sigma[ii][jj];
+                //    }
+                //}
 
                 // add a new non-linear term (- q \theta)
                 // from conformal kinetic theory
@@ -1521,16 +1542,16 @@ double Diss::Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
                     //                       + u[rk_flag][nu]*a_local[4]);
                     double NS = kappa*(velocity_array[idx][16+nu]
                            + vis_array[idx][15+nu]*velocity_array[idx][5]);
-                    if (isnan(NS)) {
-                        cout << "Navier Stock term is nan! " << endl;
-                        cout << vis_array[idx][idx_1d] << endl;
-                        // derivative already upper index
-                        cout << velocity_array[idx][16+nu] << endl;
-                        cout << velocity_array[5] << endl;
-                        cout << tau_rho << endl;
-                        cout << kappa << endl;
-                        cout << vis_array[idx][15+nu] << endl;
-                    }
+                    //if (isnan(NS)) {
+                    //    cout << "Navier Stock term is nan! " << endl;
+                    //    cout << vis_array[idx][idx_1d] << endl;
+                    //    // derivative already upper index
+                    //    cout << velocity_array[idx][16+nu] << endl;
+                    //    cout << velocity_array[5] << endl;
+                    //    cout << tau_rho << endl;
+                    //    cout << kappa << endl;
+                    //    cout << vis_array[idx][15+nu] << endl;
+                    //}
   
                     //double Nonlinear1 = -transport_coeff*q[nu]*theta_local;
                     double Nonlinear1 = (- transport_coeff
@@ -1538,10 +1559,36 @@ double Diss::Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
                                            *velocity_array[idx][0]);
 
                     double temptemp = 0.0;
-                    for (int iii = 0 ; iii < 4; iii++) {
-                        temptemp += (vis_array[idx][10+iii]*sigma[iii][nu]
-                                     *DATA_ptr->gmunu[iii][iii]);
+                    //for (int iii = 0 ; iii < 4; iii++) {
+                    //    temptemp += (vis_array[idx][10+iii]*sigma[iii][nu]
+                    //                 *DATA_ptr->gmunu[iii][iii]);
+                    //}
+                    if (nu == 0) {
+                        temptemp = (
+                            - vis_array[idx][10]*velocity_array[idx][6]
+                            + vis_array[idx][11]*velocity_array[idx][7]
+                            + vis_array[idx][12]*velocity_array[idx][8]
+                            + vis_array[idx][13]*velocity_array[idx][9]);
+                    } else if (nu == 1) {
+                        temptemp = (
+                            - vis_array[idx][10]*velocity_array[idx][7]
+                            + vis_array[idx][11]*velocity_array[idx][10]
+                            + vis_array[idx][12]*velocity_array[idx][11]
+                            + vis_array[idx][13]*velocity_array[idx][12]);
+                    } else if (nu == 2) {
+                        temptemp = (
+                            - vis_array[idx][10]*velocity_array[idx][8]
+                            + vis_array[idx][11]*velocity_array[idx][11]
+                            + vis_array[idx][12]*velocity_array[idx][13]
+                            + vis_array[idx][13]*velocity_array[idx][14]);
+                    } else if (nu == 3) {
+                        temptemp = (
+                            - vis_array[idx][10]*velocity_array[idx][9]
+                            + vis_array[idx][11]*velocity_array[idx][12]
+                            + vis_array[idx][12]*velocity_array[idx][14]
+                            + vis_array[idx][13]*velocity_array[idx][15]);
                     }
+
                     double Nonlinear2 = - transport_coeff_2*temptemp;
 
                     double SW = ((-vis_array[idx][idx_1d]
@@ -1557,44 +1604,73 @@ double Diss::Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
                     SW += (velocity_array[idx][0]
                             - vis_array[idx][15]/tau)*vis_array[idx][idx_1d];
  
-                    if (isnan(SW)) {
-                        cout << "theta term is nan! " << endl;
-                    }
+                    //if (isnan(SW)) {
+                    //    cout << "theta term is nan! " << endl;
+                    //}
 
                     // +Delta[a][tau] u[eta] q[eta]/tau 
-                    double tempf = ((DATA_ptr->gmunu[nu][0] 
-                                    //+ grid_pt->u[rk_flag][nu]*grid_pt->u[rk_flag][0])
-                                    //  *grid_pt->u[rk_flag][3]*q[3]/tau
-                                    + vis_array[idx][15+nu]*vis_array[idx][15])
-                                      *vis_array[idx][18]
-                                      *vis_array[idx][13]/tau
-                                    - (DATA_ptr->gmunu[nu][3]
-                                      // + grid_pt->u[rk_flag][nu]*grid_pt->u[rk_flag][3])
-                                      //*grid_pt->u[rk_flag][3]*q[0]/tau);
-                                       + vis_array[idx][15+nu]
-                                         *vis_array[idx][18])
-                                      *vis_array[idx][18]
-                                      *vis_array[idx][10]/tau);
+                    double tempf = 0.0;
+                    //double tempf = ((DATA_ptr->gmunu[nu][0] 
+                    //                //+ grid_pt->u[rk_flag][nu]*grid_pt->u[rk_flag][0])
+                    //                //  *grid_pt->u[rk_flag][3]*q[3]/tau
+                    //                + vis_array[idx][15+nu]*vis_array[idx][15])
+                    //                  *vis_array[idx][18]
+                    //                  *vis_array[idx][13]/tau
+                    //                - (DATA_ptr->gmunu[nu][3]
+                    //                  // + grid_pt->u[rk_flag][nu]*grid_pt->u[rk_flag][3])
+                    //                  //*grid_pt->u[rk_flag][3]*q[0]/tau);
+                    //                   + vis_array[idx][15+nu]
+                    //                     *vis_array[idx][18])
+                    //                  *vis_array[idx][18]
+                    //                  *vis_array[idx][10]/tau);
+                    if (nu == 0) {
+                        tempf = ((-1. + vis_array[idx][15]*vis_array[idx][15])
+                                 *(vis_array[idx][18]*vis_array[idx][13]/tau)
+                                 - (vis_array[idx][15]*vis_array[idx][18]
+                                    *vis_array[idx][18]*vis_array[idx][10]/tau)
+                                );
+                    } else if (nu == 1) {
+                        tempf = ((vis_array[idx][16]*vis_array[idx][15])
+                                 *(vis_array[idx][18]*vis_array[idx][13]/tau)
+                                 - (vis_array[idx][16]*vis_array[idx][18]
+                                    *vis_array[idx][18]*vis_array[idx][10]/tau)
+                                );
+                    } else if (nu == 2) {
+                        tempf = ((vis_array[idx][17]*vis_array[idx][15])
+                                 *(vis_array[idx][18]*vis_array[idx][13]/tau)
+                                 - (vis_array[idx][17]*vis_array[idx][18]
+                                    *vis_array[idx][18]*vis_array[idx][10]/tau)
+                                );
+                    } else if (nu == 3) {
+                        tempf = ((vis_array[idx][18]*vis_array[idx][15])
+                                 *(vis_array[idx][18]*vis_array[idx][13]/tau)
+                                 - (1. + vis_array[idx][18]*vis_array[idx][18]
+                                    *vis_array[idx][18]*vis_array[idx][10]/tau)
+                                );
+                    }
                     SW += tempf;
  
-                    if (isnan(tempf)) {
-                        cout << "Delta^{a \tau} and Delta^{a \eta} terms "
-                             << "are nan!" << endl;
-                    }
+                    //if (isnan(tempf)) {
+                    //    cout << "Delta^{a \tau} and Delta^{a \eta} terms "
+                    //         << "are nan!" << endl;
+                    //}
 
                     // -u[a] u[b]g[b][e] Dq[e] -> u[a] (q[e] g[e][b] Du[b])
-                    tempf = 0.0;
-                    for (int iii = 0; iii < 4; iii++) {
-                        //tempf += q[i]*gmn(i)*a_local[i];
-                        tempf += (vis_array[idx][10+iii]*gmn(iii)
-                                  *velocity_array[idx][1+iii]);
-                    }
+                    //for (int iii = 0; iii < 4; iii++) {
+                    //    //tempf += q[i]*gmn(i)*a_local[i];
+                    //    tempf += (vis_array[idx][10+iii]*gmn(iii)
+                    //              *velocity_array[idx][1+iii]);
+                    //}
+                    tempf = (- vis_array[idx][10]*velocity_array[idx][1]
+                             + vis_array[idx][11]*velocity_array[idx][2]
+                             + vis_array[idx][12]*velocity_array[idx][3]
+                             + vis_array[idx][13]*velocity_array[idx][4]);
                     //SW += (grid_pt->u[rk_flag][nu])*tempf;
                     SW += vis_array[idx][15+nu]*tempf;
                     
-                    if (isnan(tempf)) {
-                        cout << "u^a q_b Du^b term is nan! " << endl;
-                    }
+                    //if (isnan(tempf)) {
+                    //    cout << "u^a q_b Du^b term is nan! " << endl;
+                    //}
                     vis_array_new[idx][idx_1d] += SW*(DATA_ptr->delta_tau);
                 }
             }
