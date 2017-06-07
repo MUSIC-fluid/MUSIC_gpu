@@ -33,7 +33,7 @@ class Advance {
     Advance(EOS *eosIn, InitData* DATA_in);
     ~Advance();
 
-    int AdvanceIt(double tau_init, InitData *DATA, Field *hydro_fields,
+    int AdvanceIt(double tau_init, Field *hydro_fields,
                   int rk_flag);
 #pragma acc routine seq
     double get_pressure(double e_local, double rhob);
@@ -243,7 +243,7 @@ class Advance {
     //! This function computes the vector [T^\tau\mu, J^\tau] from the
     //! grid_array [e, v^i, rhob]
 #pragma acc routine seq
-    void get_qmu_from_grid_array(double tau, double *qi, double *grid_array);
+    void get_qmu_from_grid_array(double tau, double qi[5], double grid_array[5]);
 #pragma acc routine seq
     double minmod_dx(double up1, double u, double um1);
 #pragma acc routine seq

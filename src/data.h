@@ -4,6 +4,10 @@
 
 #define SMALL (1.0e-16)
 
+#define GRID_SIZE_X 20
+#define GRID_SIZE_Y 20
+#define GRID_SIZE_ETA 8
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>

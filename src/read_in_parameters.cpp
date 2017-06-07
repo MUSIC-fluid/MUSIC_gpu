@@ -1,4 +1,3 @@
-
 #include <iostream>
 #include <cstring>
 #include "./read_in_parameters.h"
@@ -270,12 +269,12 @@ void ReadInParameters::read_in_parameters(InitData *parameter_list,
     tempinput = util->StringFind4(input_file, "Grid_size_in_x");
     if (tempinput != "empty")
         istringstream(tempinput) >> tempnx;
-    parameter_list->nx = tempnx;
+    parameter_list->nx = GRID_SIZE_X;
     int tempny = 10;
     tempinput = util->StringFind4(input_file, "Grid_size_in_y");
     if (tempinput != "empty")
         istringstream(tempinput) >> tempny;
-    parameter_list->ny = tempny;
+    parameter_list->ny = GRID_SIZE_Y;
     
     // Grid_size_in_eta
     // number of cells in eta direction.
@@ -286,7 +285,7 @@ void ReadInParameters::read_in_parameters(InitData *parameter_list,
     tempinput = util->StringFind4(input_file, "Grid_size_in_eta");
     if (tempinput != "empty")
         istringstream(tempinput) >> tempneta;
-    parameter_list->neta = tempneta;
+    parameter_list->neta = GRID_SIZE_ETA;
     
     // grid_size_in_fm:
     // total length of box in x,y direction in fm (minus delta_*)

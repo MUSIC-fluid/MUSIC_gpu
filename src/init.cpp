@@ -51,7 +51,7 @@ void Init::InitArena(InitData *DATA, Field *hydro_fields) {
     //Grid *helperGrid;
     //helperGrid = new Grid;
     cout << "initArena" << endl;
-    if (DATA->Initial_profile == 0) {
+    if (DATA->Initial_profile <= 1) {
         cout << "Using Initial_profile=" << DATA->Initial_profile << endl;
         DATA->nx = DATA->nx - 1;
         DATA->ny = DATA->ny - 1;
@@ -201,6 +201,22 @@ int Init::InitTJb(InitData *DATA, Field *hydro_fields) {
                 printf("Thread %d executes loop iteraction ieta = %d\n",
                        omp_get_thread_num(), ieta);
                 initial_Gubser_XY(DATA, ieta, hydro_fields);
+            }/* ieta */
+            #pragma omp barrier
+        }
+    } else if (DATA->Initial_profile == 1) {
+        // Gubser flow test
+        cout << " Perform Bjorken flow test ... " << endl;
+        cout << " ----- information on initial distribution -----" << endl;
+        
+        int ieta;
+        #pragma omp parallel private(ieta)
+        {
+            #pragma omp for
+            for (ieta = 0; ieta < DATA->neta; ieta++) {
+                printf("Thread %d executes loop iteraction ieta = %d\n",
+                       omp_get_thread_num(), ieta);
+                initial_Bjorken_XY(DATA, ieta, hydro_fields);
             }/* ieta */
             #pragma omp barrier
         }
@@ -456,6 +472,187 @@ void Init::initial_Gubser_XY(InitData *DATA, int ieta, Field *hydro_fields) {
         delete[] temp_profile_ux_prev;
         delete[] temp_profile_uy_prev;
     }
+}
+
+
+void Init::initial_Bjorken_XY(InitData *DATA, int ieta, Field *hydro_fields) {
+    string input_filename;
+    string input_filename_prev;
+    
+    int nx = DATA->nx + 1;
+    int ny = DATA->ny + 1;
+    double** temp_profile_ed = new double* [nx];
+    double** temp_profile_ux = new double* [nx];
+    double** temp_profile_uy = new double* [nx];
+    double **temp_profile_ed_prev = NULL;
+    double **temp_profile_rhob = NULL;
+    double **temp_profile_rhob_prev = NULL;
+    double **temp_profile_ux_prev = NULL;
+    double **temp_profile_uy_prev = NULL;
+    double **temp_profile_pixx = NULL;
+    double **temp_profile_piyy = NULL;
+    double **temp_profile_pixy = NULL;
+    double **temp_profile_pi00 = NULL;
+    double **temp_profile_pi0x = NULL;
+    double **temp_profile_pi0y = NULL;
+    double **temp_profile_pi33 = NULL;
+        temp_profile_pixx = new double* [nx];
+        temp_profile_piyy = new double* [nx];
+        temp_profile_pixy = new double* [nx];
+        temp_profile_pi00 = new double* [nx];
+        temp_profile_pi0x = new double* [nx];
+        temp_profile_pi0y = new double* [nx];
+        temp_profile_pi33 = new double* [nx];
+        temp_profile_ed_prev = new double* [nx];
+        temp_profile_rhob = new double* [nx];
+        temp_profile_rhob_prev = new double* [nx];
+        temp_profile_ux_prev = new double* [nx];
+        temp_profile_uy_prev = new double* [nx];
+    for (int i = 0; i < nx; i++) {
+        temp_profile_ed[i] = new double[ny];
+        temp_profile_ux[i] = new double[ny];
+        temp_profile_uy[i] = new double[ny];
+            temp_profile_pixx[i] = new double[ny];
+            temp_profile_pixy[i] = new double[ny];
+            temp_profile_piyy[i] = new double[ny];
+            temp_profile_pi00[i] = new double[ny];
+            temp_profile_pi0x[i] = new double[ny];
+            temp_profile_pi0y[i] = new double[ny];
+            temp_profile_pi33[i] = new double[ny];
+            temp_profile_ed_prev[i] = new double[ny];
+            temp_profile_rhob[i] = new double[ny];
+            temp_profile_rhob_prev[i] = new double[ny];
+            temp_profile_ux_prev[i] = new double[ny];
+            temp_profile_uy_prev[i] = new double[ny];
+    }
+
+    double dummy;
+    double u[4];
+    for (int ix = 0; ix < nx; ix++) {
+        for (int iy = 0; iy < ny; iy++) {
+                temp_profile_ed[ix][iy]=5.;
+                temp_profile_rhob[ix][iy]=0.;
+                temp_profile_ux[ix][iy]=0.;
+                temp_profile_uy[ix][iy]=0.;
+                temp_profile_ed_prev[ix][iy]=5.;
+                temp_profile_rhob_prev[ix][iy]=0.;
+                temp_profile_ux_prev[ix][iy]=0.;
+                temp_profile_uy_prev[ix][iy]=0.;
+                temp_profile_pixx[ix][iy]=0.0;
+                temp_profile_piyy[ix][iy]=0.0;
+                temp_profile_pixy[ix][iy]=0.0;
+                temp_profile_pi00[ix][iy]=0.0;
+                temp_profile_pi0x[ix][iy]=0.0;
+                temp_profile_pi0y[ix][iy]=0.0;
+                temp_profile_pi33[ix][iy]=0.0;
+        }
+    }
+
+    for (int ix = 0; ix < nx; ix++) {
+        for (int iy = 0; iy< ny; iy++) {
+            int idx = iy + ny*ix + ny*nx*ieta;
+            double rhob = 0.0;
+            if (DATA->turn_on_shear == 0) {
+                if (DATA->turn_on_rhob == 1) {
+                    rhob = temp_profile_rhob[ix][iy];
+                }
+            }
+
+            double epsilon = temp_profile_ed[ix][iy];
+            
+            // set all values in the grid element:
+            hydro_fields->e_rk0[idx] = epsilon;
+            hydro_fields->e_rk1[idx] = epsilon;
+            hydro_fields->e_prev[idx] = epsilon;
+            hydro_fields->rhob_rk0[idx] = rhob;
+            hydro_fields->rhob_rk1[idx] = rhob;
+            hydro_fields->rhob_prev[idx] = rhob;
+            
+            /* for HIC */
+            double utau_local = sqrt(1.
+                          + temp_profile_ux[ix][iy]*temp_profile_ux[ix][iy]
+                          + temp_profile_uy[ix][iy]*temp_profile_uy[ix][iy]);
+            u[0] = utau_local;
+            u[1] = temp_profile_ux[ix][iy];
+            u[2] = temp_profile_uy[ix][iy];
+            u[3] = 0.0;
+            hydro_fields->u_rk0[idx][0] = u[0];
+            hydro_fields->u_rk0[idx][1] = u[1];
+            hydro_fields->u_rk0[idx][2] = u[2];
+            hydro_fields->u_rk0[idx][3] = u[3];
+            hydro_fields->u_prev[idx][0] = u[0];
+            hydro_fields->u_prev[idx][1] = u[1];
+            hydro_fields->u_prev[idx][2] = u[2];
+            hydro_fields->u_prev[idx][3] = u[3];
+
+                double utau_prev = sqrt(1.
+                    + temp_profile_ux_prev[ix][iy]*temp_profile_ux_prev[ix][iy]
+                    + temp_profile_uy_prev[ix][iy]*temp_profile_uy_prev[ix][iy]
+                );
+                hydro_fields->u_prev[idx][0] = utau_prev;
+                hydro_fields->u_prev[idx][1] = temp_profile_ux_prev[ix][iy];
+                hydro_fields->u_prev[idx][2] = temp_profile_uy_prev[ix][iy];
+                hydro_fields->u_prev[idx][3] = 0.0;
+            hydro_fields->pi_b_prev[idx] = 0.0;
+            hydro_fields->pi_b_rk0[idx] = 0.0;
+
+                hydro_fields->Wmunu_rk0[idx][0] = temp_profile_pi00[ix][iy];
+                hydro_fields->Wmunu_rk0[idx][1] = temp_profile_pi0x[ix][iy];
+                hydro_fields->Wmunu_rk0[idx][2] = temp_profile_pi0y[ix][iy];
+                hydro_fields->Wmunu_rk0[idx][3] = 0.0;
+                hydro_fields->Wmunu_rk0[idx][4] = temp_profile_pixx[ix][iy];
+                hydro_fields->Wmunu_rk0[idx][5] = temp_profile_pixy[ix][iy];
+                hydro_fields->Wmunu_rk0[idx][6] = 0.0;
+                hydro_fields->Wmunu_rk0[idx][7] = temp_profile_piyy[ix][iy];
+                hydro_fields->Wmunu_rk0[idx][8] = 0.0;
+                hydro_fields->Wmunu_rk0[idx][9] = temp_profile_pi33[ix][iy];
+                for (int mu = 10; mu < 14; mu++) {
+                        hydro_fields->Wmunu_rk0[idx][mu] = 0.0;
+                }
+                for (int mu = 0; mu < 14; mu++) {
+                        hydro_fields->Wmunu_rk0[idx][mu] = 0.0;
+                }
+            for (int rkstep = 0; rkstep < 1; rkstep++) {
+                for (int ii = 0; ii < 14; ii++) {
+                    hydro_fields->Wmunu_prev[idx][ii] =
+                                        hydro_fields->Wmunu_rk0[idx][ii];
+                }
+            }
+        }
+    }
+    // clean up
+    for (int i = 0; i < nx; i++) {
+        delete[] temp_profile_ed[i];
+        delete[] temp_profile_ux[i];
+        delete[] temp_profile_uy[i];
+            delete[] temp_profile_pixx[i];
+            delete[] temp_profile_piyy[i];
+            delete[] temp_profile_pixy[i];
+            delete[] temp_profile_pi00[i];
+            delete[] temp_profile_pi0x[i];
+            delete[] temp_profile_pi0y[i];
+            delete[] temp_profile_pi33[i];
+            delete[] temp_profile_ed_prev[i];
+            delete[] temp_profile_rhob[i];
+            delete[] temp_profile_rhob_prev[i];
+            delete[] temp_profile_ux_prev[i];
+            delete[] temp_profile_uy_prev[i];
+    }
+    delete[] temp_profile_ed;
+    delete[] temp_profile_ux;
+    delete[] temp_profile_uy;
+        delete[] temp_profile_pixx;
+        delete[] temp_profile_piyy;
+        delete[] temp_profile_pixy;
+        delete[] temp_profile_pi00;
+        delete[] temp_profile_pi0x;
+        delete[] temp_profile_pi0y;
+        delete[] temp_profile_pi33;
+        delete[] temp_profile_ed_prev;
+        delete[] temp_profile_rhob;
+        delete[] temp_profile_rhob_prev;
+        delete[] temp_profile_ux_prev;
+        delete[] temp_profile_uy_prev;
 }
 
 void Init::initial_IPGlasma_XY(InitData *DATA, int ieta, Field *hydro_fields) {

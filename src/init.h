@@ -29,6 +29,7 @@ class Init {
     void LinkNeighbors_XY(InitData *DATA, int ieta, Grid ***arena);
 
     int InitTJb(InitData *DATA, Field *hydro_fields);
+    void initial_Bjorken_XY(InitData *DATA, int ieta, Field *hydro_fields);
     void initial_Gubser_XY(InitData *DATA, int ieta, Field *hydro_fields);
     void initial_IPGlasma_XY(InitData *DATA, int ieta, Field *hydro_fields);
 

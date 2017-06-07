@@ -85,24 +85,6 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
     // in the format of a C header file
     //if (DATA->output_hydro_params_header || outputEvo_flag == 1)
     //    grid_info->Output_hydro_information_header(DATA);
-#pragma acc data copyin (hydro_fields[0:1], \
-                         hydro_fields->e_rk0[0:n_cell_length], \
-                         hydro_fields->e_rk1[0:n_cell_length], \
-                         hydro_fields->e_prev[0:n_cell_length], \
-                         hydro_fields->rhob_rk0[0:n_cell_length], \
-                         hydro_fields->rhob_rk1[0:n_cell_length], \
-                         hydro_fields->rhob_prev[0:n_cell_length], \
-                         hydro_fields->u_rk0[0:n_cell_length][0:4], \
-                         hydro_fields->u_rk1[0:n_cell_length][0:4], \
-                         hydro_fields->u_prev[0:n_cell_length][0:4], \
-                         hydro_fields->dUsup[0:n_cell_length][0:20], \
-                         hydro_fields->Wmunu_rk0[0:n_cell_length][0:14], \
-                         hydro_fields->Wmunu_rk1[0:n_cell_length][0:14], \
-                         hydro_fields->Wmunu_prev[0:n_cell_length][0:14], \
-                         hydro_fields->pi_b_rk0[0:n_cell_length], \
-                         hydro_fields->pi_b_rk1[0:n_cell_length], \
-                         hydro_fields->pi_b_prev[0:n_cell_length], \
-                         DATA[0:1], DATA->gmunu[0:4][0:4])
 {
 
     // main loop starts ...
@@ -360,7 +342,7 @@ int Evolve::AdvanceRK(double tau, InitData *DATA, Field *hydro_fields) {
     // loop over Runge-Kutta steps
     for (int rk_flag = 0; rk_flag < rk_order; rk_flag++) {
         flag = u_derivative->MakedU(tau, hydro_fields, rk_flag);
-        flag = advance->AdvanceIt(tau, DATA, hydro_fields, rk_flag);
+        flag = advance->AdvanceIt(tau, hydro_fields, rk_flag);
         if (rk_flag == 0) {
             update_prev_field(hydro_fields);
         }
