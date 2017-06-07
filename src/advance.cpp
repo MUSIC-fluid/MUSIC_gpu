@@ -188,7 +188,7 @@ void Advance::prepare_vis_array(
         int sub_grid_neta, int sub_grid_x, int sub_grid_y,
         double vis_array[][19], double vis_nbr_tau[][19],
         double vis_nbr_x[][19], double vis_nbr_y[][19],
-        double vis_nbr_eta[][19], InitData *DATA) {
+        double vis_nbr_eta[][19]) {
 
     int field_idx;
     int field_ny = GRID_SIZE_Y + 1;
@@ -363,7 +363,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     //const int neigh_sizex=4*SUB_GRID_SIZE_Y*SUB_GRID_SIZE_ETA;
     //const int neigh_sizey=4*SUB_GRID_SIZE_X*SUB_GRID_SIZE_ETA;
     //const int neigh_sizeeta=4*SUB_GRID_SIZE_X*SUB_GRID_SIZE_Y;
-    double tmp=-1.1;
+    double tmp[1]={-1.1};
     
 #pragma acc data copyin (hydro_fields[0:1],\
                          hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
@@ -382,7 +382,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                          hydro_fields->pi_b_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->pi_b_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->pi_b_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
-#pragma acc parallel loop copy(tmp)
+{
+#pragma acc parallel loop copy(tmp[0:1])
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta += SUB_GRID_SIZE_ETA) {
 //        #pragma omp parallel private(ix)
 //        {
@@ -403,17 +404,19 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                         double qimhR[5];
                         double grid_array_hL[5];
                         double grid_array_hR[5];
-//tmp=hydro_fields->e_rk0[0];
+
+                        tmp[0]=tau; //hydro_fields->e_rk0[0];
+
                    prepare_qi_array(tau, hydro_fields, rk_flag, ieta, ix, iy,
                                     SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y, qi_array,
                                     qi_nbr_x, qi_nbr_y, qi_nbr_eta,
                                     qi_rk0, grid_array, grid_array_temp);
-                        tmp=grid_array[0][0]; //hydro_fields->e_rk0[10];
+//                        tmp=grid_array[0][0]; //hydro_fields->e_rk0[10];
                     // viscous source terms
-      //              prepare_vis_array(hydro_fields, rk_flag, ieta, ix, iy,
-      //                                SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y,
-      //                                vis_array, vis_nbr_tau, vis_nbr_x,
-      //                                vis_nbr_y, vis_nbr_eta, DATA);
+                    prepare_vis_array(hydro_fields, rk_flag, ieta, ix, iy,
+                                      SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y,
+                                      vis_array, vis_nbr_tau, vis_nbr_x,
+                                      vis_nbr_y, vis_nbr_eta);
 
                    FirstRKStepT(tau, rk_flag,
                                 qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
@@ -427,11 +430,11 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                     update_grid_cell(grid_array, hydro_fields, rk_flag, ieta, ix, iy,
                                      SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y);
 
-      //              if (DATA_ptr->viscosity_flag == 1) {
-      //                  double tau_rk = tau;
-      //                  if (rk_flag == 1) {
-      //                      tau_rk = tau + DELTA_TAU;
-      //                  }
+                    if (VISCOUS_FLAG == 1) {
+                        double tau_rk = tau;
+                        if (rk_flag == 1) {
+                            tau_rk = tau + DELTA_TAU;
+                        }
 
       //                  prepare_velocity_array(tau_rk, hydro_fields,
       //                                         ieta, ix, iy,
@@ -449,14 +452,15 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
       //                  update_grid_cell_viscous(vis_array_new, hydro_fields, rk_flag,
       //                                           ieta, ix, iy, SUB_GRID_SIZE_ETA,
       //                                           SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y);
-      //              }
+                   }
                 }
             }
 //        }
 //        #pragma omp barrier
     }
+}
     //clean up
-    std::cout << "tmp=" << tmp << "\n";
+    std::cout << "tmp=" << tmp[0] << "\n";
 
     return(1);
 }/* AdvanceIt */
@@ -800,17 +804,11 @@ int Advance::FirstRKStepW(double tau, int rk_flag, int sub_grid_neta,
     // add source terms
     Make_uWSource(tau_rk, sub_grid_neta, sub_grid_x, sub_grid_y, vis_array,
                   velocity_array, grid_array, vis_array_new);
-    if (DATA_ptr->turn_on_bulk == 1) {
+    if (INCLUDE_BULK == 1) {
         Make_uPiSource(tau_rk, sub_grid_neta, sub_grid_x, sub_grid_y, vis_array,
                        velocity_array, grid_array, vis_array_new);
     }
     
-    // add source term for baryon diffusion
-    if (DATA_ptr->turn_on_diff == 1) {
-        Make_uqSource(tau_rk, sub_grid_neta, sub_grid_x, sub_grid_y, vis_array,
-                      velocity_array, grid_array, vis_array_new);
-    }
-
     for (int k = 0; k < sub_grid_neta; k++) {
         for (int i = 0; i < sub_grid_x; i++) {
             for (int j = 0; j < sub_grid_y; j++) {
@@ -870,23 +868,12 @@ int Advance::FirstRKStepW(double tau, int rk_flag, int sub_grid_neta,
                                          + vis_array_new[idx][2]*u2
                                          + vis_array_new[idx][3]*u3)/u0;
 
-                if (DATA_ptr->turn_on_diff == 1) {
-                    // make qmu[0] using transversality
-                    vis_array_new[idx][10] = (vis_array_new[idx][11]*u1
-                                              + vis_array_new[idx][12]*u2
-                                              + vis_array_new[idx][13]*u3)/u0;
-                } else {
                     vis_array_new[idx][10] = 0.0;
-                }
 
                 // If the energy density of the fluid element is smaller
                 // than 0.01GeV reduce Wmunu using the QuestRevert algorithm
-                if (DATA_ptr->Initial_profile != 0) {
+                if (INITIAL_PROFILE >2) {
                     QuestRevert(tau, vis_array_new[idx], grid_array[idx]);
-                    if (DATA_ptr->turn_on_diff == 1) {
-                        QuestRevert_qmu(tau, vis_array_new[idx],
-                                        grid_array[idx]);
-                    }
                 }
             }
         }
@@ -1056,54 +1043,6 @@ int Advance::QuestRevert(double tau, double *vis_array, double *grid_array) {
 }
 
 
-//! this function reduce the size of net baryon diffusion current
-//! in the dilute region to stablize numerical simulations
-int Advance::QuestRevert_qmu(double tau, double *vis_array,
-                             double *grid_array) {
-    int revert_flag = 0;
-    //const double energy_density_warning = 0.01;  // GeV/fm^3, T~100 MeV
-    double eps_scale = 1.0;   // in 1/fm^4
-    //double e_local = grid_array[0];
-    double factor = 300.*tanh(grid_array[0]/eps_scale);
-
-    // calculate the size of q^\mu
-    double q_size = (- vis_array[10]*vis_array[10]
-                     + vis_array[11]*vis_array[11]
-                     + vis_array[12]*vis_array[12]
-                     + vis_array[13]*vis_array[13]);
-
-    // first check the positivity of q^mu q_mu 
-    // (in the conversion of gmn = diag(-+++))
-    if (q_size < 0.0) {
-        //cout << "Advance::QuestRevert_qmu: q^mu q_mu = " << q_size << " < 0!"
-        //     << endl;
-        //cout << "Reset it to zero!!!!" << endl;
-        vis_array[10] = 0.0;
-        vis_array[11] = 0.0;
-        vis_array[12] = 0.0;
-        vis_array[13] = 0.0;
-        revert_flag = 1;
-        return(revert_flag);
-    }
-
-    // reduce the size of q^mu according to rhoB
-    //double rhob_local = grid_array[4];
-    double rho_q = sqrt(q_size/(grid_array[4]*grid_array[4]))/factor;
-    double rho_q_max = 0.1;
-    if (rho_q > rho_q_max) {
-        //if (e_local*hbarc > energy_density_warning) {
-        //    printf("energy density = %lf, rhob = %lf -- |q/rhob| = %lf\n",
-        //           e_local*hbarc, rhob_local, rho_q);
-        //}
-        double ratio = rho_q_max/rho_q;
-        vis_array[10] *= ratio;
-        vis_array[11] *= ratio;
-        vis_array[12] *= ratio;
-        vis_array[13] *= ratio;
-        revert_flag = 1;
-    }
-    return(revert_flag);
-}
 
 
 //! This function computes the rhs array. It computes the spatial
@@ -2357,7 +2296,7 @@ double Advance::Make_uWSource(double tau, int sub_grid_neta, int sub_grid_x,
     int include_WWterm = 1;
     int include_Vorticity_term = 0;
     int include_Wsigma_term = 1;
-    if (DATA_ptr->Initial_profile == 0) {
+    if (INITIAL_PROFILE < 2) {
         include_WWterm = 0;
         include_Wsigma_term = 0;
         include_Vorticity_term = 0;
@@ -2894,213 +2833,6 @@ double Advance::Make_uPiSource(double tau, int sub_grid_neta, int sub_grid_x,
     -Delta[a][eta] u[eta] q[tau]/tau
     -u[a]u[b]g[b][e] Dq[e]
 */
-double Advance::Make_uqSource(double tau, int sub_grid_neta, int sub_grid_x,
-                              int sub_grid_y,
-                              double vis_array[][19],
-                              double velocity_array[][20],
-                              double grid_array[][5],
-                              double vis_array_new[][19]) {
-
-    for (int k = 0; k < sub_grid_neta; k++) {
-        for (int i = 0; i < sub_grid_x; i++) {
-            for (int j = 0; j < sub_grid_y; j++) {
-                int idx = j + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
-
-                // Useful variables to define
-                double epsilon = grid_array[idx][0];
-                double rhob = grid_array[idx][4];
-                double pressure = get_pressure(epsilon, rhob);
-                double T = get_temperature(epsilon, rhob);
-
-                double kappa_coefficient = DATA_ptr->kappa_coefficient;
-                double tau_rho = kappa_coefficient/(T + 1e-15);
-                double mub = get_mu(epsilon, rhob);
-                double alpha = mub/T;
-                double kappa = (kappa_coefficient
-                                *(rhob/(3.*T*tanh(alpha) + 1e-15)
-                                  - rhob*rhob/(epsilon + pressure)));
-
-
-                //for (int ii = 0; ii < 4; ii++) {
-                //    for (int jj = ii; jj < 4; jj++) {
-                //        int idx_1d = util->map_2d_idx_to_1d(ii, jj);
-                //        //sigma[ii][jj] = sigma_1d[idx_1d];
-                //        sigma[ii][jj] = velocity_array[idx][6+idx_1d];
-                //    }
-                //}
-                //for (int ii = 0; ii < 4; ii++) {
-                //    for (int jj = ii+1; jj < 4; jj++) {
-                //        sigma[jj][ii] = sigma[ii][jj];
-                //    }
-                //}
-
-                // add a new non-linear term (- q \theta)
-                // from conformal kinetic theory
-                double transport_coeff = 1.0*tau_rho;
-                // add a new non-linear term (-q^\mu \sigma_\mu\nu)
-                // from 14-momentum massless
-                double transport_coeff_2 = 3./5.*tau_rho;
-
-                /* -(1/tau_rho)(q[a] + kappa g[a][b]Dtildemu[b] 
-                 *              + kappa u[a] u[b]g[b][c]Dtildemu[c])
-                 * + theta q[a] - q[a] u^\tau/tau
-                 * + Delta[a][tau] u[eta] q[eta]/tau
-                 * - Delta[a][eta] u[eta] q[tau]/tau
-                 * - u[a] u[b]g[b][e] Dq[e] -> u[a] q[e] g[e][b] Du[b]
-                */    
- 
-                // first: (1/tau_rho) part
-                // recall that dUsup[4][i] = partial_i (muB/T) 
-                // and dUsup[4][0] = -partial_tau (muB/T) = partial^tau (muB/T)
-                // and a[4] = u^a partial_a (muB/T) = DmuB/T
-                // -(1/tau_rho)(q[a] + kappa g[a][b]DmuB/T[b] 
-                // + kappa u[a] u[b]g[b][c]DmuB/T[c])
-                // a = nu 
-                //double NS = kappa*(grid_pt->dUsup[0][4][nu] 
-                //                       + grid_pt->u[rk_flag][nu]*a_local[4]);
-                for (int nu = 1; nu < 4; nu++) {
-                    int idx_1d = 10 + nu;
-                    //double NS = kappa*(dUsup[0][4][nu] 
-                    //                       + u[rk_flag][nu]*a_local[4]);
-                    double NS = kappa*(velocity_array[idx][16+nu]
-                                       + vis_array[idx][15+nu]
-                                         *velocity_array[idx][5]);
-                    //if (isnan(NS)) {
-                    //    cout << "Navier Stock term is nan! " << endl;
-                    //    cout << vis_array[idx][idx_1d] << endl;
-                    //    // derivative already upper index
-                    //    cout << velocity_array[idx][16+nu] << endl;
-                    //    cout << velocity_array[5] << endl;
-                    //    cout << tau_rho << endl;
-                    //    cout << kappa << endl;
-                    //    cout << vis_array[idx][15+nu] << endl;
-                    //}
-  
-                    //double Nonlinear1 = -transport_coeff*q[nu]*theta_local;
-                    double Nonlinear1 = (- transport_coeff
-                                           *vis_array[idx][idx_1d]
-                                           *velocity_array[idx][0]);
-
-                    double tempf = 0.0;
-                    //for (int iii = 0 ; iii < 4; iii++) {
-                    //    temptemp += (vis_array[idx][10+iii]*sigma[iii][nu]
-                    //                 *DATA_ptr->gmunu[iii][iii]);
-                    //}
-                    if (nu == 0) {
-                        tempf = (
-                            - vis_array[idx][10]*velocity_array[idx][6]
-                            + vis_array[idx][11]*velocity_array[idx][7]
-                            + vis_array[idx][12]*velocity_array[idx][8]
-                            + vis_array[idx][13]*velocity_array[idx][9]);
-                    } else if (nu == 1) {
-                        tempf = (
-                            - vis_array[idx][10]*velocity_array[idx][7]
-                            + vis_array[idx][11]*velocity_array[idx][10]
-                            + vis_array[idx][12]*velocity_array[idx][11]
-                            + vis_array[idx][13]*velocity_array[idx][12]);
-                    } else if (nu == 2) {
-                        tempf = (
-                            - vis_array[idx][10]*velocity_array[idx][8]
-                            + vis_array[idx][11]*velocity_array[idx][11]
-                            + vis_array[idx][12]*velocity_array[idx][13]
-                            + vis_array[idx][13]*velocity_array[idx][14]);
-                    } else if (nu == 3) {
-                        tempf = (
-                            - vis_array[idx][10]*velocity_array[idx][9]
-                            + vis_array[idx][11]*velocity_array[idx][12]
-                            + vis_array[idx][12]*velocity_array[idx][14]
-                            + vis_array[idx][13]*velocity_array[idx][15]);
-                    }
-
-                    double Nonlinear2 = - transport_coeff_2*tempf;
-
-                    double SW = ((-vis_array[idx][idx_1d]
-                                  - NS + Nonlinear1 + Nonlinear2)
-                                 /(tau_rho + 1e-15));
-
-                    // for 1+1D numerical test
-                    // SW = (-q[nu] - NS)/(tau_rho + 1e-15);
-
-                    // all other geometric terms....
-                    // + theta q[a] - q[a] u^\tau/tau
-                    //SW += (theta_local - grid_pt->u[rk_flag][0]/tau)*q[nu];
-                    SW += (velocity_array[idx][0]
-                            - vis_array[idx][15]/tau)*vis_array[idx][idx_1d];
- 
-                    //if (isnan(SW)) {
-                    //    cout << "theta term is nan! " << endl;
-                    //}
-
-                    // +Delta[a][tau] u[eta] q[eta]/tau 
-                    //double tempf = ((DATA_ptr->gmunu[nu][0] 
-                    //                //+ grid_pt->u[rk_flag][nu]*grid_pt->u[rk_flag][0])
-                    //                //  *grid_pt->u[rk_flag][3]*q[3]/tau
-                    //                + vis_array[idx][15+nu]*vis_array[idx][15])
-                    //                  *vis_array[idx][18]
-                    //                  *vis_array[idx][13]/tau
-                    //                - (DATA_ptr->gmunu[nu][3]
-                    //                  // + grid_pt->u[rk_flag][nu]*grid_pt->u[rk_flag][3])
-                    //                  //*grid_pt->u[rk_flag][3]*q[0]/tau);
-                    //                   + vis_array[idx][15+nu]
-                    //                     *vis_array[idx][18])
-                    //                  *vis_array[idx][18]
-                    //                  *vis_array[idx][10]/tau);
-                    if (nu == 0) {
-                        tempf = ((-1. + vis_array[idx][15]*vis_array[idx][15])
-                                 *(vis_array[idx][18]*vis_array[idx][13]/tau)
-                                 - (vis_array[idx][15]*vis_array[idx][18]
-                                    *vis_array[idx][18]*vis_array[idx][10]/tau)
-                                );
-                    } else if (nu == 1) {
-                        tempf = ((vis_array[idx][16]*vis_array[idx][15])
-                                 *(vis_array[idx][18]*vis_array[idx][13]/tau)
-                                 - (vis_array[idx][16]*vis_array[idx][18]
-                                    *vis_array[idx][18]*vis_array[idx][10]/tau)
-                                );
-                    } else if (nu == 2) {
-                        tempf = ((vis_array[idx][17]*vis_array[idx][15])
-                                 *(vis_array[idx][18]*vis_array[idx][13]/tau)
-                                 - (vis_array[idx][17]*vis_array[idx][18]
-                                    *vis_array[idx][18]*vis_array[idx][10]/tau)
-                                );
-                    } else if (nu == 3) {
-                        tempf = ((vis_array[idx][18]*vis_array[idx][15])
-                                 *(vis_array[idx][18]*vis_array[idx][13]/tau)
-                                 - (1. + vis_array[idx][18]*vis_array[idx][18]
-                                    *vis_array[idx][18]*vis_array[idx][10]/tau)
-                                );
-                    }
-                    SW += tempf;
- 
-                    //if (isnan(tempf)) {
-                    //    cout << "Delta^{a \tau} and Delta^{a \eta} terms "
-                    //         << "are nan!" << endl;
-                    //}
-
-                    // -u[a] u[b]g[b][e] Dq[e] -> u[a] (q[e] g[e][b] Du[b])
-                    //for (int iii = 0; iii < 4; iii++) {
-                    //    //tempf += q[i]*gmn(i)*a_local[i];
-                    //    tempf += (vis_array[idx][10+iii]*gmn(iii)
-                    //              *velocity_array[idx][1+iii]);
-                    //}
-                    tempf = (- vis_array[idx][10]*velocity_array[idx][1]
-                             + vis_array[idx][11]*velocity_array[idx][2]
-                             + vis_array[idx][12]*velocity_array[idx][3]
-                             + vis_array[idx][13]*velocity_array[idx][4]);
-                    //SW += (grid_pt->u[rk_flag][nu])*tempf;
-                    SW += vis_array[idx][15+nu]*tempf;
-                    
-                    //if (isnan(tempf)) {
-                    //    cout << "u^a q_b Du^b term is nan! " << endl;
-                    //}
-                    vis_array_new[idx][idx_1d] += SW*(DELTA_TAU);
-                }
-            }
-        }
-    }
-    return(0);
-}
-
 
 int Advance::map_2d_idx_to_1d(int a, int b) {
     // this function maps the 2d indeices of a symmetric matrix to the index

@@ -34,7 +34,7 @@ void ReadInParameters::read_in_parameters(InitData *parameter_list,
     int tempInitial_profile = 1;
     tempinput = util->StringFind4(input_file, "Initial_profile");
     if (tempinput != "empty") istringstream(tempinput) >> tempInitial_profile;
-    parameter_list->Initial_profile = tempInitial_profile;
+    parameter_list->Initial_profile = INITIAL_PROFILE;
 
     // Initial_profile: 
     int temp_string_dump_mode = 1;
@@ -506,7 +506,7 @@ void ReadInParameters::read_in_parameters(InitData *parameter_list,
     int tempviscosity_flag = 1;
     tempinput = util->StringFind4(input_file, "Viscosity_Flag_Yes_1_No_0");
     if(tempinput != "empty") istringstream ( tempinput ) >> tempviscosity_flag;
-    parameter_list->viscosity_flag = tempviscosity_flag;
+    parameter_list->viscosity_flag = VISCOUS_FLAG;
     
     // Include_Shear_Visc_Yes_1_No_0
     int tempturn_on_shear = 0;

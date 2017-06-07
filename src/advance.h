@@ -136,7 +136,7 @@ class Advance {
         int n_cell_eta, int n_cell_x, int n_cell_y,
         double vis_array[][19], double vis_nbr_tau[][19],
         double vis_nbr_x[][19], double vis_nbr_y[][19],
-        double vis_nbr_eta[][19], InitData *DATA);
+        double vis_nbr_eta[][19]);
 
 #pragma acc routine seq
     void prepare_velocity_array(double tau_rk, Field *hydro_fields,
