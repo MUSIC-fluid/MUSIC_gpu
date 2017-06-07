@@ -19,7 +19,7 @@ Init::~Init() {
 }
 
 void Init::initialize_hydro_fields(Field *hydro_fields, InitData *DATA) {
-    int n_cell = DATA->neta*(DATA->nx + 1)*(DATA->ny + 1);
+    int n_cell = GRID_SIZE_ETA*(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1);
     hydro_fields->e_rk0 = new double[n_cell];
     hydro_fields->e_rk1 = new double[n_cell];
     hydro_fields->e_prev = new double[n_cell];

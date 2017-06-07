@@ -8,6 +8,15 @@
 #define GRID_SIZE_Y 20
 #define GRID_SIZE_ETA 8
 
+#define SUB_GRID_SIZE_X 1
+#define SUB_GRID_SIZE_Y 1
+#define SUB_GRID_SIZE_ETA 1
+
+#define DELTA_TAU 0.01
+#define DELTA_X 0.01
+#define DELTA_Y 0.01
+#define DELTA_ETA 0.01
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>

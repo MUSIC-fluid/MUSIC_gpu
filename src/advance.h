@@ -71,8 +71,8 @@ class Advance {
                           double qi_array_new[][5], double grid_array[][5],
                           double *rhs, double *qiphL, double *qiphR,
                           double *qimhL, double *qimhR,
-                          double *grid_array_hL, double *grid_array_hR,
-                          InitData *DATA);
+                          double *grid_array_hL, double *grid_array_hR);
+                         
 
 
 #pragma acc routine seq
@@ -82,8 +82,7 @@ class Advance {
                      double qi_array_new[][5], double grid_array[][5],
                      double *rhs, double *qiphL, double *qiphR,
                      double *qimhL, double *qimhR,
-                     double *grid_array_hL, double *grid_array_hR,
-                     InitData* DATA);
+                     double *grid_array_hL, double *grid_array_hR);
     
 #pragma acc routine seq
     double MaxSpeed(double tau, int direc, double *grid_array);

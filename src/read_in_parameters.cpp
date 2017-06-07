@@ -293,12 +293,12 @@ void ReadInParameters::read_in_parameters(InitData *parameter_list,
     tempinput = util->StringFind4(input_file, "X_grid_size_in_fm");
     if (tempinput != "empty")
         istringstream(tempinput) >> tempx_size;
-    parameter_list->x_size = tempx_size;
+    parameter_list->x_size = GRID_SIZE_X*DELTA_X;
     double tempy_size = 25.;
     tempinput = util->StringFind4(input_file, "Y_grid_size_in_fm");
     if (tempinput != "empty")
         istringstream(tempinput) >> tempy_size;
-    parameter_list->y_size = tempy_size;
+    parameter_list->y_size = GRID_SIZE_Y*DELTA_Y;
     
     
     // switch for baryon current propagation
@@ -318,7 +318,7 @@ void ReadInParameters::read_in_parameters(InitData *parameter_list,
     tempinput = util->StringFind4(input_file, "Eta_grid_size");
     if (tempinput != "empty")
         istringstream(tempinput) >> tempeta_size;
-    parameter_list->eta_size = tempeta_size;
+    parameter_list->eta_size = GRID_SIZE_ETA*DELTA_ETA;
     
     // Total_evolution_time_tau
     // total evolution time in [fm]. in case of freeze_out_method = 2,3,
@@ -337,12 +337,9 @@ void ReadInParameters::read_in_parameters(InitData *parameter_list,
     parameter_list->tau0 = temptau0;
     
     /* x-grid, for instance, runs from 0 to nx */
-    parameter_list->delta_x =
-            parameter_list->x_size/static_cast<double>(parameter_list->nx - 1); 
-    parameter_list->delta_y =
-            parameter_list->y_size/static_cast<double>(parameter_list->ny - 1); 
-    parameter_list->delta_eta =
-            parameter_list->eta_size/static_cast<double>(parameter_list->neta); 
+    parameter_list->delta_x = DELTA_X;
+    parameter_list->delta_y = DELTA_Y;
+    parameter_list->delta_eta = DELTA_ETA;
     
     cerr << " DeltaX = " << parameter_list->delta_x << " fm" << endl;
     cerr << " DeltaY = " << parameter_list->delta_y << " fm" << endl;
