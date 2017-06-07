@@ -479,8 +479,8 @@ void Init::initial_Bjorken_XY(InitData *DATA, int ieta, Field *hydro_fields) {
     string input_filename;
     string input_filename_prev;
     
-    int nx = DATA->nx + 1;
-    int ny = DATA->ny + 1;
+    int nx = GRID_SIZE_X + 1;
+    int ny = GRID_SIZE_Y + 1;
     double** temp_profile_ed = new double* [nx];
     double** temp_profile_ux = new double* [nx];
     double** temp_profile_uy = new double* [nx];

@@ -405,12 +405,17 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                         double grid_array_hL[5];
                         double grid_array_hR[5];
 
-                        tmp[0]=tau; //hydro_fields->e_rk0[0];
+                        tmp[0]=hydro_fields->e_rk0[0];
 
                    prepare_qi_array(tau, hydro_fields, rk_flag, ieta, ix, iy,
                                     SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y, qi_array,
                                     qi_nbr_x, qi_nbr_y, qi_nbr_eta,
                                     qi_rk0, grid_array, grid_array_temp);
+
+                //std::cout << ix << " " << iy << " " << ieta << " " << rk_flag << " : ";
+                //for(int i=0;i<5;i++) std::cout << qi_array[0][i] << " ";
+                //std::cout << "\n";
+
 //                        tmp=grid_array[0][0]; //hydro_fields->e_rk0[10];
                     // viscous source terms
                     prepare_vis_array(hydro_fields, rk_flag, ieta, ix, iy,
@@ -460,7 +465,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     }
 }
     //clean up
-    std::cout << "tmp=" << tmp[0] << "\n";
+    //std::cout << "tmp=" << tmp[0] << " vs " << 5*pow(1./tau, 4./3.) << "\n";
+    std::cout << "tmp=" << tmp[0]  << "\n";
 
     return(1);
 }/* AdvanceIt */
