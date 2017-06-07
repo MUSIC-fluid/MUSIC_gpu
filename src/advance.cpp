@@ -363,7 +363,17 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     //const int neigh_sizex=4*SUB_GRID_SIZE_Y*SUB_GRID_SIZE_ETA;
     //const int neigh_sizey=4*SUB_GRID_SIZE_X*SUB_GRID_SIZE_ETA;
     //const int neigh_sizeeta=4*SUB_GRID_SIZE_X*SUB_GRID_SIZE_Y;
-    double tmp[1]={-1.1};
+    double tmp[2]={-1.1, -2.2};
+
+    //for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta += SUB_GRID_SIZE_ETA) {
+    //        for (int ix = 0; ix <= GRID_SIZE_X; ix += SUB_GRID_SIZE_X) {
+    //                for (int iy = 0; iy <= GRID_SIZE_Y; iy += SUB_GRID_SIZE_Y) {
+    //                        int idx = iy + (GRID_SIZE_Y+1)*ix + (GRID_SIZE_Y+1)*(GRID_SIZE_X+1)*ieta;
+    //                    std::cout << ix << " " << iy << " " << ieta << " " << hydro_fields->e_rk0[idx] << "\n";
+    //                }
+    //        }
+    //}
+
     
 #pragma acc data copyin (hydro_fields[0:1],\
                          hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
@@ -383,7 +393,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                          hydro_fields->pi_b_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->pi_b_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
 {
-#pragma acc parallel loop copy(tmp[0:1])
+#pragma acc parallel loop copy(tmp[0:2])
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta += SUB_GRID_SIZE_ETA) {
 //        #pragma omp parallel private(ix)
 //        {
@@ -405,7 +415,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                         double grid_array_hL[5];
                         double grid_array_hR[5];
 
-                        tmp[0]=hydro_fields->e_rk0[0];
+                        tmp[0]=hydro_fields->e_rk1[10+10*20];
+                        tmp[1]=hydro_fields->e_rk1[0];
 
                    prepare_qi_array(tau, hydro_fields, rk_flag, ieta, ix, iy,
                                     SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y, qi_array,
@@ -418,10 +429,10 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
 
 //                        tmp=grid_array[0][0]; //hydro_fields->e_rk0[10];
                     // viscous source terms
-                    prepare_vis_array(hydro_fields, rk_flag, ieta, ix, iy,
-                                      SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y,
-                                      vis_array, vis_nbr_tau, vis_nbr_x,
-                                      vis_nbr_y, vis_nbr_eta);
+//                    prepare_vis_array(hydro_fields, rk_flag, ieta, ix, iy,
+//                                      SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y,
+//                                      vis_array, vis_nbr_tau, vis_nbr_x,
+//                                      vis_nbr_y, vis_nbr_eta);
 
                    FirstRKStepT(tau, rk_flag,
                                 qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
@@ -436,11 +447,11 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                                      SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y);
 
                     if (VISCOUS_FLAG == 1) {
-                        double tau_rk = tau;
-                        if (rk_flag == 1) {
-                            tau_rk = tau + DELTA_TAU;
-                        }
-
+//                        double tau_rk = tau;
+//                        if (rk_flag == 1) {
+//                            tau_rk = tau + DELTA_TAU;
+//                        }
+//
       //                  prepare_velocity_array(tau_rk, hydro_fields,
       //                                         ieta, ix, iy,
       //                                         rk_flag, SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X,
@@ -462,11 +473,12 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
             }
 //        }
 //        #pragma omp barrier
+
     }
 }
     //clean up
-    //std::cout << "tmp=" << tmp[0] << " vs " << 5*pow(1./tau, 4./3.) << "\n";
-    std::cout << "tmp=" << tmp[0]  << "\n";
+    std::cout << "tmp=" << tmp[0] << " " << tmp[1] << " vs " << 5*pow(1./tau, 4./3.) << "\n";
+    //std::cout << "tmp=" << tmp[0]  << "\n";
 
     return(1);
 }/* AdvanceIt */

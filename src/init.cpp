@@ -53,8 +53,8 @@ void Init::InitArena(InitData *DATA, Field *hydro_fields) {
     cout << "initArena" << endl;
     if (DATA->Initial_profile <= 1) {
         cout << "Using Initial_profile=" << DATA->Initial_profile << endl;
-        DATA->nx = DATA->nx - 1;
-        DATA->ny = DATA->ny - 1;
+        //DATA->nx = DATA->nx - 1;
+        //DATA->ny = DATA->ny - 1;
         cout << "nx=" << DATA->nx+1 << ", ny=" << DATA->ny+1 << endl;
         cout << "dx=" << DATA->delta_x << ", dy=" << DATA->delta_y << endl;
     } else if (DATA->Initial_profile == 8) {

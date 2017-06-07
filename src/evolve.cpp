@@ -91,6 +91,10 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
     int itmax = DATA->nt;
     double tau0 = DATA->tau0;
     double dt = DATA->delta_tau;
+     DATA->delta_tau= DELTA_TAU;
+     DATA->delta_x = DELTA_X;
+     DATA->delta_y= DELTA_Y;
+     DATA->delta_eta= DELTA_ETA;
 
     double tau;
     //int it_start = 0;
