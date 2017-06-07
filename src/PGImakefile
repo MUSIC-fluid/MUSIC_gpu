@@ -11,7 +11,9 @@
 ##  
 
 CC := pgc++
-CFLAGS= -O1 -acc -ta=multicore -Minfo=accel
+#CFLAGS= -O3 -acc -ta=multicore -Minfo=accel
+#CFLAGS= -O3 -acc -ta=tesla:cc35 -Minfo=accel
+CFLAGS= -O3 -acc -ta=tesla:cc35
 
 RM		=	rm -f
 O               =       .o

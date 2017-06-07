@@ -206,8 +206,6 @@ class Advance {
                     double tau, Field *hydro_fields, int idx, int rk_flag,
                     double *velocity_array);
 
-#pragma acc routine seq
-    double get_temperature_dependent_eta_s(double T);
 
 #pragma acc routine seq
     double get_temperature_dependent_zeta_s(double temperature);
