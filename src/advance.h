@@ -45,6 +45,8 @@ class Advance {
     double p_rho_func(double e_local, double rhob);
 #pragma acc routine seq
     double get_temperature(double e_local, double rhob);
+#pragma acc routine seq
+    double get_mu(double e_local, double rhob);
 
     //int FirstRKStepT(double tau, int rk_flag,
     //                 double **qi_array, double **qi_nbr_x,
@@ -177,6 +179,21 @@ class Advance {
                          double vis_array_new[][19]);
 
 #pragma acc routine seq
+    double Make_uPiSource(double tau, int n_cell_eta, int n_cell_x,
+                          int n_cell_y, double vis_array[][19],
+                          double velocity_array[][20],
+                          double grid_array[][5],
+                          double vis_array_new[][19]);
+
+#pragma acc routine seq
+    double Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
+                         int n_cell_y,
+                         double vis_array[][19],
+                         double velocity_array[][20],
+                         double grid_array[][5],
+                         double vis_array_new[][19]);
+
+#pragma acc routine seq
     double calculate_expansion_rate_1(
             double tau, Field *hydro_fields, int idx, int rk_flag);
 
@@ -191,6 +208,9 @@ class Advance {
 
 #pragma acc routine seq
     double get_temperature_dependent_eta_s(double T);
+
+#pragma acc routine seq
+    double get_temperature_dependent_zeta_s(double temperature);
 
 #pragma acc routine seq
     void update_grid_array_from_field(

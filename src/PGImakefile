@@ -11,7 +11,7 @@
 ##  
 
 CC := pgc++
-CFLAGS= -g -acc -ta=multicore -Minfo
+CFLAGS= -O1 -acc -ta=multicore -Minfo=accel
 
 RM		=	rm -f
 O               =       .o

@@ -326,6 +326,8 @@ int Util::map_2d_idx_to_1d(int a, int b) {
         return(5 + b);
     } else if (a == 3) {
         return(9);
+    } else {
+        return(-1);
     }
     //else {
     //    cout << "Util::map_2d_idx_to_1d: index exceed dimension! "
