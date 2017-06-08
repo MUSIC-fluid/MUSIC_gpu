@@ -253,9 +253,9 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
         // all the evolution are at here !!!
         AdvanceRK(tau, DATA, hydro_fields);
         #pragma acc update host(hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
-        for (int x = 0; x < (GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA; x += 100){
-            cout << hydro_fields->e_rk0[x] << endl;
-        }
+        //for (int x = 0; x < (GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA; x += 100){
+        //    cout << hydro_fields->e_rk0[x] << endl;
+        //}
         check_field_with_ideal_Gubser(tau, hydro_fields);
         //copy_fields_to_grid(hydro_fields, arena);
         
