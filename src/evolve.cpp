@@ -68,8 +68,91 @@ void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
     delete[] hydro_fields->pi_b_prev;
 }
 
+void Evolve::initial_field_with_ideal_Gubser(double tau, Field *hydro_fields) {
+    double x_min = -GRID_SIZE_X/2.*DELTA_X;
+    double y_min = -GRID_SIZE_Y/2.*DELTA_Y;
+    double e_local, utau_local, ux_local, uy_local;
+    for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
+        for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
+            double x_local = x_min + ix*DELTA_X;
+            for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
+                double y_local = y_min + iy*DELTA_Y;
+                int idx = (iy + ix*(GRID_SIZE_Y+1)
+                            + ieta*(GRID_SIZE_Y+1)*(GRID_SIZE_X+1));
+                e_local = energy_gubser(tau, x_local, y_local);
+                flow_gubser(tau, x_local, y_local, &utau_local, &ux_local,
+                            &uy_local);
+                hydro_fields->e_rk0[idx] = e_local;
+                hydro_fields->e_rk1[idx] = e_local;
+                hydro_fields->e_prev[idx] = e_local;
+                hydro_fields->rhob_rk0[idx] = 0.0;
+                hydro_fields->rhob_rk1[idx] = 0.0;
+                hydro_fields->rhob_prev[idx] = 0.0;
+                hydro_fields->u_rk0[idx][0] = utau_local;
+                hydro_fields->u_rk0[idx][1] = ux_local;
+                hydro_fields->u_rk0[idx][2] = uy_local;
+                hydro_fields->u_rk0[idx][3] = 0.0;
+                hydro_fields->u_rk1[idx][0] = utau_local;
+                hydro_fields->u_rk1[idx][1] = ux_local;
+                hydro_fields->u_rk1[idx][2] = uy_local;
+                hydro_fields->u_rk1[idx][3] = 0.0;
+                hydro_fields->u_prev[idx][0] = utau_local;
+                hydro_fields->u_prev[idx][1] = ux_local;
+                hydro_fields->u_prev[idx][2] = uy_local;
+                hydro_fields->u_prev[idx][3] = 0.0;
+                for (int ii = 0; ii < 20; ii++) {
+                    hydro_fields->dUsup[idx][ii] = 0.0;
+                }
+                for (int ii = 0; ii < 14; ii++) {
+                    hydro_fields->Wmunu_rk0[idx][ii] = 0.0;
+                    hydro_fields->Wmunu_rk1[idx][ii] = 0.0;
+                    hydro_fields->Wmunu_prev[idx][ii] = 0.0;
+                }
+                hydro_fields->pi_b_rk0[idx] = 0.0;
+                hydro_fields->pi_b_rk1[idx] = 0.0;
+                hydro_fields->pi_b_prev[idx] = 0.0;
+            }
+        }
+    }
+}
+
+void Evolve::check_field_with_ideal_Gubser(double tau, Field *hydro_fields) {
+    double x_min = -GRID_SIZE_X/2.*DELTA_X;
+    double y_min = -GRID_SIZE_Y/2.*DELTA_Y;
+    double e_local, utau_local, ux_local, uy_local;
+    double e_diff = 0.0;
+    double e_total = 0.0;
+    double ux_diff = 0.0;
+    double ux_total = 0.0;
+    double uy_diff = 0.0;
+    double uy_total = 0.0;
+    for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
+        for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
+            double x_local = x_min + ix*DELTA_X;
+            for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
+                double y_local = y_min + iy*DELTA_Y;
+                int idx = (iy + ix*(GRID_SIZE_Y+1)
+                            + ieta*(GRID_SIZE_Y+1)*(GRID_SIZE_X+1));
+                e_local = energy_gubser(tau, x_local, y_local);
+                flow_gubser(tau, x_local, y_local, &utau_local, &ux_local,
+                            &uy_local);
+                e_diff += fabs(hydro_fields->e_rk0[idx] - e_local);
+                e_total += fabs(e_local);
+                ux_diff += fabs(hydro_fields->u_rk0[idx][1] - ux_local);
+                ux_total += fabs(ux_local);
+                uy_diff += fabs(hydro_fields->u_rk0[idx][2] - uy_local);
+                uy_total += fabs(uy_local);
+            }
+        }
+    }
+    cout << "e_diff: " << e_diff/e_total << ", ux_diff: " << ux_diff/ux_total
+         << ", uy_diff: " << uy_diff/uy_total << endl;
+}
+
 // master control function for hydrodynamic evolution
 int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
+    initial_field_with_ideal_Gubser(DATA->tau0, hydro_fields);
+    check_field_with_ideal_Gubser(DATA->tau0, hydro_fields);
     // first pass some control parameters
     //facTau = DATA->facTau;
     //int Nskip_timestep = DATA->output_evolution_every_N_timesteps;
@@ -145,7 +228,7 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
         /* execute rk steps */
         // all the evolution are at here !!!
         AdvanceRK(tau, DATA, hydro_fields);
-
+        check_field_with_ideal_Gubser(tau, hydro_fields);
         //copy_fields_to_grid(hydro_fields, arena);
         
         //determine freeze-out surface
@@ -2053,4 +2136,25 @@ void Evolve::initialize_freezeout_surface_info() {
              << "unrecoginze freeze_eps_flag = " << freeze_eps_flag << endl;
         exit(1);
     }
+}
+
+double Evolve::energy_gubser(double tau, double x, double y) {
+
+    const double qparam = GUBSER_Q;
+    const double xperp = sqrt(x*x+y*y);
+
+    return (4*pow(2, 0.66666)*pow(qparam, 2.666666))
+            /(pow(tau,1.333333)*pow(1 + pow(qparam,4)*pow(pow(tau,2) - pow(xperp,2),2) + 2*pow(qparam,2)*(pow(tau,2) + pow(xperp,2)),
+                                       1.33333333));
+}
+
+void Evolve::flow_gubser(double tau, double x, double y, double * utau, double * ux, double * uy) {
+
+        const double qparam=GUBSER_Q;
+        const double xperp=sqrt(x*x+y*y);
+
+        *utau=(1 + pow(qparam,2)*(pow(tau,2) + pow(xperp,2)))/ sqrt(1 + pow(qparam,4)*pow(pow(tau,2) - pow(xperp,2),2) + 2*pow(qparam,2)*(pow(tau,2) + pow(xperp,2)));
+        *ux=(qparam*x)/sqrt(1 + pow(-1 + pow(qparam,2)*(tau - xperp)*(tau + xperp),2)/(4.*pow(qparam,2)*pow(tau,2)));
+        *uy=(qparam*y)/sqrt(1 + pow(-1 + pow(qparam,2)*(tau - xperp)*(tau + xperp),2)/(4.*pow(qparam,2)*pow(tau,2)));
+
 }

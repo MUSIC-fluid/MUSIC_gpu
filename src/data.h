@@ -4,17 +4,17 @@
 
 #define SMALL (1.0e-16)
 
-#define GRID_SIZE_X 20
-#define GRID_SIZE_Y 20
-#define GRID_SIZE_ETA 8
+#define GRID_SIZE_X 200
+#define GRID_SIZE_Y 200
+#define GRID_SIZE_ETA 4
 
 #define SUB_GRID_SIZE_X 1
 #define SUB_GRID_SIZE_Y 1
 #define SUB_GRID_SIZE_ETA 1
 
 #define DELTA_TAU 0.01
-#define DELTA_X 0.01
-#define DELTA_Y 0.01
+#define DELTA_X 0.1
+#define DELTA_Y 0.1
 #define DELTA_ETA 0.01
 
 #define INCLUDE_BULK 1

@@ -1,4 +1,7 @@
 // Copyright 2012 Bjoern Schenke, Sangyong Jeon, and Charles Gale
+//
+#define GUBSER_Q 2.0
+
 #ifndef SRC_EVOLVE_H_
 #define SRC_EVOLVE_H_
 
@@ -84,6 +87,10 @@ class Evolve {
     void regulate_Wmunu(double* u, double** Wmunu, double** Wmunu_regulated);
 
     void initialize_freezeout_surface_info();
+    double energy_gubser(double tau, double x, double y);
+    void flow_gubser(double tau, double x, double y, double * utau, double * ux, double * uy);
+    void check_field_with_ideal_Gubser(double tau, Field *hydro_fields);
+    void initial_field_with_ideal_Gubser(double tau, Field *hydro_fields);
 };
 
 #endif  // SRC_EVOLVE_H_
