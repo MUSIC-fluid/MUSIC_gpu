@@ -70,7 +70,6 @@ void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
 
 // master control function for hydrodynamic evolution
 int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
-    int n_cell_length = (DATA->nx + 1)*(DATA->ny + 1)*DATA->neta;
     // first pass some control parameters
     //facTau = DATA->facTau;
     //int Nskip_timestep = DATA->output_evolution_every_N_timesteps;
@@ -88,13 +87,13 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
 {
 
     // main loop starts ...
+    DATA->delta_tau= DELTA_TAU;
+    DATA->delta_x = DELTA_X;
+    DATA->delta_y= DELTA_Y;
+    DATA->delta_eta= DELTA_ETA;
     int itmax = DATA->nt;
     double tau0 = DATA->tau0;
     double dt = DATA->delta_tau;
-     DATA->delta_tau= DELTA_TAU;
-     DATA->delta_x = DELTA_X;
-     DATA->delta_y= DELTA_Y;
-     DATA->delta_eta= DELTA_ETA;
 
     double tau;
     //int it_start = 0;
@@ -345,7 +344,7 @@ int Evolve::AdvanceRK(double tau, InitData *DATA, Field *hydro_fields) {
     int flag = 0;
     // loop over Runge-Kutta steps
     for (int rk_flag = 0; rk_flag < rk_order; rk_flag++) {
-        flag = u_derivative->MakedU(tau, hydro_fields, rk_flag);
+        //flag = u_derivative->MakedU(tau, hydro_fields, rk_flag);
         flag = advance->AdvanceIt(tau, hydro_fields, rk_flag);
         if (rk_flag == 0) {
             update_prev_field(hydro_fields);

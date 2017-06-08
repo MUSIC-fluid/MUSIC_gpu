@@ -415,8 +415,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                         double grid_array_hL[5];
                         double grid_array_hR[5];
 
-                        tmp[0]=hydro_fields->e_rk1[10+10*20];
-                        tmp[1]=hydro_fields->e_rk1[0];
+                        tmp[0]=hydro_fields->e_rk0[10+10*20];
+                        tmp[1]=hydro_fields->e_rk0[0];
 
                    prepare_qi_array(tau, hydro_fields, rk_flag, ieta, ix, iy,
                                     SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y, qi_array,
