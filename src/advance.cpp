@@ -3097,7 +3097,7 @@ int Advance::MakeDSpatial_1(double tau, Field *hydro_fields,
                             /get_temperature(eps, rhob));
                 }
             }
-            hydro_fields->dUsup[idx][4*m+n] = (minmod->minmod_dx(fp1, f, fm1)
+            hydro_fields->dUsup[idx][4*m+n] = (minmod_dx(fp1, f, fm1)
                                                /(deltafactor*taufactor));
         }
     }
