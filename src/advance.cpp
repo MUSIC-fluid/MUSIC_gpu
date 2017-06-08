@@ -824,7 +824,7 @@ int Advance::FirstRKStepW(double tau, int rk_flag, int sub_grid_neta,
     // add source terms
     Make_uWSource(tau_rk, sub_grid_neta, sub_grid_x, sub_grid_y, vis_array,
                   velocity_array, grid_array, vis_array_new);
-    if (INCLUDE_BULK == 1) {
+    if (INCLUDE_BULK) {
         Make_uPiSource(tau_rk, sub_grid_neta, sub_grid_x, sub_grid_y, vis_array,
                        velocity_array, grid_array, vis_array_new);
     }
@@ -1987,7 +1987,7 @@ int Advance::Make_uWRHS(double tau, int sub_grid_neta, int sub_grid_x, int sub_g
                     HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
                     ax = maxi(a, am1);
                     HWmh = ((uWmhR + uWmhL) - ax*(WmhR - WmhL))*0.5;
-                    HW = (HWph - HWmh)/DATA_ptr->delta_x/taufactor;
+                    HW = (HWph - HWmh)/DELTA_X/taufactor;
                         
                     // make partial_i (u^i Wmn)
                     sum += -HW;
@@ -2070,7 +2070,7 @@ int Advance::Make_uWRHS(double tau, int sub_grid_neta, int sub_grid_x, int sub_g
                     HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
                     ax = maxi(a, am1);
                     HWmh = ((uWmhR + uWmhL) - ax*(WmhR - WmhL))*0.5;
-                    HW = (HWph - HWmh)/DATA_ptr->delta_y/taufactor;
+                    HW = (HWph - HWmh)/DELTA_Y/taufactor;
                     // make partial_i (u^i Wmn)
                     sum += -HW;
             
@@ -2152,7 +2152,7 @@ int Advance::Make_uWRHS(double tau, int sub_grid_neta, int sub_grid_x, int sub_g
                     HWph = ((uWphR + uWphL) - ax*(WphR - WphL))*0.5;
                     ax = maxi(a, am1);
                     HWmh = ((uWmhR + uWmhL) - ax*(WmhR - WmhL))*0.5;
-                    HW = (HWph - HWmh)/DATA_ptr->delta_eta/taufactor;
+                    HW = (HWph - HWmh)/DELTA_ETA/taufactor;
                     // make partial_i (u^i Wmn)
                     sum += -HW;
                     
