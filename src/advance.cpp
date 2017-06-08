@@ -374,8 +374,23 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     //        }
     //}
 
+    double grid_array[1][5], qi_array[1][5], qi_array_new[1][5], qi_rk0[1][5];
+    double qi_nbr_x[4][5], qi_nbr_y[4][5], qi_nbr_eta[4][5];
+    double vis_array[1][19], vis_array_new[1][19], vis_nbr_tau[1][19];
+    double velocity_array[1][20];
+    double vis_nbr_x[4][19], vis_nbr_y[4][19], vis_nbr_eta[4][19];
+    double grid_array_temp[5];
+    double rhs[5];
+    double qiphL[5];
+    double qiphR[5];
+    double qimhL[5];
+    double qimhR[5];
+    double grid_array_hL[5];
+    double grid_array_hR[5];
     
-#pragma acc data copyin (hydro_fields[0:1],\
+
+    cout << "pre parallel" << endl;
+    #pragma acc parallel loop gang worker vector collapse(3) copy(tmp[0:1]) present(hydro_fields[0:1],\
                          hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
                          hydro_fields->e_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
                          hydro_fields->rhob_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
@@ -391,9 +406,13 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                          hydro_fields->Wmunu_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14], \
                          hydro_fields->pi_b_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->pi_b_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
-                         hydro_fields->pi_b_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
-{
-#pragma acc parallel loop copy(tmp[0:2])
+                         hydro_fields->pi_b_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])\
+                         private(this[0:1], grid_array[1][5], qi_array[1][5], qi_array_new[1][5], qi_rk0[1][5], \
+                         qi_nbr_x[4][5], qi_nbr_y[4][5], qi_nbr_eta[4][5], vis_array[1][19], \
+                         vis_array_new[1][19], vis_nbr_tau[1][19], velocity_array[1][20], \
+                         vis_nbr_x[4][19], vis_nbr_y[4][19], vis_nbr_eta[4][19], grid_array_temp[5], \
+                         grid_array_hL[0:5], qimhL[0:5], grid_array_hR[0:5], qiphL[0:5], qimhR[0:5], \
+                         rhs[0:5], qiphR[0:5])
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta += SUB_GRID_SIZE_ETA) {
 //        #pragma omp parallel private(ix)
 //        {
@@ -401,22 +420,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
             for (int ix = 0; ix <= GRID_SIZE_X; ix += SUB_GRID_SIZE_X) {
                 for (int iy = 0; iy <= GRID_SIZE_Y; iy += SUB_GRID_SIZE_Y) {
 
-                        double grid_array[1][5], qi_array[1][5], qi_array_new[1][5], qi_rk0[1][5];
-                        double qi_nbr_x[4][5], qi_nbr_y[4][5], qi_nbr_eta[4][5];
-                        double vis_array[1][19], vis_array_new[1][19], vis_nbr_tau[1][19];
-                        double velocity_array[1][20];
-                        double vis_nbr_x[4][19], vis_nbr_y[4][19], vis_nbr_eta[4][19];
-                        double grid_array_temp[5];
-                        double rhs[5];
-                        double qiphL[5];
-                        double qiphR[5];
-                        double qimhL[5];
-                        double qimhR[5];
-                        double grid_array_hL[5];
-                        double grid_array_hR[5];
-
-                        tmp[0]=hydro_fields->e_rk0[10+10*20];
-                        tmp[1]=hydro_fields->e_rk0[0];
+                        tmp[0]=tau; //hydro_fields->e_rk0[0];
 
                    prepare_qi_array(tau, hydro_fields, rk_flag, ieta, ix, iy,
                                     SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y, qi_array,
@@ -446,7 +450,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                     update_grid_cell(grid_array, hydro_fields, rk_flag, ieta, ix, iy,
                                      SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y);
 
-                    if (VISCOUS_FLAG == 1) {
+//                    if (VISCOUS_FLAG == 1) {
 //                        double tau_rk = tau;
 //                        if (rk_flag == 1) {
 //                            tau_rk = tau + DELTA_TAU;
@@ -473,9 +477,6 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
             }
 //        }
 //        #pragma omp barrier
-
-    }
-}
     //clean up
     std::cout << "tmp=" << tmp[0] << " " << tmp[1] << " vs " << 5*pow(1./tau, 4./3.) << "\n";
     //std::cout << "tmp=" << tmp[0]  << "\n";
