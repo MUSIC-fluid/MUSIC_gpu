@@ -91,9 +91,33 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
     int itmax = DATA->nt;
     double tau0 = DATA->tau0;
     double dt = DATA->delta_tau;
-
+    DATA->delta_tau = DELTA_TAU;
+    DATA->delta_x = DELTA_X;
+    DATA->delta_y = DELTA_Y;
+    DATA->delta_eta = DELTA_ETA;
     double tau;
     //int it_start = 0;
+    cout << "Pre data copy" << endl;
+    #pragma acc data copyin (hydro_fields[0:1],\
+                         hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
+                         hydro_fields->e_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
+                         hydro_fields->rhob_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
+                         hydro_fields->e_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
+                         hydro_fields->rhob_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
+                         hydro_fields->rhob_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->u_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4], \
+                         hydro_fields->u_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4], \
+                         hydro_fields->u_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4], \
+                         hydro_fields->dUsup[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:20], \
+                         hydro_fields->Wmunu_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14], \
+                         hydro_fields->Wmunu_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14], \
+                         hydro_fields->Wmunu_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14], \
+                         hydro_fields->pi_b_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->pi_b_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->pi_b_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+    {
+    cout << "Post data copy" << endl;
+    
     for (int it = 0; it <= itmax; it++) {
         tau = tau0 + dt*it;
         // store initial conditions
@@ -142,7 +166,10 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
         /* execute rk steps */
         // all the evolution are at here !!!
         AdvanceRK(tau, DATA, hydro_fields);
-
+        #pragma acc update host(hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+        for (int x = 0; x < (GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA; x += 100){
+            cout << hydro_fields->e_rk0[x] << endl;
+        }
         //copy_fields_to_grid(hydro_fields, arena);
         
         //determine freeze-out surface
@@ -172,6 +199,7 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
                 it, itmax, tau);
         //if (frozen) break;
     }/* it */ 
+    }
 }
 
     // clean up

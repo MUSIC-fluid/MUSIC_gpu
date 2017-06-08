@@ -4,8 +4,8 @@
 
 #define SMALL (1.0e-16)
 
-#define GRID_SIZE_X 20
-#define GRID_SIZE_Y 20
+#define GRID_SIZE_X 200
+#define GRID_SIZE_Y 200
 #define GRID_SIZE_ETA 8
 
 #define SUB_GRID_SIZE_X 1
