@@ -13,12 +13,12 @@
 #define SUB_GRID_SIZE_ETA 1
 
 #define DELTA_TAU 0.01
-#define DELTA_X 0.1
-#define DELTA_Y 0.1
+#define DELTA_X 0.05
+#define DELTA_Y 0.05
 #define DELTA_ETA 0.01
 
-#define VISCOUS_FLAG 0 
-#define INCLUDE_SHEAR 0
+#define VISCOUS_FLAG 1
+#define INCLUDE_SHEAR 1
 #define SHEAR_TO_S 0.20
 #define INCLUDE_BULK 0
 #define INCLUDE_DIFF 0
