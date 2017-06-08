@@ -394,6 +394,7 @@ void Init::initial_Gubser_XY(InitData *DATA, int ieta, Field *hydro_fields) {
             hydro_fields->u_prev[idx][3] = u[3];
 
             if (DATA->turn_on_shear == 0) {
+                hydro_fields->e_prev[idx] = temp_profile_ed_prev[ix][iy];
                 double utau_prev = sqrt(1.
                     + temp_profile_ux_prev[ix][iy]*temp_profile_ux_prev[ix][iy]
                     + temp_profile_uy_prev[ix][iy]*temp_profile_uy_prev[ix][iy]

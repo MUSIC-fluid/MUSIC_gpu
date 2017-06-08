@@ -6,7 +6,7 @@
 
 #define GRID_SIZE_X 200
 #define GRID_SIZE_Y 200
-#define GRID_SIZE_ETA 4
+#define GRID_SIZE_ETA 1
 
 #define SUB_GRID_SIZE_X 1
 #define SUB_GRID_SIZE_Y 1
@@ -17,12 +17,12 @@
 #define DELTA_Y 0.1
 #define DELTA_ETA 0.01
 
-#define VISCOUS_FLAG 1 
-#define INCLUDE_SHEAR 1
+#define VISCOUS_FLAG 0 
+#define INCLUDE_SHEAR 0
 #define SHEAR_TO_S 0.20
 #define INCLUDE_BULK 0
 #define INCLUDE_DIFF 0
-#define INITIAL_PROFILE 1
+#define INITIAL_PROFILE 0
 
 
 #include <stdio.h>

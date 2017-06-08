@@ -822,8 +822,10 @@ int Advance::FirstRKStepW(double tau, int rk_flag, int sub_grid_neta,
                velocity_array, vis_array_new);
 
     // add source terms
-    Make_uWSource(tau_rk, sub_grid_neta, sub_grid_x, sub_grid_y, vis_array,
-                  velocity_array, grid_array, vis_array_new);
+    if (INCLUDE_SHEAR) {
+        Make_uWSource(tau_rk, sub_grid_neta, sub_grid_x, sub_grid_y, vis_array,
+                      velocity_array, grid_array, vis_array_new);
+    }
     if (INCLUDE_BULK) {
         Make_uPiSource(tau_rk, sub_grid_neta, sub_grid_x, sub_grid_y, vis_array,
                        velocity_array, grid_array, vis_array_new);

@@ -151,8 +151,8 @@ void Evolve::check_field_with_ideal_Gubser(double tau, Field *hydro_fields) {
 
 // master control function for hydrodynamic evolution
 int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
-    initial_field_with_ideal_Gubser(DATA->tau0, hydro_fields);
-    check_field_with_ideal_Gubser(DATA->tau0, hydro_fields);
+    //initial_field_with_ideal_Gubser(DATA->tau0, hydro_fields);
+    //check_field_with_ideal_Gubser(DATA->tau0, hydro_fields);
     // first pass some control parameters
     //facTau = DATA->facTau;
     //int Nskip_timestep = DATA->output_evolution_every_N_timesteps;
@@ -258,7 +258,7 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
         //for (int x = 0; x < (GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA; x += 100){
         //    cout << hydro_fields->e_rk0[x] << endl;
         //}
-        check_field_with_ideal_Gubser(tau, hydro_fields);
+        //check_field_with_ideal_Gubser(tau, hydro_fields);
         //copy_fields_to_grid(hydro_fields, arena);
         
         //determine freeze-out surface
