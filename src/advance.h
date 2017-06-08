@@ -163,16 +163,6 @@ class Advance {
                      double vis_nbr_y[][19], double vis_nbr_eta[][19],
                      double qi_array_new[][5]);
 
-#pragma acc routine seq
-    int MakedU(double tau, Field *hydro_fields, int rk_flag);
-
-#pragma acc routine seq
-    int MakeDSpatial_1(double tau, Field *hydro_fields,
-                       int ieta, int ix, int iy, int rk_flag);
-
-#pragma acc routine seq
-    int MakeDTau_1(double tau, Field *hydro_fields,
-                   int ieta, int ix, int iy, int rk_flag);
 
 #pragma acc routine seq
     int Make_uWRHS(double tau, int n_cell_eta, int n_cell_x, int n_cell_y,

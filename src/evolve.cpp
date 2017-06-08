@@ -457,6 +457,7 @@ int Evolve::AdvanceRK(double tau, InitData *DATA, Field *hydro_fields) {
     int flag = 0;
     // loop over Runge-Kutta steps
     for (int rk_flag = 0; rk_flag < rk_order; rk_flag++) {
+        flag = u_derivative->MakedU(tau, hydro_fields, rk_flag);
         flag = advance->AdvanceIt(tau, hydro_fields, rk_flag);
         if (rk_flag == 0) {
             update_prev_field(hydro_fields);

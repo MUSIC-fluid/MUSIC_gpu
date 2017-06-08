@@ -17,11 +17,13 @@
 #define DELTA_Y 0.1
 #define DELTA_ETA 0.01
 
-#define INCLUDE_SHEAR 1
-#define INCLUDE_BULK 1
-#define INCLUDE_DIFF 1
-#define INITIAL_PROFILE 1
 #define VISCOUS_FLAG 1 
+#define INCLUDE_SHEAR 1
+#define SHEAR_TO_S 0.20
+#define INCLUDE_BULK 0
+#define INCLUDE_DIFF 0
+#define INITIAL_PROFILE 1
+
 
 #include <stdio.h>
 #include <stdlib.h>
