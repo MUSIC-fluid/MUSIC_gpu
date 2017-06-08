@@ -161,7 +161,7 @@ class Advance {
                      double vis_array[][19],
                      double vis_nbr_tau[][19], double vis_nbr_x[][19],
                      double vis_nbr_y[][19], double vis_nbr_eta[][19],
-                     double qi_array_new[][5], InitData* DATA);
+                     double qi_array_new[][5]);
 
 #pragma acc routine seq
     int Make_uWRHS(double tau, int n_cell_eta, int n_cell_x, int n_cell_y,
