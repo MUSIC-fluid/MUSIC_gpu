@@ -174,7 +174,8 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
     DATA->delta_x = DELTA_X;
     DATA->delta_y= DELTA_Y;
     DATA->delta_eta= DELTA_ETA;
-    int itmax = DATA->nt;
+
+    int itmax = static_cast<int>(DATA->tau_size/DATA->delta_tau);
     double tau0 = DATA->tau0;
     double dt = DATA->delta_tau;
     DATA->delta_tau = DELTA_TAU;
