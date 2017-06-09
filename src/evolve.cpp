@@ -253,9 +253,6 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
         /* execute rk steps */
         // all the evolution are at here !!!
         AdvanceRK(tau, DATA, hydro_fields);
-        #pragma acc update host(hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
-        #pragma acc update host(hydro_fields->u_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4])
-        #pragma acc update host(hydro_fields->Wmunu_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14])
         //for (int x = 0; x < (GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA; x += 100){
         //    cout << hydro_fields->e_rk0[x] << endl;
         //}
@@ -460,9 +457,18 @@ int Evolve::AdvanceRK(double tau, InitData *DATA, Field *hydro_fields) {
     // loop over Runge-Kutta steps
     for (int rk_flag = 0; rk_flag < rk_order; rk_flag++) {
         flag = u_derivative->MakedU(tau, hydro_fields, rk_flag);
+        #pragma acc update device(hydro_fields->dUsup[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:20])
         flag = advance->AdvanceIt(tau, hydro_fields, rk_flag);
+        #pragma acc update host(hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+        #pragma acc update host(hydro_fields->u_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4])
+        #pragma acc update host(hydro_fields->u_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4])
+        #pragma acc update host(hydro_fields->u_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4])
+        #pragma acc update host(hydro_fields->Wmunu_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14])
         if (rk_flag == 0) {
             update_prev_field(hydro_fields);
+        #pragma acc update device(hydro_fields->e_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+        #pragma acc update device(hydro_fields->u_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4])
+        #pragma acc update device(hydro_fields->Wmunu_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14])
         }
     }  /* loop over rk_flag */
     return(flag);
