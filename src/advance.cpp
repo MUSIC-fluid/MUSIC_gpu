@@ -584,6 +584,7 @@ int Advance::ReconstIt_velocity_Newton(
 
     if ((T00 < abs_err) || ((T00 - K00/T00) < 0.0)) {
         revert_grid(grid_array, grid_array_p);
+        return(-1);
     }/* if t00-k00/t00 < 0.0 */
 
     double u0, u1, u2, u3, epsilon, pressure, rhob;
@@ -592,9 +593,9 @@ int Advance::ReconstIt_velocity_Newton(
                               - grid_array_p[2]*grid_array_p[2]
                               - grid_array_p[3]*grid_array_p[3]);
     double v_guess = sqrt(1. - 1./(u0_guess*u0_guess + 1e-15));
-    //if (isnan(v_guess)) {
-    //    v_guess = 0.0;
-    //}
+    if (v_guess != v_guess) {  //v_guess is NaN
+        v_guess = 0.0;
+    }
     int v_status = 1;
     int iter = 0;
     double rel_error_v = 10.0;
@@ -624,6 +625,7 @@ int Advance::ReconstIt_velocity_Newton(
         v_solution = v_next;
     } else {
         revert_grid(grid_array, grid_array_p);
+        return(-1);
     }/* if iteration is unsuccessful, revert */
    
     // for large velocity, solve u0
@@ -668,6 +670,7 @@ int Advance::ReconstIt_velocity_Newton(
     double check_u0_var = (fabs(u0 - u0_guess)/u0_guess);
     if (check_u0_var > 100.) {
         revert_grid(grid_array, grid_array_p);
+        return(-1);
     }
 
     grid_array[0] = epsilon;
@@ -682,6 +685,7 @@ int Advance::ReconstIt_velocity_Newton(
     //remove if for speed
     if(u0 > u_max) {
         revert_grid(grid_array, grid_array_p);
+        return(-1);
     } else {
         u1 = uq[1]*velocity_inverse_factor/tau; 
         u2 = uq[2]*velocity_inverse_factor/tau; 
@@ -695,6 +699,7 @@ int Advance::ReconstIt_velocity_Newton(
         // If the deviation is too large, exit MUSIC
         if (fabs(temp_usq - 1.0) > 0.1*u0) {
             revert_grid(grid_array, grid_array_p);
+            return(-1);
         }
         // Rescaling spatial components of velocity so that unitarity 
         // is exactly satisfied (u[0] is not modified)
