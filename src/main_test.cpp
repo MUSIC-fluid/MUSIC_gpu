@@ -2,6 +2,7 @@
 // Massively cleaned up and improved by Chun Shen 2015-2016
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <iostream>
 #include <unistd.h>
@@ -48,6 +49,9 @@ int main(int argc, char *argv[]) {
     hydro_fields->Wmunu_rk0 = new double* [n_cell];
     hydro_fields->Wmunu_rk1 = new double* [n_cell];
     hydro_fields->Wmunu_prev = new double* [n_cell];
+    hydro_fields->pi_b_rk0 = new double* [n_cell];
+    hydro_fields->pi_b_rk1 = new double* [n_cell];
+    hydro_fields->pi_b_prev = new double* [n_cell];
     for (int i = 0; i < n_cell; i++) {
         hydro_fields->e_rk0[i] = drand48();
         hydro_fields->e_rk1[i] = drand48();
@@ -81,8 +85,8 @@ int main(int argc, char *argv[]) {
     #pragma acc data copyin (hydro_fields[0:1],\
                          hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
                          hydro_fields->e_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
-                         hydro_fields->rhob_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
                          hydro_fields->e_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
+                         hydro_fields->rhob_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
                          hydro_fields->rhob_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
                          hydro_fields->rhob_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->u_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4], \
