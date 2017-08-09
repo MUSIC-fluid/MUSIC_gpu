@@ -248,6 +248,10 @@ class Advance {
     double minmod_dx(double up1, double u, double um1);
 #pragma acc routine seq
     int map_2d_idx_to_1d(int a, int b);
+#pragma acc routine vector
+    int MakeDSpatial_1(double tau, Field *hydro_fields, int ieta, int ix, int iy, int rk_flag);
+#pragma acc routine vector
+    int MakeDTau_1(double tau, Field *hydro_fields, int ieta, int ix, int iy, int rk_flag);
 };
 
 #endif  // SRC_ADVANCE_H_
