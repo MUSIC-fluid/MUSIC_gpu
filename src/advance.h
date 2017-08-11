@@ -228,12 +228,10 @@ class Advance {
 
 #pragma acc routine seq
     void update_grid_cell(double grid_array[][5], Field *hydro_fields, int rk_flag,
-                          int ieta, int ix, int iy,
-                          int n_cell_eta, int n_cell_x, int n_cell_y);
+                          int ieta, int ix, int iy);
 #pragma acc routine seq
     void update_grid_cell_viscous(double vis_array[][19], Field *hydro_fields,
-                                  int rk_flag, int ieta, int ix, int iy,
-                                  int n_cell_eta, int n_cell_x, int n_cell_y);
+                                  int rk_flag, int ieta, int ix, int iy);
 
 #pragma acc routine seq
     int QuestRevert(double tau, double *vis_array, double *grid_array);
