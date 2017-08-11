@@ -7,9 +7,9 @@
 #include <iostream>
 #include <unistd.h>
 
-#define GRID_SIZE_X 200
-#define GRID_SIZE_Y 200
-#define GRID_SIZE_ETA 64
+#define GRID_SIZE_X 256
+#define GRID_SIZE_Y 256
+#define GRID_SIZE_ETA 128
 
 struct Field {
      double *e_rk0;
@@ -34,7 +34,7 @@ using namespace std;
 
 // main program
 int main(int argc, char *argv[]) {
-    Field *hydro_fields;
+    Field *hydro_fields = new Field;
     int n_cell = GRID_SIZE_ETA*(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1);
     hydro_fields->e_rk0 = new double[n_cell];
     hydro_fields->e_rk1 = new double[n_cell];
@@ -42,16 +42,16 @@ int main(int argc, char *argv[]) {
     hydro_fields->rhob_rk0 = new double[n_cell];
     hydro_fields->rhob_rk1 = new double[n_cell];
     hydro_fields->rhob_prev = new double[n_cell];
-    hydro_fields->u_rk0 = new double* [n_cell];
-    hydro_fields->u_rk1 = new double* [n_cell];
-    hydro_fields->u_prev = new double* [n_cell];
-    hydro_fields->dUsup = new double* [n_cell];
-    hydro_fields->Wmunu_rk0 = new double* [n_cell];
-    hydro_fields->Wmunu_rk1 = new double* [n_cell];
-    hydro_fields->Wmunu_prev = new double* [n_cell];
-    hydro_fields->pi_b_rk0 = new double* [n_cell];
-    hydro_fields->pi_b_rk1 = new double* [n_cell];
-    hydro_fields->pi_b_prev = new double* [n_cell];
+    hydro_fields->u_rk0 = new double* [4];
+    hydro_fields->u_rk1 = new double* [4];
+    hydro_fields->u_prev = new double* [4];
+    hydro_fields->dUsup = new double* [20];
+    hydro_fields->Wmunu_rk0 = new double* [14];
+    hydro_fields->Wmunu_rk1 = new double* [14];
+    hydro_fields->Wmunu_prev = new double* [14];
+    hydro_fields->pi_b_rk0 = new double[n_cell];
+    hydro_fields->pi_b_rk1 = new double[n_cell];
+    hydro_fields->pi_b_prev = new double[n_cell];
     for (int i = 0; i < n_cell; i++) {
         hydro_fields->e_rk0[i] = drand48();
         hydro_fields->e_rk1[i] = drand48();
@@ -59,22 +59,31 @@ int main(int argc, char *argv[]) {
         hydro_fields->rhob_rk0[i] = drand48();
         hydro_fields->rhob_rk1[i] = drand48();
         hydro_fields->rhob_prev[i] = drand48();
+        hydro_fields->pi_b_rk0[i] = drand48();
+        hydro_fields->pi_b_rk1[i] = drand48();
+        hydro_fields->pi_b_prev[i] = drand48();
+    }
 
-        hydro_fields->u_rk0[i] = new double[4];
-        hydro_fields->u_rk1[i] = new double[4];
-        hydro_fields->u_prev[i] = new double[4];
-        for (int j = 0; j < 4; j++) {
+    for (int i = 0; i < 4; i++) {
+        hydro_fields->u_rk0[i] = new double[n_cell];
+        hydro_fields->u_rk1[i] = new double[n_cell];
+        hydro_fields->u_prev[i] = new double[n_cell];
+        for (int j = 0; j < n_cell; j++) {
             hydro_fields->u_rk0[i][j] = drand48();
             hydro_fields->u_rk1[i][j] = drand48();
             hydro_fields->u_prev[i][j] = drand48();
         }
-        hydro_fields->dUsup[i] = new double[20];
-        for (int j = 0; j < 20; j++) {
+    }
+    for (int i = 0; i < 20; i++) {
+        hydro_fields->dUsup[i] = new double[n_cell];
+        for (int j = 0; j < n_cell; j++) {
             hydro_fields->dUsup[i][j] = drand48();
         }
-        hydro_fields->Wmunu_rk0[i] = new double[14];
-        hydro_fields->Wmunu_rk1[i] = new double[14];
-        hydro_fields->Wmunu_prev[i] = new double[14];
+    }
+    for (int i = 0; i < 14; i++) {
+        hydro_fields->Wmunu_rk0[i] = new double[n_cell];
+        hydro_fields->Wmunu_rk1[i] = new double[n_cell];
+        hydro_fields->Wmunu_prev[i] = new double[n_cell];
         for (int j = 0; j < 14; j++) {
             hydro_fields->Wmunu_rk0[i][j] = drand48();
             hydro_fields->Wmunu_rk1[i][j] = drand48();
@@ -89,13 +98,13 @@ int main(int argc, char *argv[]) {
                          hydro_fields->rhob_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
                          hydro_fields->rhob_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
                          hydro_fields->rhob_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
-                         hydro_fields->u_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4], \
-                         hydro_fields->u_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4], \
-                         hydro_fields->u_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4], \
-                         hydro_fields->dUsup[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:20], \
-                         hydro_fields->Wmunu_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14], \
-                         hydro_fields->Wmunu_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14], \
-                         hydro_fields->Wmunu_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14], \
+                         hydro_fields->u_rk0[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->u_rk1[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->u_prev[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->dUsup[0:20][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->Wmunu_rk0[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->Wmunu_rk1[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->Wmunu_prev[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->pi_b_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->pi_b_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->pi_b_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
