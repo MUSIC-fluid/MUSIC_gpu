@@ -455,27 +455,27 @@ void Grid_info::check_conservation_law(Field *hydro_fields, InitData *DATA,
                     double cosh_eta = cosh(eta_s);
                     double sinh_eta = sinh(eta_s);
                     N_B += (hydro_fields->rhob_rk0[idx]
-                            *hydro_fields->u_rk0[idx][0]
-                            + hydro_fields->Wmunu_prev[idx][10]);
+                            *hydro_fields->u_rk0[0][idx]
+                            + hydro_fields->Wmunu_prev[10][idx]);
                     double Pi00_rk_0 = (
                         hydro_fields->pi_b_prev[idx]
-                        *(-1.0 + hydro_fields->u_prev[idx][0]
-                                 *(hydro_fields->u_prev[idx][0])));
+                        *(-1.0 + hydro_fields->u_prev[0][idx]
+                                 *(hydro_fields->u_prev[0][idx])));
                     double e_local = hydro_fields->e_rk0[idx];
                     double rhob = hydro_fields->rhob_rk0[idx];
                     double pressure = eos_ptr->get_pressure(e_local, rhob);
-                    double u0 = hydro_fields->u_rk0[idx][0];
-                    double u3 = hydro_fields->u_rk0[idx][3];
+                    double u0 = hydro_fields->u_rk0[0][idx];
+                    double u3 = hydro_fields->u_rk0[3][idx];
                     double T00_local = (e_local + pressure)*u0*u0 - pressure;
                     double T03_local = (e_local + pressure)*u0*u3;
                     double T_tau_tau = (T00_local
-                                        + hydro_fields->Wmunu_prev[idx][0]
+                                        + hydro_fields->Wmunu_prev[0][idx]
                                         + Pi00_rk_0);
                     double Pi03_rk_0 = (hydro_fields->pi_b_prev[idx]
-                                        *hydro_fields->u_prev[idx][0]
-                                        *hydro_fields->u_prev[idx][3]);
+                                        *hydro_fields->u_prev[0][idx]
+                                        *hydro_fields->u_prev[3][idx]);
                     double T_tau_eta = (T03_local
-                                        + hydro_fields->Wmunu_prev[idx][3]
+                                        + hydro_fields->Wmunu_prev[3][idx]
                                         + Pi03_rk_0);
                     T_tau_t += T_tau_tau*cosh_eta + T_tau_eta*sinh_eta;
                 }
@@ -532,24 +532,24 @@ void Grid_info::Gubser_flow_check_file(Field *hydro_fields, double tau) {
                     eos_ptr->get_temperature(e_local, 0.0)*unit_convert);
             T_diff += fabs(T_analytic[i] - T_local);
             T_sum += fabs(T_analytic[i]);
-            ux_diff += fabs(ux_analytic[i] - hydro_fields->u_rk0[idx][1]);
+            ux_diff += fabs(ux_analytic[i] - hydro_fields->u_rk0[1][idx]);
             ux_sum += fabs(ux_analytic[i]);
-            uy_diff += fabs(uy_analytic[i] - hydro_fields->u_rk0[idx][2]);
+            uy_diff += fabs(uy_analytic[i] - hydro_fields->u_rk0[2][idx]);
             uy_sum += fabs(uy_analytic[i]);
             pixx_diff += (fabs(pixx_analytic[i]
-                               - hydro_fields->Wmunu_rk0[idx][4]
+                               - hydro_fields->Wmunu_rk0[4][idx]
                                  *unit_convert));
             pixx_sum += fabs(pixx_analytic[i]);
             pixy_diff += (fabs(pixx_analytic[i]
-                               - hydro_fields->Wmunu_rk0[idx][5]
+                               - hydro_fields->Wmunu_rk0[5][idx]
                                  *unit_convert));
             pixy_sum += fabs(pixx_analytic[i]);
             piyy_diff += (fabs(piyy_analytic[i]
-                               - hydro_fields->Wmunu_rk0[idx][7]
+                               - hydro_fields->Wmunu_rk0[7][idx]
                                  *unit_convert));
             piyy_sum += fabs(piyy_analytic[i]);
             pizz_diff += (fabs(pizz_analytic[i]
-                               - hydro_fields->Wmunu_rk0[idx][9]
+                               - hydro_fields->Wmunu_rk0[9][idx]
                                  *unit_convert));
             pizz_sum += fabs(pizz_analytic[i]);
         }
@@ -583,12 +583,12 @@ void Grid_info::Gubser_flow_check_file(Field *hydro_fields, double tau) {
                         << x_local << "  " << y_local << "  "
                         << e_local*unit_convert << "  " << rhob_local << "  "
                         << T_local*unit_convert << "  "
-                        << hydro_fields->u_rk0[idx][1] << "  "
-                        << hydro_fields->u_rk0[idx][2] << "  "
-                        << hydro_fields->Wmunu_rk0[idx][4]*unit_convert << "  "
-                        << hydro_fields->Wmunu_rk0[idx][7]*unit_convert << "  "
-                        << hydro_fields->Wmunu_rk0[idx][5]*unit_convert << "  "
-                        << hydro_fields->Wmunu_rk0[idx][9]*unit_convert << "  "
+                        << hydro_fields->u_rk0[1][idx] << "  "
+                        << hydro_fields->u_rk0[2][idx] << "  "
+                        << hydro_fields->Wmunu_rk0[4][idx]*unit_convert << "  "
+                        << hydro_fields->Wmunu_rk0[7][idx]*unit_convert << "  "
+                        << hydro_fields->Wmunu_rk0[5][idx]*unit_convert << "  "
+                        << hydro_fields->Wmunu_rk0[9][idx]*unit_convert << "  "
                         << endl;
         }
     }

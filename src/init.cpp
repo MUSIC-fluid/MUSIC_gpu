@@ -26,21 +26,25 @@ void Init::initialize_hydro_fields(Field *hydro_fields, InitData *DATA) {
     hydro_fields->rhob_rk0 = new double[n_cell];
     hydro_fields->rhob_rk1 = new double[n_cell];
     hydro_fields->rhob_prev = new double[n_cell];
-    hydro_fields->u_rk0 = new double* [n_cell];
-    hydro_fields->u_rk1 = new double* [n_cell];
-    hydro_fields->u_prev = new double* [n_cell];
-    hydro_fields->dUsup = new double* [n_cell];
-    hydro_fields->Wmunu_rk0 = new double* [n_cell];
-    hydro_fields->Wmunu_rk1 = new double* [n_cell];
-    hydro_fields->Wmunu_prev = new double* [n_cell];
-    for (int i = 0; i < n_cell; i++) {
-        hydro_fields->u_rk0[i] = new double[4];
-        hydro_fields->u_rk1[i] = new double[4];
-        hydro_fields->u_prev[i] = new double[4];
-        hydro_fields->dUsup[i] = new double[20];
-        hydro_fields->Wmunu_rk0[i] = new double[14];
-        hydro_fields->Wmunu_rk1[i] = new double[14];
-        hydro_fields->Wmunu_prev[i] = new double[14];
+    hydro_fields->u_rk0 = new double* [4];
+    hydro_fields->u_rk1 = new double* [4];
+    hydro_fields->u_prev = new double* [4];
+    hydro_fields->dUsup = new double* [20];
+    hydro_fields->Wmunu_rk0 = new double* [14];
+    hydro_fields->Wmunu_rk1 = new double* [14];
+    hydro_fields->Wmunu_prev = new double* [14];
+    for (int i = 0; i < 4; i++) {
+        hydro_fields->u_rk0[i] = new double[n_cell];
+        hydro_fields->u_rk1[i] = new double[n_cell];
+        hydro_fields->u_prev[i] = new double[n_cell];
+    }
+    for (int i = 0; i < 20; i++) {
+        hydro_fields->dUsup[i] = new double[n_cell];
+    }
+    for (int i = 0; i < 14; i++) {
+        hydro_fields->Wmunu_rk0[i] = new double[n_cell];
+        hydro_fields->Wmunu_rk1[i] = new double[n_cell];
+        hydro_fields->Wmunu_prev[i] = new double[n_cell];
     }
     hydro_fields->pi_b_rk0 = new double[n_cell];
     hydro_fields->pi_b_rk1 = new double[n_cell];
@@ -384,14 +388,14 @@ void Init::initial_Gubser_XY(InitData *DATA, int ieta, Field *hydro_fields) {
             u[1] = temp_profile_ux[ix][iy];
             u[2] = temp_profile_uy[ix][iy];
             u[3] = 0.0;
-            hydro_fields->u_rk0[idx][0] = u[0];
-            hydro_fields->u_rk0[idx][1] = u[1];
-            hydro_fields->u_rk0[idx][2] = u[2];
-            hydro_fields->u_rk0[idx][3] = u[3];
-            hydro_fields->u_prev[idx][0] = u[0];
-            hydro_fields->u_prev[idx][1] = u[1];
-            hydro_fields->u_prev[idx][2] = u[2];
-            hydro_fields->u_prev[idx][3] = u[3];
+            hydro_fields->u_rk0[0][idx] = u[0];
+            hydro_fields->u_rk0[1][idx] = u[1];
+            hydro_fields->u_rk0[2][idx] = u[2];
+            hydro_fields->u_rk0[3][idx] = u[3];
+            hydro_fields->u_prev[0][idx] = u[0];
+            hydro_fields->u_prev[1][idx] = u[1];
+            hydro_fields->u_prev[2][idx] = u[2];
+            hydro_fields->u_prev[3][idx] = u[3];
 
             if (DATA->turn_on_shear == 0) {
                 hydro_fields->e_prev[idx] = temp_profile_ed_prev[ix][iy];
@@ -399,37 +403,37 @@ void Init::initial_Gubser_XY(InitData *DATA, int ieta, Field *hydro_fields) {
                     + temp_profile_ux_prev[ix][iy]*temp_profile_ux_prev[ix][iy]
                     + temp_profile_uy_prev[ix][iy]*temp_profile_uy_prev[ix][iy]
                 );
-                hydro_fields->u_prev[idx][0] = utau_prev;
-                hydro_fields->u_prev[idx][1] = temp_profile_ux_prev[ix][iy];
-                hydro_fields->u_prev[idx][2] = temp_profile_uy_prev[ix][iy];
-                hydro_fields->u_prev[idx][3] = 0.0;
+                hydro_fields->u_prev[0][idx] = utau_prev;
+                hydro_fields->u_prev[1][idx] = temp_profile_ux_prev[ix][iy];
+                hydro_fields->u_prev[2][idx] = temp_profile_uy_prev[ix][iy];
+                hydro_fields->u_prev[3][idx] = 0.0;
             }
             hydro_fields->pi_b_prev[idx] = 0.0;
             hydro_fields->pi_b_rk0[idx] = 0.0;
 
             if (DATA->turn_on_shear == 1) {
-                hydro_fields->Wmunu_rk0[idx][0] = temp_profile_pi00[ix][iy];
-                hydro_fields->Wmunu_rk0[idx][1] = temp_profile_pi0x[ix][iy];
-                hydro_fields->Wmunu_rk0[idx][2] = temp_profile_pi0y[ix][iy];
-                hydro_fields->Wmunu_rk0[idx][3] = 0.0;
-                hydro_fields->Wmunu_rk0[idx][4] = temp_profile_pixx[ix][iy];
-                hydro_fields->Wmunu_rk0[idx][5] = temp_profile_pixy[ix][iy];
-                hydro_fields->Wmunu_rk0[idx][6] = 0.0;
-                hydro_fields->Wmunu_rk0[idx][7] = temp_profile_piyy[ix][iy];
-                hydro_fields->Wmunu_rk0[idx][8] = 0.0;
-                hydro_fields->Wmunu_rk0[idx][9] = temp_profile_pi33[ix][iy];
+                hydro_fields->Wmunu_rk0[0][idx] = temp_profile_pi00[ix][iy];
+                hydro_fields->Wmunu_rk0[1][idx] = temp_profile_pi0x[ix][iy];
+                hydro_fields->Wmunu_rk0[2][idx] = temp_profile_pi0y[ix][iy];
+                hydro_fields->Wmunu_rk0[3][idx] = 0.0;
+                hydro_fields->Wmunu_rk0[4][idx] = temp_profile_pixx[ix][iy];
+                hydro_fields->Wmunu_rk0[5][idx] = temp_profile_pixy[ix][iy];
+                hydro_fields->Wmunu_rk0[6][idx] = 0.0;
+                hydro_fields->Wmunu_rk0[7][idx] = temp_profile_piyy[ix][iy];
+                hydro_fields->Wmunu_rk0[8][idx] = 0.0;
+                hydro_fields->Wmunu_rk0[9][idx] = temp_profile_pi33[ix][iy];
                 for (int mu = 10; mu < 14; mu++) {
-                        hydro_fields->Wmunu_rk0[idx][mu] = 0.0;
+                        hydro_fields->Wmunu_rk0[mu][idx] = 0.0;
                 }
             } else {
                 for (int mu = 0; mu < 14; mu++) {
-                        hydro_fields->Wmunu_rk0[idx][mu] = 0.0;
+                        hydro_fields->Wmunu_rk0[mu][idx] = 0.0;
                 }
             }
             for (int rkstep = 0; rkstep < 1; rkstep++) {
                 for (int ii = 0; ii < 14; ii++) {
-                    hydro_fields->Wmunu_prev[idx][ii] =
-                                        hydro_fields->Wmunu_rk0[idx][ii];
+                    hydro_fields->Wmunu_prev[ii][idx] =
+                                        hydro_fields->Wmunu_rk0[ii][idx];
                 }
             }
         }
@@ -577,46 +581,46 @@ void Init::initial_Bjorken_XY(InitData *DATA, int ieta, Field *hydro_fields) {
             u[1] = temp_profile_ux[ix][iy];
             u[2] = temp_profile_uy[ix][iy];
             u[3] = 0.0;
-            hydro_fields->u_rk0[idx][0] = u[0];
-            hydro_fields->u_rk0[idx][1] = u[1];
-            hydro_fields->u_rk0[idx][2] = u[2];
-            hydro_fields->u_rk0[idx][3] = u[3];
-            hydro_fields->u_prev[idx][0] = u[0];
-            hydro_fields->u_prev[idx][1] = u[1];
-            hydro_fields->u_prev[idx][2] = u[2];
-            hydro_fields->u_prev[idx][3] = u[3];
+            hydro_fields->u_rk0[0][idx] = u[0];
+            hydro_fields->u_rk0[1][idx] = u[1];
+            hydro_fields->u_rk0[2][idx] = u[2];
+            hydro_fields->u_rk0[3][idx] = u[3];
+            hydro_fields->u_prev[0][idx] = u[0];
+            hydro_fields->u_prev[1][idx] = u[1];
+            hydro_fields->u_prev[2][idx] = u[2];
+            hydro_fields->u_prev[3][idx] = u[3];
 
                 double utau_prev = sqrt(1.
                     + temp_profile_ux_prev[ix][iy]*temp_profile_ux_prev[ix][iy]
                     + temp_profile_uy_prev[ix][iy]*temp_profile_uy_prev[ix][iy]
                 );
-                hydro_fields->u_prev[idx][0] = utau_prev;
-                hydro_fields->u_prev[idx][1] = temp_profile_ux_prev[ix][iy];
-                hydro_fields->u_prev[idx][2] = temp_profile_uy_prev[ix][iy];
-                hydro_fields->u_prev[idx][3] = 0.0;
+                hydro_fields->u_prev[0][idx] = utau_prev;
+                hydro_fields->u_prev[1][idx] = temp_profile_ux_prev[ix][iy];
+                hydro_fields->u_prev[2][idx] = temp_profile_uy_prev[ix][iy];
+                hydro_fields->u_prev[3][idx] = 0.0;
             hydro_fields->pi_b_prev[idx] = 0.0;
             hydro_fields->pi_b_rk0[idx] = 0.0;
 
-                hydro_fields->Wmunu_rk0[idx][0] = temp_profile_pi00[ix][iy];
-                hydro_fields->Wmunu_rk0[idx][1] = temp_profile_pi0x[ix][iy];
-                hydro_fields->Wmunu_rk0[idx][2] = temp_profile_pi0y[ix][iy];
-                hydro_fields->Wmunu_rk0[idx][3] = 0.0;
-                hydro_fields->Wmunu_rk0[idx][4] = temp_profile_pixx[ix][iy];
-                hydro_fields->Wmunu_rk0[idx][5] = temp_profile_pixy[ix][iy];
-                hydro_fields->Wmunu_rk0[idx][6] = 0.0;
-                hydro_fields->Wmunu_rk0[idx][7] = temp_profile_piyy[ix][iy];
-                hydro_fields->Wmunu_rk0[idx][8] = 0.0;
-                hydro_fields->Wmunu_rk0[idx][9] = temp_profile_pi33[ix][iy];
+                hydro_fields->Wmunu_rk0[0][idx] = temp_profile_pi00[ix][iy];
+                hydro_fields->Wmunu_rk0[1][idx] = temp_profile_pi0x[ix][iy];
+                hydro_fields->Wmunu_rk0[2][idx] = temp_profile_pi0y[ix][iy];
+                hydro_fields->Wmunu_rk0[3][idx] = 0.0;
+                hydro_fields->Wmunu_rk0[4][idx] = temp_profile_pixx[ix][iy];
+                hydro_fields->Wmunu_rk0[5][idx] = temp_profile_pixy[ix][iy];
+                hydro_fields->Wmunu_rk0[6][idx] = 0.0;
+                hydro_fields->Wmunu_rk0[7][idx] = temp_profile_piyy[ix][iy];
+                hydro_fields->Wmunu_rk0[8][idx] = 0.0;
+                hydro_fields->Wmunu_rk0[9][idx] = temp_profile_pi33[ix][iy];
                 for (int mu = 10; mu < 14; mu++) {
-                        hydro_fields->Wmunu_rk0[idx][mu] = 0.0;
+                        hydro_fields->Wmunu_rk0[mu][idx] = 0.0;
                 }
                 for (int mu = 0; mu < 14; mu++) {
-                        hydro_fields->Wmunu_rk0[idx][mu] = 0.0;
+                        hydro_fields->Wmunu_rk0[mu][idx] = 0.0;
                 }
             for (int rkstep = 0; rkstep < 1; rkstep++) {
                 for (int ii = 0; ii < 14; ii++) {
-                    hydro_fields->Wmunu_prev[idx][ii] =
-                                        hydro_fields->Wmunu_rk0[idx][ii];
+                    hydro_fields->Wmunu_prev[ii][idx] =
+                                        hydro_fields->Wmunu_rk0[ii][idx];
                 }
             }
         }
@@ -745,21 +749,21 @@ void Init::initial_IPGlasma_XY(InitData *DATA, int ieta, Field *hydro_fields) {
             u[1] = temp_profile_ux[ix][iy];
             u[2] = temp_profile_uy[ix][iy];
             u[3] = 0.0;
-            hydro_fields->u_rk0[idx][0] = u[0];
-            hydro_fields->u_rk0[idx][1] = u[1];
-            hydro_fields->u_rk0[idx][2] = u[2];
-            hydro_fields->u_rk0[idx][3] = u[3];
-            hydro_fields->u_prev[idx][0] = u[0];
-            hydro_fields->u_prev[idx][1] = u[1];
-            hydro_fields->u_prev[idx][2] = u[2];
-            hydro_fields->u_prev[idx][3] = u[3];
+            hydro_fields->u_rk0[0][idx] = u[0];
+            hydro_fields->u_rk0[1][idx] = u[1];
+            hydro_fields->u_rk0[2][idx] = u[2];
+            hydro_fields->u_rk0[3][idx] = u[3];
+            hydro_fields->u_prev[0][idx] = u[0];
+            hydro_fields->u_prev[1][idx] = u[1];
+            hydro_fields->u_prev[2][idx] = u[2];
+            hydro_fields->u_prev[3][idx] = u[3];
 
             hydro_fields->pi_b_prev[idx] = 0.0;
             hydro_fields->pi_b_rk0[idx] = 0.0;
 
             for (int ii = 0; ii < 14; ii++) {
-                hydro_fields->Wmunu_prev[idx][ii] = 0.0;
-                hydro_fields->Wmunu_rk0[idx][ii] = 0.0;
+                hydro_fields->Wmunu_prev[ii][idx] = 0.0;
+                hydro_fields->Wmunu_rk0[ii][idx] = 0.0;
             }
         }
     }

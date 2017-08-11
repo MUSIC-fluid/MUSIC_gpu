@@ -47,11 +47,15 @@ void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
     delete[] hydro_fields->rhob_rk0;
     delete[] hydro_fields->rhob_rk1;
     delete[] hydro_fields->rhob_prev;
-    for (int i = 0; i < n_cell; i++) {
+    for (int i = 0; i < 4; i++) {
         delete[] hydro_fields->u_rk0[i];
         delete[] hydro_fields->u_rk1[i];
         delete[] hydro_fields->u_prev[i];
+    }
+    for (int i = 0; i < 20; i++) {
         delete[] hydro_fields->dUsup[i];
+    }
+    for (int i = 0; i < 14; i++) {
         delete[] hydro_fields->Wmunu_rk0[i];
         delete[] hydro_fields->Wmunu_rk1[i];
         delete[] hydro_fields->Wmunu_prev[i];
@@ -88,25 +92,25 @@ void Evolve::initial_field_with_ideal_Gubser(double tau, Field *hydro_fields) {
                 hydro_fields->rhob_rk0[idx] = 0.0;
                 hydro_fields->rhob_rk1[idx] = 0.0;
                 hydro_fields->rhob_prev[idx] = 0.0;
-                hydro_fields->u_rk0[idx][0] = utau_local;
-                hydro_fields->u_rk0[idx][1] = ux_local;
-                hydro_fields->u_rk0[idx][2] = uy_local;
-                hydro_fields->u_rk0[idx][3] = 0.0;
-                hydro_fields->u_rk1[idx][0] = utau_local;
-                hydro_fields->u_rk1[idx][1] = ux_local;
-                hydro_fields->u_rk1[idx][2] = uy_local;
-                hydro_fields->u_rk1[idx][3] = 0.0;
-                hydro_fields->u_prev[idx][0] = utau_local;
-                hydro_fields->u_prev[idx][1] = ux_local;
-                hydro_fields->u_prev[idx][2] = uy_local;
-                hydro_fields->u_prev[idx][3] = 0.0;
+                hydro_fields->u_rk0[0][idx] = utau_local;
+                hydro_fields->u_rk0[1][idx] = ux_local;
+                hydro_fields->u_rk0[2][idx] = uy_local;
+                hydro_fields->u_rk0[3][idx] = 0.0;
+                hydro_fields->u_rk1[0][idx] = utau_local;
+                hydro_fields->u_rk1[1][idx] = ux_local;
+                hydro_fields->u_rk1[2][idx] = uy_local;
+                hydro_fields->u_rk1[3][idx] = 0.0;
+                hydro_fields->u_prev[0][idx] = utau_local;
+                hydro_fields->u_prev[1][idx] = ux_local;
+                hydro_fields->u_prev[2][idx] = uy_local;
+                hydro_fields->u_prev[3][idx] = 0.0;
                 for (int ii = 0; ii < 20; ii++) {
-                    hydro_fields->dUsup[idx][ii] = 0.0;
+                    hydro_fields->dUsup[ii][idx] = 0.0;
                 }
                 for (int ii = 0; ii < 14; ii++) {
-                    hydro_fields->Wmunu_rk0[idx][ii] = 0.0;
-                    hydro_fields->Wmunu_rk1[idx][ii] = 0.0;
-                    hydro_fields->Wmunu_prev[idx][ii] = 0.0;
+                    hydro_fields->Wmunu_rk0[ii][idx] = 0.0;
+                    hydro_fields->Wmunu_rk1[ii][idx] = 0.0;
+                    hydro_fields->Wmunu_prev[ii][idx] = 0.0;
                 }
                 hydro_fields->pi_b_rk0[idx] = 0.0;
                 hydro_fields->pi_b_rk1[idx] = 0.0;
@@ -138,9 +142,9 @@ void Evolve::check_field_with_ideal_Gubser(double tau, Field *hydro_fields) {
                             &uy_local);
                 e_diff += fabs(hydro_fields->e_rk0[idx] - e_local);
                 e_total += fabs(e_local);
-                ux_diff += fabs(hydro_fields->u_rk0[idx][1] - ux_local);
+                ux_diff += fabs(hydro_fields->u_rk0[1][idx] - ux_local);
                 ux_total += fabs(ux_local);
-                uy_diff += fabs(hydro_fields->u_rk0[idx][2] - uy_local);
+                uy_diff += fabs(hydro_fields->u_rk0[2][idx] - uy_local);
                 uy_total += fabs(uy_local);
             }
         }
@@ -192,13 +196,13 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
                          hydro_fields->e_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
                          hydro_fields->rhob_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
                          hydro_fields->rhob_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
-                         hydro_fields->u_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4], \
-                         hydro_fields->u_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4], \
-                         hydro_fields->u_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4], \
-                         hydro_fields->dUsup[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:20], \
-                         hydro_fields->Wmunu_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14], \
-                         hydro_fields->Wmunu_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14], \
-                         hydro_fields->Wmunu_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14], \
+                         hydro_fields->u_rk0[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->u_rk1[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->u_prev[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->dUsup[0:20][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->Wmunu_rk0[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->Wmunu_rk1[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->Wmunu_prev[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->pi_b_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->pi_b_rk1[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->pi_b_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
@@ -220,23 +224,26 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
             }
             if (fabs(tau - 1.2) < 1e-8) {
                 #pragma acc update host(hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
-                #pragma acc update host(hydro_fields->u_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4])
-                #pragma acc update host(hydro_fields->Wmunu_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14])
+                #pragma acc update host(hydro_fields->u_rk0[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                #pragma acc update host(hydro_fields->Wmunu_rk0[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
                 grid_info->Gubser_flow_check_file(hydro_fields, tau);
             }
             if (fabs(tau - 1.5) < 1e-8) {
                 #pragma acc update host(hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
-                #pragma acc update host(hydro_fields->u_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4])
-                #pragma acc update host(hydro_fields->Wmunu_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14])
+                #pragma acc update host(hydro_fields->u_rk0[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                #pragma acc update host(hydro_fields->Wmunu_rk0[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
                 grid_info->Gubser_flow_check_file(hydro_fields, tau);
             }
             if (fabs(tau - 2.0) < 1e-8) {
                 #pragma acc update host(hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
-                #pragma acc update host(hydro_fields->u_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:4])
-                #pragma acc update host(hydro_fields->Wmunu_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA][0:14])
+                #pragma acc update host(hydro_fields->u_rk0[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                #pragma acc update host(hydro_fields->Wmunu_rk0[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
                 grid_info->Gubser_flow_check_file(hydro_fields, tau);
             }
             if (fabs(tau - 3.0) < 1e-8) {
+                #pragma acc update host(hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                #pragma acc update host(hydro_fields->u_rk0[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                #pragma acc update host(hydro_fields->Wmunu_rk0[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
                 grid_info->Gubser_flow_check_file(hydro_fields, tau);
             }
         }
