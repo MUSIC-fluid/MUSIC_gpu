@@ -164,104 +164,83 @@ void Advance::prepare_vis_array(
     int field_nperp = (GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1);
 
     // first build qi cube sub_grid_x*sub_grid_x*sub_grid_neta
-    for (int k = 0; k < sub_grid_neta; k++) {
-        int idx_ieta = MIN(ieta + k, GRID_SIZE_ETA - 1);
-        for (int i = 0; i < sub_grid_x; i++) {
-            int idx_ix = MIN(ix + i, GRID_SIZE_X);
-            for (int j = 0; j < sub_grid_y; j++) {
-                int idx_iy = MIN(iy + j, GRID_SIZE_Y);
-                int idx = j + sub_grid_y*i + sub_grid_x*sub_grid_y*k;
+    int idx_ieta = MIN(ieta, GRID_SIZE_ETA - 1);
+    int idx_ix = MIN(ix, GRID_SIZE_X);
+    int idx_iy = MIN(iy, GRID_SIZE_Y);
+    int idx = 0;
 
-                field_idx = (idx_iy + idx_ix*field_ny + idx_ieta*field_nperp);
-                update_vis_array_from_field(hydro_fields, field_idx,
-                                            vis_array[idx], rk_flag);
-                update_vis_prev_tau_from_field(hydro_fields, field_idx,
-                                               vis_nbr_tau[idx], rk_flag);
-            }
-        }
-    }
+    field_idx = (idx_iy + idx_ix*field_ny + idx_ieta*field_nperp);
+    update_vis_array_from_field(hydro_fields, field_idx,
+                                vis_array[idx], rk_flag);
+    update_vis_prev_tau_from_field(hydro_fields, field_idx,
+                                   vis_nbr_tau[idx], rk_flag);
 
     // now build neighbouring cells
     // x-direction
-    for (int k = 0; k < sub_grid_neta; k++) {
-        int idx_ieta = MIN(ieta + k, GRID_SIZE_ETA - 1);
-        for (int i = 0; i < sub_grid_y; i++) {
-            int idx_iy = MIN(iy + i, GRID_SIZE_Y);
-            int idx = 4*i + 4*sub_grid_y*k;
+    idx_ieta = MIN(ieta, GRID_SIZE_ETA - 1);
+    idx_iy = MIN(iy, GRID_SIZE_Y);
 
-            int idx_m_2 = MAX(0, ix - 2);
-            int idx_m_1 = MAX(0, ix - 1);
-            int idx_p_1 = MIN(ix + sub_grid_x, GRID_SIZE_X);
-            int idx_p_2 = MIN(ix + sub_grid_x + 1, GRID_SIZE_X);
+    int idx_m_2 = MAX(0, ix - 2);
+    int idx_m_1 = MAX(0, ix - 1);
+    int idx_p_1 = MIN(ix + 1, GRID_SIZE_X);
+    int idx_p_2 = MIN(ix + 2, GRID_SIZE_X);
 
-            field_idx = (idx_iy + idx_m_2*field_ny + idx_ieta*field_nperp);
-            update_vis_array_from_field(hydro_fields, field_idx,
-                                        vis_nbr_x[idx], rk_flag);
-            field_idx = (idx_iy + idx_m_1*field_ny + idx_ieta*field_nperp);
-            update_vis_array_from_field(hydro_fields, field_idx,
-                                        vis_nbr_x[idx+1], rk_flag);
-            field_idx = (idx_iy + idx_p_1*field_ny + idx_ieta*field_nperp);
-            update_vis_array_from_field(hydro_fields, field_idx,
-                                        vis_nbr_x[idx+2], rk_flag);
-            field_idx = (idx_iy + idx_p_2*field_ny + idx_ieta*field_nperp);
-            update_vis_array_from_field(hydro_fields, field_idx,
-                                        vis_nbr_x[idx+3], rk_flag);
-        }
-    }
+    field_idx = (idx_iy + idx_m_2*field_ny + idx_ieta*field_nperp);
+    update_vis_array_from_field(hydro_fields, field_idx,
+                                vis_nbr_x[idx], rk_flag);
+    field_idx = (idx_iy + idx_m_1*field_ny + idx_ieta*field_nperp);
+    update_vis_array_from_field(hydro_fields, field_idx,
+                                vis_nbr_x[idx+1], rk_flag);
+    field_idx = (idx_iy + idx_p_1*field_ny + idx_ieta*field_nperp);
+    update_vis_array_from_field(hydro_fields, field_idx,
+                                vis_nbr_x[idx+2], rk_flag);
+    field_idx = (idx_iy + idx_p_2*field_ny + idx_ieta*field_nperp);
+    update_vis_array_from_field(hydro_fields, field_idx,
+                                vis_nbr_x[idx+3], rk_flag);
     
     // y-direction
-    for (int k = 0; k < sub_grid_neta; k++) {
-        int idx_ieta = MIN(ieta + k, GRID_SIZE_ETA - 1);
-        for (int i = 0; i < sub_grid_x; i++) {
-            int idx_ix = MIN(ix + i, GRID_SIZE_X);
-            int idx = 4*i + 4*sub_grid_x*k;
+    idx_ieta = MIN(ieta, GRID_SIZE_ETA - 1);
+    idx_ix = MIN(ix, GRID_SIZE_X);
 
-            int idx_m_2 = MAX(0, iy - 2);
-            int idx_m_1 = MAX(0, iy - 1);
-            int idx_p_1 = MIN(iy + sub_grid_y, GRID_SIZE_Y);
-            int idx_p_2 = MIN(iy + sub_grid_y + 1, GRID_SIZE_Y);
+    idx_m_2 = MAX(0, iy - 2);
+    idx_m_1 = MAX(0, iy - 1);
+    idx_p_1 = MIN(iy + 1, GRID_SIZE_Y);
+    idx_p_2 = MIN(iy + 2, GRID_SIZE_Y);
 
-            field_idx = (idx_m_2 + idx_ix*field_ny + idx_ieta*field_nperp);
-            update_vis_array_from_field(hydro_fields, field_idx,
-                                        vis_nbr_y[idx], rk_flag);
-            field_idx = (idx_m_1 + idx_ix*field_ny + idx_ieta*field_nperp);
-            update_vis_array_from_field(hydro_fields, field_idx,
-                                        vis_nbr_y[idx+1], rk_flag);
-            field_idx = (idx_p_1 + idx_ix*field_ny + idx_ieta*field_nperp);
-            update_vis_array_from_field(hydro_fields, field_idx,
-                                        vis_nbr_y[idx+2], rk_flag);
-            field_idx = (idx_p_2 + idx_ix*field_ny + idx_ieta*field_nperp);
-            update_vis_array_from_field(hydro_fields, field_idx,
-                                        vis_nbr_y[idx+3], rk_flag);
-        }
-    }
+    field_idx = (idx_m_2 + idx_ix*field_ny + idx_ieta*field_nperp);
+    update_vis_array_from_field(hydro_fields, field_idx,
+                                vis_nbr_y[idx], rk_flag);
+    field_idx = (idx_m_1 + idx_ix*field_ny + idx_ieta*field_nperp);
+    update_vis_array_from_field(hydro_fields, field_idx,
+                                vis_nbr_y[idx+1], rk_flag);
+    field_idx = (idx_p_1 + idx_ix*field_ny + idx_ieta*field_nperp);
+    update_vis_array_from_field(hydro_fields, field_idx,
+                                vis_nbr_y[idx+2], rk_flag);
+    field_idx = (idx_p_2 + idx_ix*field_ny + idx_ieta*field_nperp);
+    update_vis_array_from_field(hydro_fields, field_idx,
+                                vis_nbr_y[idx+3], rk_flag);
 
     // eta-direction
-    for (int i = 0; i < sub_grid_x; i++) {
-        int idx_ix = MIN(ix + i, GRID_SIZE_X);
-        for (int k = 0; k < sub_grid_y; k++) {
-            int idx_iy = MIN(iy + k, GRID_SIZE_Y);
-            int idx = 4*k + 4*sub_grid_y*i;
+    idx_ix = MIN(ix, GRID_SIZE_X);
+    idx_iy = MIN(iy, GRID_SIZE_Y);
 
-            int idx_m_2 = MAX(0, ieta - 2);
-            int idx_m_1 = MAX(0, ieta - 1);
-            int idx_p_1 = MIN(ieta + sub_grid_neta, GRID_SIZE_ETA - 1);
-            int idx_p_2 = MIN(ieta + sub_grid_neta + 1, GRID_SIZE_ETA - 1);
+    idx_m_2 = MAX(0, ieta - 2);
+    idx_m_1 = MAX(0, ieta - 1);
+    idx_p_1 = MIN(ieta + 1, GRID_SIZE_ETA - 1);
+    idx_p_2 = MIN(ieta + 2, GRID_SIZE_ETA - 1);
 
-            field_idx = (idx_iy + idx_ix*field_ny + idx_m_2*field_nperp);
-            update_vis_array_from_field(hydro_fields, field_idx,
-                                        vis_nbr_eta[idx], rk_flag);
-            field_idx = (idx_iy + idx_ix*field_ny + idx_m_1*field_nperp);
-            update_vis_array_from_field(hydro_fields, field_idx,
-                                        vis_nbr_eta[idx+1], rk_flag);
-            field_idx = (idx_iy + idx_ix*field_ny + idx_p_1*field_nperp);
-            update_vis_array_from_field(hydro_fields, field_idx,
-                                        vis_nbr_eta[idx+2], rk_flag);
-            field_idx = (idx_iy + idx_ix*field_ny + idx_p_2*field_nperp);
-            update_vis_array_from_field(hydro_fields, field_idx,
-                                        vis_nbr_eta[idx+3], rk_flag);
-        }
-    }
+    field_idx = (idx_iy + idx_ix*field_ny + idx_m_2*field_nperp);
+    update_vis_array_from_field(hydro_fields, field_idx,
+                                vis_nbr_eta[idx], rk_flag);
+    field_idx = (idx_iy + idx_ix*field_ny + idx_m_1*field_nperp);
+    update_vis_array_from_field(hydro_fields, field_idx,
+                                vis_nbr_eta[idx+1], rk_flag);
+    field_idx = (idx_iy + idx_ix*field_ny + idx_p_1*field_nperp);
+    update_vis_array_from_field(hydro_fields, field_idx,
+                                vis_nbr_eta[idx+2], rk_flag);
+    field_idx = (idx_iy + idx_ix*field_ny + idx_p_2*field_nperp);
+    update_vis_array_from_field(hydro_fields, field_idx,
+                                vis_nbr_eta[idx+3], rk_flag);
 }
                         
 void Advance::prepare_velocity_array(double tau_rk, Field *hydro_fields,
