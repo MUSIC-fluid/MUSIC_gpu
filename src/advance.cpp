@@ -320,8 +320,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     #pragma acc parallel loop gang worker vector collapse(3) independent copy(tmp[0:1]) present(hydro_fields)\
                          private(this[0:1], grid_array[1][5], qi_array[1][5], qi_array_new[1][5], qi_rk0[1][5], \
                          qi_nbr_x[4][5], qi_nbr_y[4][5], qi_nbr_eta[4][5], \
-                         grid_array_temp[5], velocity_array[1][20], \
-                         vis_array[1][19], vis_array_new[1][19], vis_nbr_tau[1][19], vis_nbr_x[4][19], vis_nbr_y[4][19], vis_nbr_eta[4][19], \
+                         grid_array_temp[5], \
+                         vis_array[1][19], vis_nbr_tau[1][19], vis_nbr_x[4][19], vis_nbr_y[4][19], vis_nbr_eta[4][19], \
                          grid_array_hL[0:5], qimhL[0:5], grid_array_hR[0:5], qiphL[0:5], qimhR[0:5], \
                          rhs[0:5], qiphR[0:5])
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta += SUB_GRID_SIZE_ETA) {
@@ -350,13 +350,34 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                              grid_array_hL, grid_array_hR);
 
                 update_grid_cell(grid_array, hydro_fields, rk_flag, ieta, ix, iy);
-
-                if (VISCOUS_FLAG == 1) {
-                    double tau_rk = tau + rk_flag*DELTA_TAU;
-
+            }
+        }
+    }
+    if (VISCOUS_FLAG == 1) {
+        #pragma acc parallel loop gang worker vector collapse(3) independent present(hydro_fields)\
+                         private(this[0:1])
+        for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta += SUB_GRID_SIZE_ETA) {
+            for (int ix = 0; ix <= GRID_SIZE_X; ix += SUB_GRID_SIZE_X) {
+                for (int iy = 0; iy <= GRID_SIZE_Y; iy += SUB_GRID_SIZE_Y) {
 			        MakeDSpatial_1(tau, hydro_fields, ieta, ix, iy, rk_flag);
 			        MakeDTau_1(tau, hydro_fields, ieta, ix, iy, rk_flag);
-                    
+                }
+            }
+        }
+
+        #pragma acc parallel loop gang worker vector collapse(3) independent present(hydro_fields)\
+                             private(this[0:1], grid_array[1][5], grid_array_temp[5], \
+                                     velocity_array[1][20], \
+                                     vis_array[1][19], vis_array_new[1][19], vis_nbr_tau[1][19], vis_nbr_x[4][19], vis_nbr_y[4][19], vis_nbr_eta[4][19])
+        for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta += SUB_GRID_SIZE_ETA) {
+            for (int ix = 0; ix <= GRID_SIZE_X; ix += SUB_GRID_SIZE_X) {
+                for (int iy = 0; iy <= GRID_SIZE_Y; iy += SUB_GRID_SIZE_Y) {
+                    prepare_vis_array(hydro_fields, rk_flag, ieta, ix, iy,
+                                      SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y,
+                                      vis_array, vis_nbr_tau, vis_nbr_x,
+                                      vis_nbr_y, vis_nbr_eta);
+
+                    double tau_rk = tau + rk_flag*DELTA_TAU;
                     prepare_velocity_array(tau_rk, hydro_fields,
                                            ieta, ix, iy,
                                            rk_flag, SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X,
@@ -862,7 +883,7 @@ void Advance::update_vis_prev_tau_from_field(Field *hydro_fields, int idx,
         }
         vis_array[14] = hydro_fields->pi_b_rk0[idx];
         for (int i = 0; i < 4; i++) {
-            vis_array[15+i] = hydro_fields->u_rk0[i][idx];
+            vis_array[15+i] = hydro_fields->u_prev[i][idx];
         }
     }
 }
@@ -3001,8 +3022,6 @@ int Advance::MakeDTau_1(double tau, Field *hydro_fields,
         }
     } else {
         for (int m = 1; m < 4; m++) {
-            //f = ((hydro_fields->u_rk1[idx][m] - hydro_fields->u_rk0[idx][m])
-            //     /DELTA_TAU);
             f = ((hydro_fields->u_rk1[m][idx] - hydro_fields->u_prev[m][idx])
                  /DELTA_TAU);
             hydro_fields->dUsup[4*m][idx] = -f;  // g00 = -1
@@ -3045,8 +3064,6 @@ int Advance::MakeDTau_1(double tau, Field *hydro_fields,
         rhob = hydro_fields->rhob_rk1[idx];
         eps = hydro_fields->e_rk1[idx];
         tildemu = get_mu(eps, rhob)/get_temperature(eps, rhob);
-        //rhob = hydro_fields->rhob_rk0[idx];
-        //eps = hydro_fields->e_rk0[idx];
         rhob = hydro_fields->rhob_prev[idx];
         eps = hydro_fields->e_prev[idx];
         tildemu_prev = get_mu(eps, rhob)/get_temperature(eps, rhob);
