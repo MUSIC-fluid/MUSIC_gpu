@@ -12,10 +12,10 @@
 #define SUB_GRID_SIZE_Y 1
 #define SUB_GRID_SIZE_ETA 1
 
-#define DELTA_TAU 0.01
+#define DELTA_TAU 0.005
 #define DELTA_X 0.05
 #define DELTA_Y 0.05
-#define DELTA_ETA 0.01
+#define DELTA_ETA 0.1
 
 #define VISCOUS_FLAG 1
 #define INCLUDE_SHEAR 1
