@@ -334,12 +334,14 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                                  SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y, qi_array,
                                  qi_nbr_x, qi_nbr_y, qi_nbr_eta,
                                  qi_rk0, grid_array, grid_array_temp);
+                
 
                 prepare_vis_array(hydro_fields, rk_flag, ieta, ix, iy,
                                   SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y,
                                   vis_array, vis_nbr_tau, vis_nbr_x,
                                   vis_nbr_y, vis_nbr_eta);
-
+                
+                
                 FirstRKStepT(tau, rk_flag,
                              qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
                              SUB_GRID_SIZE_ETA, SUB_GRID_SIZE_X, SUB_GRID_SIZE_Y,
@@ -446,7 +448,7 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
     } else {
         tau_rk = tau_next;
     }
-
+    
     // Solve partial_a T^{a mu} = -partial_a W^{a mu}
     // Update T^{mu nu}
 
@@ -465,7 +467,7 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
     MakeWSource(tau_rk, qi_array, sub_grid_neta, sub_grid_x, sub_grid_y,
                 vis_array, vis_nbr_tau, vis_nbr_x, vis_nbr_y,
                 vis_nbr_eta, qi_array_new);
-    
+
     if (rk_flag == 1) {
         // if rk_flag == 1, we now have q0 + k1 + k2. 
         // So add q0 and multiply by 1/2
@@ -544,7 +546,7 @@ int Advance::ReconstIt_velocity_Newton(
             v_status = 0;
             break;
         }
-    } while (abs_error_v > abs_err && rel_error_v > rel_err);
+    } while (fabs(abs_error_v) > abs_err && fabs(rel_error_v) > rel_err);
 
     double v_solution;
     if (v_status == 1) {
@@ -556,13 +558,14 @@ int Advance::ReconstIt_velocity_Newton(
    
     // for large velocity, solve u0
     double u0_solution = 1.0;
+    double abs_error_u0, rel_error_u0;
     if (v_solution > v_critical) {
         double u0_prev = 1./sqrt(1. - v_solution*v_solution);
         int u0_status = 1;
         iter = 0;
         double u0_next;
-        double abs_error_u0 = reconst_u0_f_Newton(u0_prev, T00, K00, M, J0);
-        double rel_error_u0 = 1.0;
+        abs_error_u0 = reconst_u0_f_Newton(u0_prev, T00, K00, M, J0);
+        rel_error_u0 = 1.0;
         do {
             iter++;
             u0_next = (u0_prev
@@ -574,7 +577,7 @@ int Advance::ReconstIt_velocity_Newton(
                 u0_status = 0;
                 break;
             }
-        } while (abs_error_u0 > abs_err && rel_error_u0 > rel_err);
+        } while (fabs(abs_error_u0) > abs_err && fabs(rel_error_u0) > rel_err);
 
         if (u0_status == 1) {
             u0_solution = u0_next;
@@ -715,13 +718,6 @@ double Advance::reconst_u0_df(double u0, double T00, double K00, double M,
     return(dfdu0);
 }
 
-
-/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% */
-/*
-   Done with T 
-   Start W
-*/
-/* %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% */
 
 int Advance::FirstRKStepW(double tau, int rk_flag, int sub_grid_neta,
                           int sub_grid_x, int sub_grid_y, double vis_array[][19],
@@ -1080,6 +1076,7 @@ void Advance::MakeDeltaQI(double tau, double qi_array[][5], double qi_nbr_x[][5]
     // reconstruct e, rhob, and u[4] for half way cells
     int flag = ReconstIt_velocity_Newton(
                     grid_array_hL, tau, qiphL, grid_array[idx]);
+
     double aiphL = MaxSpeed(tau, direc, grid_array_hL);
 
     flag *= ReconstIt_velocity_Newton(
@@ -1095,7 +1092,6 @@ void Advance::MakeDeltaQI(double tau, double qi_array[][5], double qi_nbr_x[][5]
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
         double Fiph = 0.5*((FiphL + FiphR)
                             - aiph*(qiphR[alpha] - qiphL[alpha]));
-
         rhs[alpha] = -Fiph/DELTA_X*DELTA_TAU;
     }
 
@@ -1489,78 +1485,78 @@ void Advance::revert_grid(double *grid_array, double *grid_prev) {
 double Advance::get_pressure(double e_local, double rhob) {
     double p = e_local/3.;
 
-    double e1 = e_local;
-    double e2 = e1*e_local;
-    double e3 = e2*e_local;
-    double e4 = e3*e_local;
-    double e5 = e4*e_local;
-    double e6 = e5*e_local;
-    double e7 = e6*e_local;
-    double e8 = e7*e_local;
-    double e9 = e8*e_local;
-    double e10 = e9*e_local;
-    double e11 = e10*e_local;
-    double e12 = e11*e_local;
-	
-	p = ((  1.9531729608963267e-11*e12
-          + 3.1188455176941583e-7*e11
-          + 0.0009417586777847889*e10
-          + 0.7158279081255019*e9
-          + 141.5073484468774*e8
-          + 6340.448389300905*e7
-          + 41913.439282708554*e6
-          + 334334.4309240126*e5
-          + 1.6357487344679043e6*e4
-          + 3.1729694865420084e6*e3
-          + 1.077580993288114e6*e2
-          + 9737.845799644809*e1
-          - 0.25181736420168666)
-         /(  3.2581066229887368e-18*e12
-           + 5.928138360995685e-11*e11
-           + 9.601103399348206e-7*e10
-           + 0.002962497695527404*e9
-           + 2.3405487982094204*e8
-           + 499.04919730607065*e7
-           + 26452.34905933697*e6
-           + 278581.2989342773*e5
-           + 1.7851642641834426e6*e4
-           + 1.3512402226067686e7*e3
-           + 2.0931169138134286e7*e2
-           + 4.0574329080826794e6*e1
-           + 45829.44617893836));
+    //double e1 = e_local;
+    //double e2 = e1*e_local;
+    //double e3 = e2*e_local;
+    //double e4 = e3*e_local;
+    //double e5 = e4*e_local;
+    //double e6 = e5*e_local;
+    //double e7 = e6*e_local;
+    //double e8 = e7*e_local;
+    //double e9 = e8*e_local;
+    //double e10 = e9*e_local;
+    //double e11 = e10*e_local;
+    //double e12 = e11*e_local;
+	//
+	//p = ((  1.9531729608963267e-11*e12
+    //      + 3.1188455176941583e-7*e11
+    //      + 0.0009417586777847889*e10
+    //      + 0.7158279081255019*e9
+    //      + 141.5073484468774*e8
+    //      + 6340.448389300905*e7
+    //      + 41913.439282708554*e6
+    //      + 334334.4309240126*e5
+    //      + 1.6357487344679043e6*e4
+    //      + 3.1729694865420084e6*e3
+    //      + 1.077580993288114e6*e2
+    //      + 9737.845799644809*e1
+    //      - 0.25181736420168666)
+    //     /(  3.2581066229887368e-18*e12
+    //       + 5.928138360995685e-11*e11
+    //       + 9.601103399348206e-7*e10
+    //       + 0.002962497695527404*e9
+    //       + 2.3405487982094204*e8
+    //       + 499.04919730607065*e7
+    //       + 26452.34905933697*e6
+    //       + 278581.2989342773*e5
+    //       + 1.7851642641834426e6*e4
+    //       + 1.3512402226067686e7*e3
+    //       + 2.0931169138134286e7*e2
+    //       + 4.0574329080826794e6*e1
+    //       + 45829.44617893836));
     return(p);
 }
 
 double Advance::get_cs2(double e_local, double rhob) {
     double cs2 = 1./3.;
 	
-    double e1 = e_local;
-	double e2 = e1*e1;
-	double e3 = e2*e1;
-	double e4 = e3*e1;
-	double e5 = e4*e1;
-	double e6 = e5*e1;
-	double e7 = e6*e1;
-	double e8 = e7*e1;
-	double e9 = e8*e1;
-	double e10 = e9*e1;
-	double e11 = e10*e1;
-	double e12 = e11*e1;
-	double e13 = e12*e1;
-	cs2 = ((5.191934309650155e-32 + 4.123605749683891e-23*e1
-            + 3.1955868410879504e-16*e2 + 1.4170364808063119e-10*e3
-            + 6.087136671592452e-6*e4 + 0.02969737949090831*e5
-            + 15.382615282179595*e6 + 460.6487249985994*e7
-            + 1612.4245252438795*e8 + 275.0492627924299*e9
-            + 58.60283714484669*e10 + 6.504847576502024*e11
-            + 0.03009027913262399*e12 + 8.189430244031285e-6*e13)
-		   /(1.4637868900982493e-30 + 6.716598285341542e-22*e1
-             + 3.5477700458515908e-15*e2 + 1.1225580509306008e-9*e3
-             + 0.00003551782901018317*e4 + 0.13653226327408863*e5
-             + 60.85769171450653*e6 + 1800.5461219450308*e7
-             + 15190.225535036281*e8 + 590.2572000057821*e9
-             + 293.99144775704605*e10 + 21.461303090563028*e11
-             + 0.09301685073435291*e12 + 0.000024810902623582917*e13));
+    //double e1 = e_local;
+	//double e2 = e1*e1;
+	//double e3 = e2*e1;
+	//double e4 = e3*e1;
+	//double e5 = e4*e1;
+	//double e6 = e5*e1;
+	//double e7 = e6*e1;
+	//double e8 = e7*e1;
+	//double e9 = e8*e1;
+	//double e10 = e9*e1;
+	//double e11 = e10*e1;
+	//double e12 = e11*e1;
+	//double e13 = e12*e1;
+	//cs2 = ((5.191934309650155e-32 + 4.123605749683891e-23*e1
+    //        + 3.1955868410879504e-16*e2 + 1.4170364808063119e-10*e3
+    //        + 6.087136671592452e-6*e4 + 0.02969737949090831*e5
+    //        + 15.382615282179595*e6 + 460.6487249985994*e7
+    //        + 1612.4245252438795*e8 + 275.0492627924299*e9
+    //        + 58.60283714484669*e10 + 6.504847576502024*e11
+    //        + 0.03009027913262399*e12 + 8.189430244031285e-6*e13)
+	//	   /(1.4637868900982493e-30 + 6.716598285341542e-22*e1
+    //         + 3.5477700458515908e-15*e2 + 1.1225580509306008e-9*e3
+    //         + 0.00003551782901018317*e4 + 0.13653226327408863*e5
+    //         + 60.85769171450653*e6 + 1800.5461219450308*e7
+    //         + 15190.225535036281*e8 + 590.2572000057821*e9
+    //         + 293.99144775704605*e10 + 21.461303090563028*e11
+    //         + 0.09301685073435291*e12 + 0.000024810902623582917*e13));
 
     return(cs2);
 }
@@ -1587,29 +1583,29 @@ double Advance::get_temperature(double e_local, double rhob) {
     double res = 90.0/M_PI/M_PI*(e_local/3.0)/(2*(Nc*Nc-1)+7./2*Nc*Nf);
     double temperature = pow(res, 0.25);
 	
-    double e1 = e_local;
-	double e2 = e1*e1;
-	double e3 = e2*e1;
-	double e4 = e3*e1;
-	double e5 = e4*e1;
-	double e6 = e5*e1;
-	double e7 = e6*e1;
-	double e8 = e7*e1;
-	double e9 = e8*e1;
-	double e10 = e9*e1;
-	double e11 = e10*e1;
-	temperature = ((1.510073201405604e-29 + 8.014062800678687e-18*e1
-                    + 2.4954778310451065e-10*e2 + 0.000063810382643387*e3
-                    + 0.4873490574161924*e4 + 207.48582344326206*e5
-                    + 6686.07424325115*e6 + 14109.766109389702*e7
-                    + 1471.6180520527757*e8 + 14.055788949565482*e9
-                    + 0.015421252394182246*e10 + 1.5780479034557783e-6*e11)
-                   /(7.558667139355393e-28 + 1.3686372302041508e-16*e1
-                     + 2.998130743142826e-9*e2 + 0.0005036835870305458*e3
-                     + 2.316902328874072*e4 + 578.0778724946719*e5
-                     + 11179.193315394154*e6 + 17965.67607192861*e7
-                     + 1051.0730543534657*e8 + 5.916312075925817*e9
-                     + 0.003778342768228011*e10 + 1.8472801679382593e-7*e11));
+    //double e1 = e_local;
+	//double e2 = e1*e1;
+	//double e3 = e2*e1;
+	//double e4 = e3*e1;
+	//double e5 = e4*e1;
+	//double e6 = e5*e1;
+	//double e7 = e6*e1;
+	//double e8 = e7*e1;
+	//double e9 = e8*e1;
+	//double e10 = e9*e1;
+	//double e11 = e10*e1;
+	//temperature = ((1.510073201405604e-29 + 8.014062800678687e-18*e1
+    //                + 2.4954778310451065e-10*e2 + 0.000063810382643387*e3
+    //                + 0.4873490574161924*e4 + 207.48582344326206*e5
+    //                + 6686.07424325115*e6 + 14109.766109389702*e7
+    //                + 1471.6180520527757*e8 + 14.055788949565482*e9
+    //                + 0.015421252394182246*e10 + 1.5780479034557783e-6*e11)
+    //               /(7.558667139355393e-28 + 1.3686372302041508e-16*e1
+    //                 + 2.998130743142826e-9*e2 + 0.0005036835870305458*e3
+    //                 + 2.316902328874072*e4 + 578.0778724946719*e5
+    //                 + 11179.193315394154*e6 + 17965.67607192861*e7
+    //                 + 1051.0730543534657*e8 + 5.916312075925817*e9
+    //                 + 0.003778342768228011*e10 + 1.8472801679382593e-7*e11));
     return(temperature);
 }
 
@@ -1696,9 +1692,10 @@ void Advance::MakeWSource(double tau, double qi_array[][5],
         double dWdx_perp = 0.0;
         double dPidx_perp = 0.0;
 
-        double sgp1, sgm1, bgp1, bgm1;
+        double sg, sgp1, sgm1, bg, bgp1, bgm1;
         // x-direction
         idx_1d = map_2d_idx_to_1d(alpha, 1);
+        sg = vis_array[idx][idx_1d];
         if (i + 1 < sub_grid_x) {
             idx_p_1 = j + (i+1)*sub_grid_y + k*sub_grid_x*sub_grid_y;
             sgp1 = vis_array[idx_p_1][idx_1d];
@@ -1713,9 +1710,12 @@ void Advance::MakeWSource(double tau, double qi_array[][5],
             idx_m_1 = 4*j + k*4*sub_grid_y + 1;
             sgm1 = vis_nbr_x[idx_m_1][idx_1d];
         }
-        dWdx_perp += (sgp1 - sgm1)/(2.*DELTA_X);
+        //dWdx_perp += (sgp1 - sgm1)/(2.*DELTA_X);
+        dWdx_perp += minmod_dx(sgp1, sg, sgm1)/DELTA_X;
         if (alpha < 4 && INCLUDE_BULK) {
             double gfac1 = (alpha == 1 ? 1.0 : 0.0);
+            bg = vis_array[idx][14]*(gfac1 + vis_array[idx][15+alpha]
+                                             *vis_array[idx][16]);
             if (i + 1 < sub_grid_x) {
                 bgp1 = (vis_array[idx_p_1][14]
                             *(gfac1 + vis_array[idx_p_1][15+alpha]
@@ -1734,10 +1734,12 @@ void Advance::MakeWSource(double tau, double qi_array[][5],
                             *(gfac1 + vis_nbr_x[idx_m_1][15+alpha]
                                       *vis_nbr_x[idx_m_1][16]));
             }
-            dPidx_perp += (bgp1 - bgm1)/(2.*DELTA_X);
+            //dPidx_perp += (bgp1 - bgm1)/(2.*DELTA_X);
+            dPidx_perp += minmod_dx(bgp1, bg, bgm1)/DELTA_X;
         }
         // y-direction
         idx_1d = map_2d_idx_to_1d(alpha, 2);
+        sg = vis_array[idx][idx_1d];
         if (j + 1 < sub_grid_y) {
             idx_p_1 = j + 1 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
             sgp1 = vis_array[idx_p_1][idx_1d];
@@ -1752,9 +1754,12 @@ void Advance::MakeWSource(double tau, double qi_array[][5],
             idx_m_1 = 4*i + 4*k*sub_grid_x + 1;
             sgm1 = vis_nbr_y[idx_m_1][idx_1d];
         }
-        dWdx_perp += (sgp1 - sgm1)/(2.*DELTA_Y);
+        //dWdx_perp += (sgp1 - sgm1)/(2.*DELTA_Y);
+        dWdx_perp += minmod_dx(sgp1, sg, sgm1)/DELTA_Y;
         if (alpha < 4 && INCLUDE_BULK) {
             double gfac1 = (alpha == 2 ? 1.0 : 0.0);
+            bg = vis_array[idx][14]*(gfac1 + vis_array[idx][15+alpha]
+                                             *vis_array[idx][17]);
             if (j + 1 < sub_grid_x) {
                 bgp1 = (vis_array[idx_p_1][14]
                             *(gfac1 + vis_nbr_y[idx_p_1][15+alpha]
@@ -1773,7 +1778,8 @@ void Advance::MakeWSource(double tau, double qi_array[][5],
                             *(gfac1 + vis_nbr_y[idx_m_1][15+alpha]
                                       *vis_nbr_y[idx_m_1][17]));
             }
-            dPidx_perp += (bgp1 - bgm1)/(2.*DELTA_Y);
+            //dPidx_perp += (bgp1 - bgm1)/(2.*DELTA_Y);
+            dPidx_perp += minmod_dx(bgp1, bg, bgm1)/DELTA_Y;
         }
 
         // eta-direction
@@ -1781,6 +1787,7 @@ void Advance::MakeWSource(double tau, double qi_array[][5],
         double dWdeta = 0.0;
         double dPideta = 0.0;
         idx_1d = map_2d_idx_to_1d(alpha, 3);
+        sg = vis_array[idx][idx_1d];
         if (k + 1 < sub_grid_neta) {
             idx_p_1 = j + i*sub_grid_y + (k+1)*sub_grid_x*sub_grid_y;
             sgp1 = vis_array[idx_p_1][idx_1d];
@@ -1795,9 +1802,12 @@ void Advance::MakeWSource(double tau, double qi_array[][5],
             idx_m_1 = 4*j + 4*i*sub_grid_y + 1;
             sgm1 = vis_nbr_eta[idx_m_1][idx_1d];
         }
-        dWdeta = (sgp1 - sgm1)/(2.*DELTA_ETA*taufactor);
+        //dWdeta = (sgp1 - sgm1)/(2.*DELTA_ETA*taufactor);
+        dWdx_perp += minmod_dx(sgp1, sg, sgm1)/(DELTA_ETA*taufactor);
         if (alpha < 4 && INCLUDE_BULK) {
             double gfac3 = (alpha == 3 ? 1.0 : 0.0);
+            bg = vis_array[idx][14]*(gfac3 + vis_array[idx][15+alpha]
+                                             *vis_array[idx][18]);
             if (k + 1 < sub_grid_neta) {
                 bgp1 = (vis_array[idx_p_1][14]
                            *(gfac3 + vis_array[idx_p_1][15+alpha]
@@ -1816,8 +1826,9 @@ void Advance::MakeWSource(double tau, double qi_array[][5],
                            *(gfac3 + vis_nbr_eta[idx_m_1][15+alpha]
                                      *vis_nbr_eta[idx_m_1][18]));
             }
-            dPideta = ((bgp1 - bgm1)
-                       /(2.*DELTA_ETA*taufactor));
+            //dPideta = ((bgp1 - bgm1)
+            //           /(2.*DELTA_ETA*taufactor));
+            dPidx_perp += minmod_dx(bgp1, bg, bgm1)/(DELTA_ETA*taufactor);
         }
 
         // partial_m (tau W^mn) = W^0n + tau partial_m W^mn

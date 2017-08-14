@@ -745,9 +745,9 @@ void Init::initial_IPGlasma_XY(InitData *DATA, int ieta, Field *hydro_fields) {
             hydro_fields->rhob_prev[idx] = rhob;
 
             /* for HIC */
-            u[0] = temp_profile_utau[ix][iy];
             u[1] = temp_profile_ux[ix][iy];
             u[2] = temp_profile_uy[ix][iy];
+            u[0] = sqrt(1. + u[1]*u[1] + u[2]*u[2]);
             u[3] = 0.0;
             hydro_fields->u_rk0[0][idx] = u[0];
             hydro_fields->u_rk0[1][idx] = u[1];
@@ -760,10 +760,12 @@ void Init::initial_IPGlasma_XY(InitData *DATA, int ieta, Field *hydro_fields) {
 
             hydro_fields->pi_b_prev[idx] = 0.0;
             hydro_fields->pi_b_rk0[idx] = 0.0;
+            hydro_fields->pi_b_rk1[idx] = 0.0;
 
             for (int ii = 0; ii < 14; ii++) {
                 hydro_fields->Wmunu_prev[ii][idx] = 0.0;
                 hydro_fields->Wmunu_rk0[ii][idx] = 0.0;
+                hydro_fields->Wmunu_rk1[ii][idx] = 0.0;
             }
         }
     }

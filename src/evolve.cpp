@@ -218,7 +218,7 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
 
         //convert_grid_to_field(arena, hydro_fields);
         
-        if (DATA->Initial_profile == 0) {
+        if (DATA->Initial_profile == 0 || DATA->Initial_profile == 8) {
             if (fabs(tau - 1.0) < 1e-8) {
                 grid_info->Gubser_flow_check_file(hydro_fields, tau);
             }
