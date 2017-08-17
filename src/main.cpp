@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <sys/stat.h>
+#include <fenv.h> 
 
 #include "./music.h"
 
@@ -10,6 +11,7 @@ using namespace std;
 
 // main program
 int main(int argc, char *argv[]) {
+    feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW); 
     string input_file;
     InitData DATA;
     

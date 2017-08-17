@@ -595,6 +595,26 @@ void Grid_info::Gubser_flow_check_file(Field *hydro_fields, double tau) {
     output_file.close();
 }
 
+
+void Grid_info::check_energy_density(Field *hydro_fields, double tau) {
+    double unit_convert = 0.19733;  // hbarC
+
+    ostringstream filename;
+    filename << "IP_Glasma_check_tau_" << tau << ".dat";
+    ofstream output_file(filename.str().c_str());
+
+    for (int ix = 0; ix <= DATA_ptr->nx; ix++) {
+        for (int iy = 0; iy <= DATA_ptr->ny; iy++) {
+            int idx = iy + ix*(DATA_ptr->ny + 1);
+            double e_local = hydro_fields->e_rk0[idx];
+            output_file << scientific << setprecision(8) << setw(18)
+                        << e_local*unit_convert << "  ";
+        }
+        output_file << endl;
+    }
+    output_file.close();
+}
+
 void Grid_info::output_1p1D_check_file(Grid ***arena, double tau) {
     ostringstream filename;
     filename << "1+1D_check_tau_" << tau << ".dat";

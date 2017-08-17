@@ -218,7 +218,7 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
 
         //convert_grid_to_field(arena, hydro_fields);
         
-        if (DATA->Initial_profile == 0 || DATA->Initial_profile == 8) {
+        if (DATA->Initial_profile == 0) {
             if (fabs(tau - 1.0) < 1e-8) {
                 grid_info->Gubser_flow_check_file(hydro_fields, tau);
             }
@@ -245,6 +245,13 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
                 #pragma acc update host(hydro_fields->u_rk0[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
                 #pragma acc update host(hydro_fields->Wmunu_rk0[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
                 grid_info->Gubser_flow_check_file(hydro_fields, tau);
+            }
+        }
+        
+        if (DATA->Initial_profile == 8) {
+            if (it % 20 == 0) {
+                #pragma acc update host(hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                grid_info->check_energy_density(hydro_fields, tau);
             }
         }
 
