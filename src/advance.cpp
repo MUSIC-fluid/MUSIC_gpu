@@ -318,10 +318,10 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
 
     cout << "pre parallel" << endl;
     #pragma acc parallel loop gang worker vector collapse(3) independent copy(tmp[0:1]) present(hydro_fields)\
-                         private(this[0:1], grid_array[5], qi_array[5], qi_array_new[5], qi_rk0[5], \
-                         qi_nbr_x[4][5], qi_nbr_y[4][5], qi_nbr_eta[4][5], \
-                         grid_array_temp[5], \
-                         vis_array[19], vis_nbr_tau[19], vis_nbr_x[4][19], vis_nbr_y[4][19], vis_nbr_eta[4][19], \
+                         private(this[0:1], grid_array[0:5], qi_array[0:5], qi_array_new[0:5], qi_rk0[0:5], \
+                         qi_nbr_x[0:4][0:5], qi_nbr_y[0:4][0:5], qi_nbr_eta[0:4][0:5], \
+                         grid_array_temp[0:5], \
+                         vis_array[0:19], vis_nbr_tau[0:19], vis_nbr_x[0:4][0:19], vis_nbr_y[0:4][0:19], vis_nbr_eta[0:4][0:19], \
                          grid_array_hL[0:5], qimhL[0:5], grid_array_hR[0:5], qiphL[0:5], qimhR[0:5], \
                          rhs[0:5], qiphR[0:5])
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta += SUB_GRID_SIZE_ETA) {
@@ -365,10 +365,10 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
         }
 
         #pragma acc parallel loop gang worker vector collapse(3) independent present(hydro_fields)\
-                             private(this[0:1], grid_array[5], grid_array_temp[5], \
-                                     velocity_array[20], \
-                                     vis_array[19], vis_array_new[19], \
-                                     vis_nbr_tau[19], vis_nbr_x[4][19], vis_nbr_y[4][19], vis_nbr_eta[4][19])
+                             private(this[0:1], grid_array[0:5], grid_array_temp[0:5], \
+                                     velocity_array[0:20], \
+                                     vis_array[0:19], vis_array_new[0:19], \
+                                     vis_nbr_tau[0:19], vis_nbr_x[0:4][0:19], vis_nbr_y[0:4][0:19], vis_nbr_eta[0:4][0:19])
         for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta += SUB_GRID_SIZE_ETA) {
             for (int ix = 0; ix <= GRID_SIZE_X; ix += SUB_GRID_SIZE_X) {
                 for (int iy = 0; iy <= GRID_SIZE_Y; iy += SUB_GRID_SIZE_Y) {
