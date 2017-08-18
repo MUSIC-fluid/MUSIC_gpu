@@ -48,27 +48,14 @@ class Advance {
 #pragma acc routine seq
     double get_mu(double e_local, double rhob);
 
-    //int FirstRKStepT(double tau, int rk_flag,
-    //                 double **qi_array, double **qi_nbr_x,
-    //                 double **qi_nbr_y, double **qi_nbr_eta,
-    //                 int n_cell_eta, int n_cell_x, int n_cell_y,
-    //                 double **vis_array, double **vis_nbr_tau,
-    //                 double **vis_nbr_x, double **vis_nbr_y,
-    //                 double **vis_nbr_eta, double **qi_rk0,
-    //                 double **qi_array_new, double **grid_array,
-    //                 double *rhs, double *qiphL, double *qiphR,
-    //                 double *qimhL, double *qimhR,
-    //                 double *grid_array_hL, double *grid_array_hR,
-    //                 InitData* DATA);
 #pragma acc routine seq
     int FirstRKStepT(double tau, int rk_flag,
-                          double qi_array[][5], double qi_nbr_x[][5],
+                          double *qi_array, double qi_nbr_x[][5],
                           double qi_nbr_y[][5], double qi_nbr_eta[][5],
-                          int n_cell_eta, int n_cell_x, int n_cell_y,
                           double vis_array[][19], double vis_nbr_tau[][19],
                           double vis_nbr_x[][19], double vis_nbr_y[][19],
-                          double vis_nbr_eta[][19], double qi_rk0[][5],
-                          double qi_array_new[][5], double grid_array[][5],
+                          double vis_nbr_eta[][19], double *qi_rk0,
+                          double *qi_array_new, double *grid_array,
                           double *rhs, double *qiphL, double *qiphR,
                           double *qimhL, double *qimhR,
                           double *grid_array_hL, double *grid_array_hR);
@@ -76,10 +63,9 @@ class Advance {
 
 
 #pragma acc routine seq
-    void MakeDeltaQI(double tau, double qi_array[][5], double qi_nbr_x[][5],
+    void MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
                      double qi_nbr_y[][5], double qi_nbr_eta[][5],
-                     int n_cell_eta, int n_cell_x, int n_cell_y,
-                     double qi_array_new[][5], double grid_array[][5],
+                     double *qi_array_new, double *grid_array,
                      double *rhs, double *qiphL, double *qiphR,
                      double *qimhL, double *qimhR,
                      double *grid_array_hL, double *grid_array_hR);
@@ -116,19 +102,13 @@ class Advance {
     double get_TJb_new(double *grid_array, int mu, int nu);
 
     
-
-    //void prepare_qi_array(
-    //    double tau, Field *hydro_fields, int rk_flag, int ieta, int ix, int iy,
-    //    int n_cell_eta, int n_cell_x, int n_cell_y, double **qi_array,
-    //    double **qi_nbr_x, double **qi_nbr_y, double **qi_nbr_eta,
-    //    double **qi_rk0, double **grid_array, double *grid_array_temp);
 #pragma acc routine seq
     void prepare_qi_array(
         double tau, Field *hydro_fields, int rk_flag, int ieta, int ix, int iy,
         int n_cell_eta, int n_cell_x, int n_cell_y,
-        double qi_array[][5], double qi_nbr_x[][5],
+        double *qi_array, double qi_nbr_x[][5],
         double qi_nbr_y[][5], double qi_nbr_eta[][5],
-        double qi_rk0[][5], double grid_array[][5], double *grid_array_temp);
+        double *qi_rk0, double *grid_array, double *grid_array_temp);
 
 #pragma acc routine seq
     void prepare_vis_array(
@@ -140,28 +120,26 @@ class Advance {
 
 #pragma acc routine seq
     void prepare_velocity_array(double tau_rk, Field *hydro_fields,
-                                     int ieta, int ix, int iy, int rk_flag,
-                                     int n_cell_eta, int n_cell_x,
-                                     int n_cell_y, double velocity_array[][20], 
-                                     double grid_array[][5],
-                                     double vis_array_new[][19],
-                                     double *grid_array_temp);
+                                int ieta, int ix, int iy, int rk_flag,
+                                double velocity_array[][20], 
+                                double *grid_array,
+                                double vis_array_new[][19],
+                                double *grid_array_temp);
 
 #pragma acc routine seq
     int FirstRKStepW(double tau, int rk_flag, int n_cell_eta,
                      int n_cell_x, int n_cell_y, double vis_array[][19],
                      double vis_nbr_tau[][19], double vis_nbr_x[][19],
                      double vis_nbr_y[][19], double vis_nbr_eta[][19],
-                     double velocity_array[][20], double grid_array[][5],
+                     double velocity_array[][20], double *grid_array,
                      double vis_array_new[][19]);
 
 #pragma acc routine seq
-    void MakeWSource(double tau, double qi_array[][5],
-                     int n_cell_eta, int n_cell_x, int n_cell_y,
+    void MakeWSource(double tau,
                      double vis_array[][19],
                      double vis_nbr_tau[][19], double vis_nbr_x[][19],
                      double vis_nbr_y[][19], double vis_nbr_eta[][19],
-                     double qi_array_new[][5]);
+                     double *qi_array_new);
 
 
 #pragma acc routine seq
@@ -175,14 +153,14 @@ class Advance {
     double Make_uWSource(double tau, int n_cell_eta, int n_cell_x,
                          int n_cell_y, double vis_array[][19],
                          double velocity_array[][20],
-                         double grid_array[][5],
+                         double *grid_array,
                          double vis_array_new[][19]);
 
 #pragma acc routine seq
     double Make_uPiSource(double tau, int n_cell_eta, int n_cell_x,
                           int n_cell_y, double vis_array[][19],
                           double velocity_array[][20],
-                          double grid_array[][5],
+                          double *grid_array,
                           double vis_array_new[][19]);
 
 #pragma acc routine seq
@@ -227,7 +205,7 @@ class Advance {
             double *grid_array, Field *hydro_fields, int idx, int rk_flag);
 
 #pragma acc routine seq
-    void update_grid_cell(double grid_array[][5], Field *hydro_fields, int rk_flag,
+    void update_grid_cell(double *grid_array, Field *hydro_fields, int rk_flag,
                           int ieta, int ix, int iy);
 #pragma acc routine seq
     void update_grid_cell_viscous(double vis_array[][19], Field *hydro_fields,
