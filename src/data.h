@@ -19,7 +19,7 @@
 
 #define VISCOUS_FLAG 1
 #define INCLUDE_SHEAR 1
-#define SHEAR_TO_S 0.20
+#define SHEAR_TO_S 0.095
 #define INCLUDE_BULK 1
 #define INCLUDE_DIFF 0
 #define INITIAL_PROFILE 8

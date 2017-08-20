@@ -25,9 +25,9 @@ Evolve::Evolve(EOS *eosIn, InitData *DATA_in) {
     grid_ny = DATA_in->ny;
     grid_neta = DATA_in->neta;
   
-    //if (DATA_ptr->freezeOutMethod == 4) {
-    //    initialize_freezeout_surface_info();
-    //}
+    if (DATA_ptr->freezeOutMethod == 4) {
+        initialize_freezeout_surface_info();
+    }
 }
 
 // destructor
@@ -158,20 +158,19 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
     //initial_field_with_ideal_Gubser(DATA->tau0, hydro_fields);
     //check_field_with_ideal_Gubser(DATA->tau0, hydro_fields);
     // first pass some control parameters
-    //facTau = DATA->facTau;
+    int facTau = DATA->facTau;
     //int Nskip_timestep = DATA->output_evolution_every_N_timesteps;
     //int outputEvo_flag = DATA->outputEvolutionData;
     //int output_movie_flag = DATA->output_movie_flag;
-    //int freezeout_flag = DATA->doFreezeOut;
-    //int freezeout_lowtemp_flag = DATA->doFreezeOut_lowtemp;
-    //int freezeout_method = DATA->freezeOutMethod;
-    //int boost_invariant_flag = DATA->boost_invariant;
+    int freezeout_flag = DATA->doFreezeOut;
+    int freezeout_lowtemp_flag = DATA->doFreezeOut_lowtemp;
+    int freezeout_method = DATA->freezeOutMethod;
+    int boost_invariant_flag = DATA->boost_invariant;
 
     // Output information about the hydro parameters 
     // in the format of a C header file
     //if (DATA->output_hydro_params_header || outputEvo_flag == 1)
     //    grid_info->Output_hydro_information_header(DATA);
-{
 
     // main loop starts ...
     DATA->delta_tau= DELTA_TAU;
@@ -187,7 +186,7 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
     DATA->delta_y = DELTA_Y;
     DATA->delta_eta = DELTA_ETA;
     double tau;
-    //int it_start = 0;
+    int it_start = 0;
     cout << "Pre data copy" << endl;
     #pragma acc data copyin (hydro_fields[0:1],\
                          hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
@@ -212,12 +211,10 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
     for (int it = 0; it <= itmax; it++) {
         tau = tau0 + dt*it;
         // store initial conditions
-        //if (it == it_start) {
-        //    store_previous_step_for_freezeout(arena);
-        //}
+        if (it == it_start) {
+            store_previous_step_for_freezeout(hydro_fields);
+        }
 
-        //convert_grid_to_field(arena, hydro_fields);
-        
         if (DATA->Initial_profile == 0) {
             if (fabs(tau - 1.0) < 1e-8) {
                 grid_info->Gubser_flow_check_file(hydro_fields, tau);
@@ -248,13 +245,6 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
             }
         }
         
-        if (DATA->Initial_profile == 8) {
-            if (it % 20 == 0) {
-                #pragma acc update host(hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
-                grid_info->check_energy_density(hydro_fields, tau);
-            }
-        }
-
         //if (it % Nskip_timestep == 0) {
         //    if (outputEvo_flag == 1) {
         //        grid_info->OutputEvolutionDataXYEta(arena, DATA, tau);
@@ -276,41 +266,46 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
         /* execute rk steps */
         // all the evolution are at here !!!
         AdvanceRK(tau, DATA, hydro_fields);
-        //for (int x = 0; x < (GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA; x += 100){
-        //    cout << hydro_fields->e_rk0[x] << endl;
-        //}
-        //check_field_with_ideal_Gubser(tau, hydro_fields);
-        //copy_fields_to_grid(hydro_fields, arena);
         
         //determine freeze-out surface
-        //int frozen = 0;
-        //if (freezeout_flag == 1) {
-        //    if (freezeout_lowtemp_flag == 1) {
-        //        if (it == it_start) {
-        //            frozen = FreezeOut_equal_tau_Surface(tau, DATA, arena);
-        //        }
-        //    }
-        //    // avoid freeze-out at the first time step
-        //    if ((it - it_start)%facTau == 0 && it > it_start) {
-        //       if (freezeout_method == 4) {
-        //           if (boost_invariant_flag == 0) {
-        //               frozen = FindFreezeOutSurface_Cornelius(tau, DATA,
-        //                                                       arena);
-        //           } else {
-        //               frozen = FindFreezeOutSurface_boostinvariant_Cornelius(
-        //                                                    tau, DATA, arena);
-        //           }
-        //       }
-        //       store_previous_step_for_freezeout(arena);
-        //    }
-        //}/* do freeze-out determination */
+        int frozen = 0;
+        if (freezeout_flag == 1) {
+            if (freezeout_lowtemp_flag == 1) {
+                if (it == it_start) {
+                    #pragma acc update host(hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                    #pragma acc update host(hydro_fields->rhob_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                    #pragma acc update host(hydro_fields->u_rk0[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                    #pragma acc update host(hydro_fields->Wmunu_rk0[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                    #pragma acc update host(hydro_fields->pi_b_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                    frozen = FreezeOut_equal_tau_Surface(tau, DATA,
+                                                         hydro_fields);
+                }
+            }
+            // avoid freeze-out at the first time step
+            if ((it - it_start)%facTau == 0 && it > it_start) {
+                #pragma acc update host(hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                #pragma acc update host(hydro_fields->rhob_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                #pragma acc update host(hydro_fields->u_rk0[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                #pragma acc update host(hydro_fields->Wmunu_rk0[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+                #pragma acc update host(hydro_fields->pi_b_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
+               if (freezeout_method == 4) {
+                   if (boost_invariant_flag == 0) {
+                       frozen = FindFreezeOutSurface_Cornelius(tau, DATA,
+                                                               hydro_fields);
+                   } else {
+                       frozen = FindFreezeOutSurface_boostinvariant_Cornelius(
+                                                    tau, DATA, hydro_fields);
+                   }
+               }
+               store_previous_step_for_freezeout(hydro_fields);
+            }
+        }/* do freeze-out determination */
     
         fprintf(stdout, "Done time step %d/%d. tau = %6.3f fm/c \n", 
                 it, itmax, tau);
-        //if (frozen) break;
+        if (frozen) break;
     }/* it */ 
     }
-}
 
     // clean up
     clean_up_hydro_fields(hydro_fields);
@@ -318,36 +313,23 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
     return(1); /* successful */
 }/* Evolve */
 
-void Evolve::store_previous_step_for_freezeout(Grid ***arena) {
-    int nx = grid_nx;
-    int ny = grid_ny;
-    int neta = grid_neta;
-    for (int ieta=0; ieta<neta; ieta++) {
-        for (int ix=0; ix<=nx; ix++) {
-            for (int iy=0; iy<=ny; iy++) {
-                arena[ieta][ix][iy].epsilon_prev = arena[ieta][ix][iy].epsilon;
-                arena[ieta][ix][iy].u_prev[0] = arena[ieta][ix][iy].u[0][0];
-                arena[ieta][ix][iy].u_prev[1] = arena[ieta][ix][iy].u[0][1];
-                arena[ieta][ix][iy].u_prev[2] = arena[ieta][ix][iy].u[0][2];
-                arena[ieta][ix][iy].u_prev[3] = arena[ieta][ix][iy].u[0][3];
-                arena[ieta][ix][iy].rhob_prev = arena[ieta][ix][iy].rhob;
-
-                arena[ieta][ix][iy].pi_b_prev = arena[ieta][ix][iy].pi_b[0];
-                
-                for (int ii = 0; ii < 10; ii++) {
-                    arena[ieta][ix][iy].W_prev[ii] =
-                                            arena[ieta][ix][iy].Wmunu[0][ii];
+void Evolve::store_previous_step_for_freezeout(Field *hydro_fields) {
+    for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
+        for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
+            for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
+                int idx = (iy + ix*(GRID_SIZE_Y + 1)
+                           + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+                hydro_fields->e_prev[idx] = hydro_fields->e_rk0[idx];
+                hydro_fields->rhob_prev[idx] = hydro_fields->rhob_rk0[idx];
+                for (int ii = 0; ii < 4; ii++) {
+                    hydro_fields->u_prev[ii][idx] = (
+                                            hydro_fields->u_rk0[ii][idx]);
                 }
-                if (DATA_ptr->turn_on_diff == 1) {
-                    for (int ii = 10; ii < 14; ii++) {
-                        arena[ieta][ix][iy].W_prev[ii] =
-                                            arena[ieta][ix][iy].Wmunu[0][ii];
-                    }
-                } else {
-                    for (int ii = 10; ii < 14; ii++) {
-                        arena[ieta][ix][iy].W_prev[ii] = 0.0;
-                    }
+                for (int ii = 0; ii < 14; ii++) {
+                    hydro_fields->Wmunu_prev[ii][idx] = (
+                                            hydro_fields->Wmunu_rk0[ii][idx]);
                 }
+                hydro_fields->pi_b_prev[idx] = hydro_fields->pi_b_rk0[idx];
             }
         }
     }
@@ -516,15 +498,15 @@ void Evolve::copy_fields_to_grid(Field *hydro_fields, Grid ***arena) {
     }
 }
       
-// Cornelius freeze out  (C. Shen, 11/2014)
+//! This function is find freeze-out fluid cells
 int Evolve::FindFreezeOutSurface_Cornelius(double tau, InitData *DATA,
-                                           Grid ***arena) {
+                                           Field *hydro_fields) {
     // output hyper-surfaces for Cooper-Frye
     int *all_frozen = new int [n_freeze_surf];
     for(int i = 0; i < n_freeze_surf; i++)
         all_frozen[i] = 0;
       
-    int neta = grid_neta;
+    int neta = GRID_SIZE_ETA;
     int fac_eta = 1;
     for (int i_freezesurf = 0; i_freezesurf < n_freeze_surf; i_freezesurf++) {
         double epsFO = epsFO_list[i_freezesurf]/hbarc;
@@ -537,7 +519,7 @@ int Evolve::FindFreezeOutSurface_Cornelius(double tau, InitData *DATA,
             for (ieta = 0; ieta < (neta-fac_eta); ieta += fac_eta) {
                 int thread_id = omp_get_thread_num();
                 intersections += FindFreezeOutSurface_Cornelius_XY(
-                                    tau, DATA, ieta, arena, thread_id, epsFO);
+                            tau, DATA, ieta, hydro_fields, thread_id, epsFO);
             }
             #pragma omp barrier
         }
@@ -558,11 +540,8 @@ int Evolve::FindFreezeOutSurface_Cornelius(double tau, InitData *DATA,
 }
 
 int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
-                                              int ieta, Grid ***arena,
+                                              int ieta, Field *hydro_fields,
                                               int thread_id, double epsFO) {
-    int nx = grid_nx;
-    int ny = grid_ny;
-
     stringstream strs_name;
     strs_name << "surface_eps_" << setprecision(4) << epsFO*hbarc
               << "_" << thread_id << ".dat";
@@ -593,15 +572,15 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
     int intersect;
     int intersections = 0;
 
-    facTau = DATA->facTau;   // step to skip in tau direction
+    int facTau = DATA->facTau;   // step to skip in tau direction
     int fac_x = DATA->fac_x;
     int fac_y = DATA->fac_y;
     int fac_eta = 1;
     
-    double DTAU=facTau*DATA->delta_tau;
-    double DX=fac_x*DATA->delta_x;
-    double DY=fac_y*DATA->delta_y;
-    double DETA=fac_eta*DATA->delta_eta;
+    double DTAU = facTau*DELTA_TAU;
+    double DX = fac_x*DELTA_X;
+    double DY = fac_y*DELTA_Y;
+    double DETA = fac_eta*DELTA_ETA;
 
     lattice_spacing[0] = DTAU;
     lattice_spacing[1] = DX;
@@ -631,69 +610,107 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
         }
     }
 
-    double eta = (DATA->delta_eta)*ieta - (DATA->eta_size)/2.0;
-    for (int ix = 0; ix <= nx - fac_x; ix += fac_x) {
-        double x = ix*(DATA->delta_x) - (DATA->x_size/2.0); 
-        for (int iy = 0; iy <= ny - fac_y; iy += fac_y) {
-            double y = iy*(DATA->delta_y) - (DATA->y_size/2.0);
+    double eta = DELTA_ETA*ieta - static_cast<double>(GRID_SIZE_ETA)/2.0;
+    for (int ix = 0; ix <= GRID_SIZE_X - fac_x; ix += fac_x) {
+        double x = ix*DELTA_X - static_cast<double>(GRID_SIZE_X + 1)/2.0; 
+        for (int iy = 0; iy <= GRID_SIZE_Y - fac_y; iy += fac_y) {
+            double y = iy*DELTA_Y - static_cast<double>(GRID_SIZE_Y + 1)/2.0;
 
             // make sure the epsilon value is never exactly 
             // the same as epsFO...
-            if (arena[ieta+fac_eta][ix+fac_x][iy+fac_y].epsilon
-                == epsFO)
-                arena[ieta+fac_eta][ix+fac_x][iy+fac_y].epsilon += 0.000001;
-            if (arena[ieta][ix][iy].epsilon_prev == epsFO)
-                arena[ieta][ix][iy].epsilon_prev += 0.000001;
-            if (arena[ieta][ix+fac_x][iy].epsilon == epsFO)
-                arena[ieta][ix+fac_x][iy].epsilon += 0.000001;
-            if (arena[ieta+fac_eta][ix][iy+fac_y].epsilon_prev
-                == epsFO)
-                arena[ieta+fac_eta][ix][iy+fac_y].epsilon_prev += 0.000001;
-            if (arena[ieta][ix][iy+fac_y].epsilon == epsFO)
-                arena[ieta][ix][iy+fac_y].epsilon += 0.000001;
-            if (arena[ieta+fac_eta][ix+fac_x][iy].epsilon_prev
-                == epsFO)
-                arena[ieta+fac_eta][ix+fac_x][iy].epsilon_prev += 0.000001;
-            if (arena[ieta+fac_eta][ix][iy].epsilon == epsFO)
-                arena[ieta+fac_eta][ix][iy].epsilon += 0.000001;
-            if (arena[ieta][ix+fac_x][iy+fac_y].epsilon_prev == epsFO)
-                arena[ieta][ix+fac_x][iy+fac_y].epsilon_prev += 0.000001;
-            if (arena[ieta][ix+fac_x][iy+fac_y].epsilon == epsFO)
-                arena[ieta][ix+fac_x][iy+fac_y].epsilon += 0.000001;
-            if (arena[ieta+fac_eta][ix][iy].epsilon_prev == epsFO)
-                arena[ieta+fac_eta][ix][iy].epsilon_prev += 0.000001;
-            if (arena[ieta+fac_eta][ix+fac_x][iy].epsilon == epsFO)
-                arena[ieta+fac_eta][ix+fac_x][iy].epsilon += 0.000001;
-            if (arena[ieta][ix][iy+fac_y].epsilon_prev == epsFO)
-                arena[ieta][ix][iy+fac_y].epsilon_prev += 0.000001;
-            if (arena[ieta+fac_eta][ix][iy+fac_y].epsilon == epsFO)
-                arena[ieta+fac_eta][ix][iy+fac_y].epsilon += 0.000001;
-            if (arena[ieta][ix+fac_x][iy].epsilon_prev == epsFO)
-                arena[ieta][ix+fac_x][iy].epsilon_prev += 0.000001;
-            if (arena[ieta][ix][iy].epsilon == epsFO)
-                arena[ieta][ix][iy].epsilon += 0.000001;
-            if (arena[ieta+fac_eta][ix+fac_x][iy+fac_y].epsilon_prev == epsFO)
-                arena[ieta+fac_eta][ix+fac_x][iy+fac_y].epsilon_prev += 0.000001;
-    
+            int idx = (iy + ix*(GRID_SIZE_Y + 1)
+                       + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            if (hydro_fields->e_rk0[idx] == epsFO) {
+                hydro_fields->e_rk0[idx] += 0.000001;
+            }
+            if (hydro_fields->e_prev[idx] == epsFO) {
+                hydro_fields->e_prev[idx] += 0.000001;
+            }
+            double e1000 = hydro_fields->e_rk0[idx];
+            double e0000 = hydro_fields->e_prev[idx];
+            idx = (iy + (ix + fac_x)*(GRID_SIZE_Y + 1)
+                       + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            if (hydro_fields->e_rk0[idx] == epsFO) {
+                hydro_fields->e_rk0[idx] += 0.000001;
+            }
+            if (hydro_fields->e_prev[idx] == epsFO) {
+                hydro_fields->e_prev[idx] += 0.000001;
+            }
+            double e1100 = hydro_fields->e_rk0[idx];
+            double e0100 = hydro_fields->e_prev[idx];
+            idx = (iy + fac_y + ix*(GRID_SIZE_Y + 1)
+                       + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            if (hydro_fields->e_rk0[idx] == epsFO) {
+                hydro_fields->e_rk0[idx] += 0.000001;
+            }
+            if (hydro_fields->e_prev[idx] == epsFO) {
+                hydro_fields->e_prev[idx] += 0.000001;
+            }
+            double e1010 = hydro_fields->e_rk0[idx];
+            double e0010 = hydro_fields->e_prev[idx];
+            idx = (iy + ix*(GRID_SIZE_Y + 1)
+                       + (ieta + fac_eta)*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            if (hydro_fields->e_rk0[idx] == epsFO) {
+                hydro_fields->e_rk0[idx] += 0.000001;
+            }
+            if (hydro_fields->e_prev[idx] == epsFO) {
+                hydro_fields->e_prev[idx] += 0.000001;
+            }
+            double e1001 = hydro_fields->e_rk0[idx];
+            double e0001 = hydro_fields->e_prev[idx];
+            idx = (iy + fac_y + (ix + fac_x)*(GRID_SIZE_Y + 1)
+                       + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            if (hydro_fields->e_rk0[idx] == epsFO) {
+                hydro_fields->e_rk0[idx] += 0.000001;
+            }
+            if (hydro_fields->e_prev[idx] == epsFO) {
+                hydro_fields->e_prev[idx] += 0.000001;
+            }
+            double e1110 = hydro_fields->e_rk0[idx];
+            double e0110 = hydro_fields->e_prev[idx];
+            idx = (iy + (ix + fac_x)*(GRID_SIZE_Y + 1)
+                       + (ieta + fac_eta)*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            if (hydro_fields->e_rk0[idx] == epsFO) {
+                hydro_fields->e_rk0[idx] += 0.000001;
+            }
+            if (hydro_fields->e_prev[idx] == epsFO) {
+                hydro_fields->e_prev[idx] += 0.000001;
+            }
+            double e1101 = hydro_fields->e_rk0[idx];
+            double e0101 = hydro_fields->e_prev[idx];
+            idx = (iy + fac_y + ix*(GRID_SIZE_Y + 1)
+                       + (ieta + fac_eta)*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            if (hydro_fields->e_rk0[idx] == epsFO) {
+                hydro_fields->e_rk0[idx] += 0.000001;
+            }
+            if (hydro_fields->e_prev[idx] == epsFO) {
+                hydro_fields->e_prev[idx] += 0.000001;
+            }
+            double e1011 = hydro_fields->e_rk0[idx];
+            double e0011 = hydro_fields->e_prev[idx];
+            idx = (iy + fac_y + (ix + fac_x)*(GRID_SIZE_Y + 1)
+                       + (ieta + fac_eta)*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            if (hydro_fields->e_rk0[idx] == epsFO) {
+                hydro_fields->e_rk0[idx] += 0.000001;
+            }
+            if (hydro_fields->e_prev[idx] == epsFO) {
+                hydro_fields->e_prev[idx] += 0.000001;
+            }
+            double e1111 = hydro_fields->e_rk0[idx];
+            double e0111 = hydro_fields->e_prev[idx];
+
             // judge intersection (from Bjoern)
             intersect = 1;
-            if ((arena[ieta+fac_eta][ix+fac_x][iy+fac_y].epsilon-epsFO)
-                *(arena[ieta][ix][iy].epsilon_prev-epsFO)>0.)
-                if((arena[ieta][ix+fac_x][iy].epsilon-epsFO)
-                    *(arena[ieta+fac_eta][ix][iy+fac_y].epsilon_prev-epsFO)>0.)
-                    if((arena[ieta][ix][iy+fac_y].epsilon-epsFO)
-                        *(arena[ieta+fac_eta][ix+fac_x][iy].epsilon_prev-epsFO)>0.)
-                        if((arena[ieta+fac_eta][ix][iy].epsilon-epsFO)
-                            *(arena[ieta][ix+fac_x][iy+fac_y].epsilon_prev-epsFO)>0.)
-                            if((arena[ieta][ix+fac_x][iy+fac_y].epsilon-epsFO)
-                                *(arena[ieta+fac_eta][ix][iy].epsilon_prev-epsFO)>0.)
-                                if((arena[ieta+fac_eta][ix+fac_x][iy].epsilon-epsFO)
-                                    *(arena[ieta][ix][iy+fac_y].epsilon_prev-epsFO)>0.)
-                                    if((arena[ieta+fac_eta][ix][iy+fac_y].epsilon-epsFO)
-                                        *(arena[ieta][ix+fac_x][iy].epsilon_prev-epsFO)>0.)
-                                        if((arena[ieta][ix][iy].epsilon-epsFO)
-                                            *(arena[ieta+fac_eta][ix+fac_x][iy+fac_y].epsilon_prev-epsFO)>0.)
-                                                intersect=0;
+            if ((e1111 - epsFO)*(e0000 - epsFO) > 0.)
+                if ((e1100 - epsFO)*(e0011 - epsFO) > 0.)
+                    if ((e1010 - epsFO)*(e0101 - epsFO) > 0.)
+                        if ((e1001 - epsFO)*(e0110 - epsFO) > 0.)
+                            if ((e1110 - epsFO)*(e0001 - epsFO) > 0.)
+                                if ((e1101 - epsFO)*(e0010 - epsFO) > 0.)
+                                    if ((e1011-epsFO)*(e0100 - epsFO) > 0.)
+                                        if ((e1000 - epsFO)
+                                            *(e0111 - epsFO) > 0.)
+                                            intersect = 0;
 
             if (intersect==0) {
                 continue;
@@ -701,22 +718,9 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
 
             // if intersect, prepare for the hyper-cube
             intersections++;
-            cube[0][0][0][0] = arena[ieta][ix][iy].epsilon_prev;
-            cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].epsilon_prev;
-            cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].epsilon_prev;
-            cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].epsilon_prev;
-            cube[1][0][0][0] = arena[ieta][ix][iy].epsilon;
-            cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].epsilon;
-            cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].epsilon;
-            cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].epsilon;
-            cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].epsilon_prev;
-            cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].epsilon_prev;
-            cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].epsilon_prev;
-            cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].epsilon_prev;
-            cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].epsilon;
-            cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].epsilon;
-            cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].epsilon;
-            cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].epsilon;
+            prepare_freeze_out_cube(cube,
+                                    hydro_fields->e_prev, hydro_fields->e_rk0,
+                                    ieta, ix, iy, fac_eta, fac_x, fac_y);
     
             // Now, the magic will happen in the Cornelius ...
             cornelius_ptr->find_surface_4d(cube);
@@ -768,64 +772,25 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
                 // quantities
 
                 // flow velocity u^x
-                cube[0][0][0][0] = arena[ieta][ix][iy].u_prev[1];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].u_prev[1];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].u_prev[1];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].u_prev[1];
-                cube[1][0][0][0] = arena[ieta][ix][iy].u[0][1];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].u[0][1];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].u[0][1];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].u[0][1];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].u_prev[1];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].u_prev[1];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].u_prev[1];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].u_prev[1];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].u[0][1];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].u[0][1];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].u[0][1];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].u[0][1];
+                prepare_freeze_out_cube(cube, hydro_fields->u_prev[1],
+                                        hydro_fields->u_rk0[1],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 ux_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
 
                 // flow velocity u^y
-                cube[0][0][0][0] = arena[ieta][ix][iy].u_prev[2];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].u_prev[2];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].u_prev[2];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].u_prev[2];
-                cube[1][0][0][0] = arena[ieta][ix][iy].u[0][2];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].u[0][2];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].u[0][2];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].u[0][2];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].u_prev[2];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].u_prev[2];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].u_prev[2];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].u_prev[2];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].u[0][2];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].u[0][2];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].u[0][2];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].u[0][2];
+                prepare_freeze_out_cube(cube, hydro_fields->u_prev[2],
+                                        hydro_fields->u_rk0[2],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 uy_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
 
                 // flow velocity u^eta
-                cube[0][0][0][0] = arena[ieta][ix][iy].u_prev[3];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].u_prev[3];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].u_prev[3];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].u_prev[3];
-                cube[1][0][0][0] = arena[ieta][ix][iy].u[0][3];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].u[0][3];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].u[0][3];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].u[0][3];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].u_prev[3];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].u_prev[3];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].u_prev[3];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].u_prev[3];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].u[0][3];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].u[0][3];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].u[0][3];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].u[0][3];
+                prepare_freeze_out_cube(cube, hydro_fields->u_prev[3],
+                                        hydro_fields->u_rk0[3],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 ueta_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
@@ -836,106 +801,41 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
                                    + ueta_center*ueta_center);
 
                 // baryon density rho_b
-                cube[0][0][0][0] = arena[ieta][ix][iy].rhob_prev;
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].rhob_prev;
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].rhob_prev;
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].rhob_prev;
-                cube[1][0][0][0] = arena[ieta][ix][iy].rhob;
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].rhob;
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].rhob;
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].rhob;
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].rhob_prev;
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].rhob_prev;
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].rhob_prev;
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].rhob_prev;
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].rhob;
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].rhob;
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].rhob;
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].rhob;
+                prepare_freeze_out_cube(cube, hydro_fields->rhob_prev,
+                                        hydro_fields->rhob_rk0,
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 rhob_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
           
                 // baryon diffusion current q^tau
-                cube[0][0][0][0] = arena[ieta][ix][iy].W_prev[10];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].W_prev[10];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].W_prev[10];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[10];
-                cube[1][0][0][0] = arena[ieta][ix][iy].Wmunu[0][10];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].Wmunu[0][10];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][10];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][10];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].W_prev[10];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].W_prev[10];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].W_prev[10];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].W_prev[10];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].Wmunu[0][10];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].Wmunu[0][10];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].Wmunu[0][10];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].Wmunu[0][10];
+                prepare_freeze_out_cube(cube, hydro_fields->Wmunu_prev[10],
+                                        hydro_fields->Wmunu_rk0[10],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 qtau_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
           
                 // baryon diffusion current q^x
-                cube[0][0][0][0] = arena[ieta][ix][iy].W_prev[11];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].W_prev[11];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].W_prev[11];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[11];
-                cube[1][0][0][0] = arena[ieta][ix][iy].Wmunu[0][11];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].Wmunu[0][11];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][11];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][11];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].W_prev[11];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].W_prev[11];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].W_prev[11];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].W_prev[11];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].Wmunu[0][11];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].Wmunu[0][11];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].Wmunu[0][11];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].Wmunu[0][11];
+                prepare_freeze_out_cube(cube, hydro_fields->Wmunu_prev[11],
+                                        hydro_fields->Wmunu_rk0[11],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 qx_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
 
                 // baryon diffusion current q^y
-                cube[0][0][0][0] = arena[ieta][ix][iy].W_prev[12];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].W_prev[12];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].W_prev[12];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[12];
-                cube[1][0][0][0] = arena[ieta][ix][iy].Wmunu[0][12];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].Wmunu[0][12];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][12];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][12];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].W_prev[12];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].W_prev[12];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].W_prev[12];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].W_prev[12];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].Wmunu[0][12];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].Wmunu[0][12];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].Wmunu[0][12];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].Wmunu[0][12];
+                prepare_freeze_out_cube(cube, hydro_fields->Wmunu_prev[12],
+                                        hydro_fields->Wmunu_rk0[12],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 qy_center = 
                     util->four_dimension_linear_interpolation(
                             lattice_spacing_ptr, x_fraction, cube);
           
                 // baryon diffusion current q^eta
-                cube[0][0][0][0] = arena[ieta][ix][iy].W_prev[13];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].W_prev[13];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].W_prev[13];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[13];
-                cube[1][0][0][0] = arena[ieta][ix][iy].Wmunu[0][13];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].Wmunu[0][13];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][13];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][13];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].W_prev[13];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].W_prev[13];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].W_prev[13];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].W_prev[13];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].Wmunu[0][13];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].Wmunu[0][13];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].Wmunu[0][13];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].Wmunu[0][13];
+                prepare_freeze_out_cube(cube, hydro_fields->Wmunu_prev[13],
+                                        hydro_fields->Wmunu_rk0[13],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 qeta_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
@@ -969,232 +869,89 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
                 delete [] q_regulated;
 
                 // bulk viscous pressure pi_b
-                cube[0][0][0][0] = arena[ieta][ix][iy].pi_b_prev;
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].pi_b_prev;
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].pi_b_prev;
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].pi_b_prev;
-                cube[1][0][0][0] = arena[ieta][ix][iy].pi_b[0];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].pi_b[0];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].pi_b[0];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].pi_b[0];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].pi_b_prev;
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].pi_b_prev;
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].pi_b_prev;
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].pi_b_prev;
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].pi_b[0];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].pi_b[0];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].pi_b[0];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].pi_b[0];
+                prepare_freeze_out_cube(cube, hydro_fields->pi_b_prev,
+                                        hydro_fields->pi_b_rk0,
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 pi_b_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
 
                 // shear viscous tensor W^\tau\tau
-                cube[0][0][0][0] = arena[ieta][ix][iy].W_prev[0];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].W_prev[0];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].W_prev[0];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[0];
-                cube[1][0][0][0] = arena[ieta][ix][iy].Wmunu[0][0];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].Wmunu[0][0];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][0];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][0];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].W_prev[0];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].W_prev[0];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].W_prev[0];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].W_prev[0];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].Wmunu[0][0];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].Wmunu[0][0];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].Wmunu[0][0];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].Wmunu[0][0];
+                prepare_freeze_out_cube(cube, hydro_fields->Wmunu_prev[0],
+                                        hydro_fields->Wmunu_rk0[0],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 Wtautau_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
       
                 // shear viscous tensor W^{\tau x}
-                cube[0][0][0][0] = arena[ieta][ix][iy].W_prev[1];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].W_prev[1];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].W_prev[1];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[1];
-                cube[1][0][0][0] = arena[ieta][ix][iy].Wmunu[0][1];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].Wmunu[0][1];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][1];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][1];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].W_prev[1];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].W_prev[1];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].W_prev[1];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].W_prev[1];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].Wmunu[0][1];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].Wmunu[0][1];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].Wmunu[0][1];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].Wmunu[0][1];
+                prepare_freeze_out_cube(cube, hydro_fields->Wmunu_prev[1],
+                                        hydro_fields->Wmunu_rk0[1],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 Wtaux_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
 
                 // shear viscous tensor W^{\tau y}
-                cube[0][0][0][0] = arena[ieta][ix][iy].W_prev[2];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].W_prev[2];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].W_prev[2];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[2];
-                cube[1][0][0][0] = arena[ieta][ix][iy].Wmunu[0][2];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].Wmunu[0][2];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][2];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][2];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].W_prev[2];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].W_prev[2];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].W_prev[2];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].W_prev[2];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].Wmunu[0][2];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].Wmunu[0][2];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].Wmunu[0][2];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].Wmunu[0][2];
+                prepare_freeze_out_cube(cube, hydro_fields->Wmunu_prev[2],
+                                        hydro_fields->Wmunu_rk0[2],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 Wtauy_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
       
                 // shear viscous tensor W^{\tau \eta}
-                cube[0][0][0][0] = arena[ieta][ix][iy].W_prev[3];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].W_prev[3];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].W_prev[3];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[3];
-                cube[1][0][0][0] = arena[ieta][ix][iy].Wmunu[0][3];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].Wmunu[0][3];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][3];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][3];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].W_prev[3];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].W_prev[3];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].W_prev[3];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].W_prev[3];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].Wmunu[0][3];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].Wmunu[0][3];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].Wmunu[0][3];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].Wmunu[0][3];
+                prepare_freeze_out_cube(cube, hydro_fields->Wmunu_prev[3],
+                                        hydro_fields->Wmunu_rk0[3],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 Wtaueta_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
       
                 // shear viscous tensor W^{xx}
-                cube[0][0][0][0] = arena[ieta][ix][iy].W_prev[4];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].W_prev[4];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].W_prev[4];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[4];
-                cube[1][0][0][0] = arena[ieta][ix][iy].Wmunu[0][4];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].Wmunu[0][4];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][4];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][4];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].W_prev[4];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].W_prev[4];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].W_prev[4];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].W_prev[4];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].Wmunu[0][4];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].Wmunu[0][4];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].Wmunu[0][4];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].Wmunu[0][4];
+                prepare_freeze_out_cube(cube, hydro_fields->Wmunu_prev[4],
+                                        hydro_fields->Wmunu_rk0[4],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 Wxx_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
 
                 // shear viscous tensor W^{xy}
-                cube[0][0][0][0] = arena[ieta][ix][iy].W_prev[5];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].W_prev[5];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].W_prev[5];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[5];
-                cube[1][0][0][0] = arena[ieta][ix][iy].Wmunu[0][5];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].Wmunu[0][5];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][5];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][5];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].W_prev[5];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].W_prev[5];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].W_prev[5];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].W_prev[5];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].Wmunu[0][5];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].Wmunu[0][5];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].Wmunu[0][5];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].Wmunu[0][5];
+                prepare_freeze_out_cube(cube, hydro_fields->Wmunu_prev[5],
+                                        hydro_fields->Wmunu_rk0[5],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 Wxy_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
 
                 // shear viscous tensor W^{x\eta}
-                cube[0][0][0][0] = arena[ieta][ix][iy].W_prev[6];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].W_prev[6];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].W_prev[6];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[6];
-                cube[1][0][0][0] = arena[ieta][ix][iy].Wmunu[0][6];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].Wmunu[0][6];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][6];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][6];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].W_prev[6];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].W_prev[6];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].W_prev[6];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].W_prev[6];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].Wmunu[0][6];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].Wmunu[0][6];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].Wmunu[0][6];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].Wmunu[0][6];
+                prepare_freeze_out_cube(cube, hydro_fields->Wmunu_prev[6],
+                                        hydro_fields->Wmunu_rk0[6],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 Wxeta_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
       
                 // shear viscous tensor W^{yy}
-                cube[0][0][0][0] = arena[ieta][ix][iy].W_prev[7];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].W_prev[7];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].W_prev[7];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[7];
-                cube[1][0][0][0] = arena[ieta][ix][iy].Wmunu[0][7];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].Wmunu[0][7];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][7];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][7];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].W_prev[7];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].W_prev[7];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].W_prev[7];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].W_prev[7];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].Wmunu[0][7];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].Wmunu[0][7];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].Wmunu[0][7];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].Wmunu[0][7];
+                prepare_freeze_out_cube(cube, hydro_fields->Wmunu_prev[7],
+                                        hydro_fields->Wmunu_rk0[7],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 Wyy_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
       
                 // shear viscous tensor W^{y\eta}
-                cube[0][0][0][0] = arena[ieta][ix][iy].W_prev[8];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].W_prev[8];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].W_prev[8];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[8];
-                cube[1][0][0][0] = arena[ieta][ix][iy].Wmunu[0][8];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].Wmunu[0][8];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][8];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][8];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].W_prev[8];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].W_prev[8];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].W_prev[8];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].W_prev[8];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].Wmunu[0][8];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].Wmunu[0][8];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].Wmunu[0][8];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].Wmunu[0][8];
+                prepare_freeze_out_cube(cube, hydro_fields->Wmunu_prev[8],
+                                        hydro_fields->Wmunu_rk0[8],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 Wyeta_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
       
                 // shear viscous tensor W^{\eta\eta}
-                cube[0][0][0][0] = arena[ieta][ix][iy].W_prev[9];
-                cube[0][0][1][0] = arena[ieta][ix][iy+fac_y].W_prev[9];
-                cube[0][1][0][0] = arena[ieta][ix+fac_x][iy].W_prev[9];
-                cube[0][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[9];
-                cube[1][0][0][0] = arena[ieta][ix][iy].Wmunu[0][9];
-                cube[1][0][1][0] = arena[ieta][ix][iy+fac_y].Wmunu[0][9];
-                cube[1][1][0][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][9];
-                cube[1][1][1][0] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][9];
-                cube[0][0][0][1] = arena[ieta+fac_eta][ix][iy].W_prev[9];
-                cube[0][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].W_prev[9];
-                cube[0][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].W_prev[9];
-                cube[0][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].W_prev[9];
-                cube[1][0][0][1] = arena[ieta+fac_eta][ix][iy].Wmunu[0][9];
-                cube[1][0][1][1] = arena[ieta+fac_eta][ix][iy+fac_y].Wmunu[0][9];
-                cube[1][1][0][1] = arena[ieta+fac_eta][ix+fac_x][iy].Wmunu[0][9];
-                cube[1][1][1][1] = arena[ieta+fac_eta][ix+fac_x][iy+fac_y].Wmunu[0][9];
+                prepare_freeze_out_cube(cube, hydro_fields->Wmunu_prev[9],
+                                        hydro_fields->Wmunu_rk0[9],
+                                        ieta, ix, iy, fac_eta, fac_x, fac_y);
                 Wetaeta_center = 
                     util->four_dimension_linear_interpolation(
                                 lattice_spacing_ptr, x_fraction, cube);
@@ -1267,13 +1024,16 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
                        << Wxeta_center << " " 
                        << Wyy_center << " " << Wyeta_center << " " 
                        << Wetaeta_center << " " ;
-                if(DATA->turn_on_bulk)
+                if (DATA->turn_on_bulk) {
                     s_file << pi_b_center << " " ;
-                if(DATA->turn_on_rhob)
+                }
+                if (DATA->turn_on_rhob) {
                     s_file << rhob_center << " " ;
-                if(DATA->turn_on_diff)
+                }
+                if (DATA->turn_on_diff) {
                     s_file << qtau_center << " " << qx_center << " " 
                            << qy_center << " " << qeta_center << " " ;
+                }
                 s_file << endl;
             }
         }
@@ -1281,12 +1041,11 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
     s_file.close();
 
     // clean up
-    for(int i = 0; i < 2; i++)
-    {
-        for(int j = 0; j < 2; j++)
-        {
-            for(int k = 0; k < 2; k++)
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 2; j++) {
+            for(int k = 0; k < 2; k++) {
                 delete [] cube[i][j][k];
+            }
             delete [] cube[i][j];
         }
         delete [] cube[i];
@@ -1299,13 +1058,16 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
     return(intersections);
 }
 
-// Cornelius freeze out (C. Shen, 11/2014)
+
+//! This function is a shell function to freeze-out fluid cells
+//! outside the freeze-out energy density at the first time step
+//! of the evolution
 int Evolve::FreezeOut_equal_tau_Surface(double tau, InitData *DATA,
-                                        Grid ***arena) {
+                                        Field *hydro_fields) {
     // this function freeze-out fluid cells between epsFO and epsFO_low
     // on an equal time hyper-surface at the first time step
     // this function will be trigged if freezeout_lowtemp_flag == 1
-    int neta = grid_neta;
+    int neta = GRID_SIZE_ETA;
     int fac_eta = 1;
    
     for (int i_freezesurf = 0; i_freezesurf < n_freeze_surf; i_freezesurf++) {
@@ -1316,7 +1078,7 @@ int Evolve::FreezeOut_equal_tau_Surface(double tau, InitData *DATA,
             #pragma omp for
             for (ieta = 0; ieta < neta - fac_eta; ieta += fac_eta) {
                 int thread_id = omp_get_thread_num();
-                FreezeOut_equal_tau_Surface_XY(tau, DATA, ieta, arena,
+                FreezeOut_equal_tau_Surface_XY(tau, DATA, ieta, hydro_fields,
                                                thread_id, epsFO);
             }
             #pragma omp barrier
@@ -1325,14 +1087,15 @@ int Evolve::FreezeOut_equal_tau_Surface(double tau, InitData *DATA,
     return(0);
 }
 
+
+//! This function freeze-outs fluid cells
+//! outside the freeze-out energy density at the first time step
+//! of the evolution in the transverse plane
 void Evolve::FreezeOut_equal_tau_Surface_XY(double tau, InitData *DATA,
-                                            int ieta, Grid ***arena,
+                                            int ieta, Field *hydro_fields,
                                             int thread_id, double epsFO) {
 
     double epsFO_low = 0.05/hbarc;        // 1/fm^4
-
-    int nx = grid_nx;
-    int ny = grid_ny;
 
     stringstream strs_name;
     strs_name << "surface_eps_" << setprecision(4) << epsFO*hbarc
@@ -1358,21 +1121,24 @@ void Evolve::FreezeOut_equal_tau_Surface_XY(double tau, InitData *DATA,
     int fac_y = DATA->fac_y;
     int fac_eta = 1;
     
-    double DX = fac_x*DATA->delta_x;
-    double DY = fac_y*DATA->delta_y;
-    double DETA = fac_eta*DATA->delta_eta;
+    double DX = fac_x*DELTA_X;
+    double DY = fac_y*DELTA_Y;
+    double DETA = fac_eta*DELTA_ETA;
 
-    double eta = (DATA->delta_eta)*ieta - (DATA->eta_size)/2.0;
-    for (int ix = 0; ix <= nx - fac_x; ix += fac_x) {
-        double x = ix*(DATA->delta_x) - (DATA->x_size/2.0); 
-        for (int iy = 0; iy <= ny - fac_y; iy += fac_y) {
-            double y = iy*(DATA->delta_y) - (DATA->y_size/2.0);
+    double eta = DELTA_ETA*ieta - static_cast<double>(GRID_SIZE_ETA)/2.0;
+    for (int ix = 0; ix <= GRID_SIZE_X - fac_x; ix += fac_x) {
+        double x = ix*DELTA_X - static_cast<double>(GRID_SIZE_X)/2.0;
+        for (int iy = 0; iy <= GRID_SIZE_Y - fac_y; iy += fac_y) {
+            double y = iy*DELTA_Y - static_cast<double>(GRID_SIZE_Y)/2.0;
+            int idx = (iy + ix*(GRID_SIZE_Y + 1)
+                       + ieta*(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1));
 
             // judge intersection
             intersect = 0;
-            if (arena[ieta][ix][iy].epsilon < epsFO
-                && arena[ieta][ix][iy].epsilon > epsFO_low)
+            if (hydro_fields->e_rk0[idx] < epsFO
+                && hydro_fields->e_rk0[idx] > epsFO_low) {
                 intersect = 1;
+            }
 
             if (intersect == 0) {
                 continue;
@@ -1394,22 +1160,22 @@ void Evolve::FreezeOut_equal_tau_Surface_XY(double tau, InitData *DATA,
             eta_center = eta;
 
             // flow velocity
-            ux_center = arena[ieta][ix][iy].u[0][1];
-            uy_center = arena[ieta][ix][iy].u[0][2];
-            ueta_center = arena[ieta][ix][iy].u[0][3];  // u^eta/tau
+            ux_center = hydro_fields->u_rk0[1][idx];
+            uy_center = hydro_fields->u_rk0[2][idx];
+            ueta_center = hydro_fields->u_rk0[3][idx];
             // reconstruct u^tau from u^i
             utau_center = sqrt(1. + ux_center*ux_center 
                                + uy_center*uy_center 
                                + ueta_center*ueta_center);
 
             // baryon density rho_b
-            rhob_center = arena[ieta][ix][iy].rhob;
+            rhob_center = hydro_fields->rhob_rk0[idx];
 
             // baryon diffusion current
-            qtau_center = arena[ieta][ix][iy].Wmunu[0][10];
-            qx_center = arena[ieta][ix][iy].Wmunu[0][11];
-            qy_center = arena[ieta][ix][iy].Wmunu[0][12];
-            qeta_center = arena[ieta][ix][iy].Wmunu[0][13];
+            qtau_center = hydro_fields->Wmunu_rk0[10][idx];
+            qx_center = hydro_fields->Wmunu_rk0[11][idx];
+            qy_center = hydro_fields->Wmunu_rk0[12][idx];
+            qeta_center = hydro_fields->Wmunu_rk0[13][idx];
             // reconstruct q^\tau from the transverality criteria
             double *u_flow = new double [4];
             u_flow[0] = utau_center;
@@ -1434,19 +1200,20 @@ void Evolve::FreezeOut_equal_tau_Surface_XY(double tau, InitData *DATA,
             delete [] q_regulated;
 
             // bulk viscous pressure pi_b
-            pi_b_center = arena[ieta][ix][iy].pi_b[0];
+            pi_b_center = hydro_fields->pi_b_rk0[idx];
 
             // shear viscous tensor
-            Wtautau_center = arena[ieta][ix][iy].Wmunu[0][0];
-            Wtaux_center = arena[ieta][ix][iy].Wmunu[0][1];
-            Wtauy_center = arena[ieta][ix][iy].Wmunu[0][2];
-            Wtaueta_center = arena[ieta][ix][iy].Wmunu[0][3];
-            Wxx_center = arena[ieta][ix][iy].Wmunu[0][4];
-            Wxy_center = arena[ieta][ix][iy].Wmunu[0][5];
-            Wxeta_center = arena[ieta][ix][iy].Wmunu[0][6];
-            Wyy_center = arena[ieta][ix][iy].Wmunu[0][7];
-            Wyeta_center = arena[ieta][ix][iy].Wmunu[0][8];
-            Wetaeta_center = arena[ieta][ix][iy].Wmunu[0][9];
+            Wtautau_center = hydro_fields->Wmunu_rk0[0][idx];
+            Wtaux_center = hydro_fields->Wmunu_rk0[1][idx];
+            Wtauy_center = hydro_fields->Wmunu_rk0[2][idx];
+            Wtaueta_center = hydro_fields->Wmunu_rk0[3][idx];
+            Wxx_center = hydro_fields->Wmunu_rk0[4][idx];
+            Wxy_center = hydro_fields->Wmunu_rk0[5][idx];
+            Wxeta_center = hydro_fields->Wmunu_rk0[6][idx];
+            Wyy_center = hydro_fields->Wmunu_rk0[7][idx];
+            Wyeta_center = hydro_fields->Wmunu_rk0[8][idx];
+            Wetaeta_center = hydro_fields->Wmunu_rk0[9][idx];
+
             // regulate Wmunu according to transversality and traceless
             double **Wmunu_input = new double* [4];
             double **Wmunu_regulated = new double* [4];
@@ -1487,7 +1254,7 @@ void Evolve::FreezeOut_equal_tau_Surface_XY(double tau, InitData *DATA,
             delete [] Wmunu_regulated;
 
             // get other thermodynamical quantities
-            double e_local = arena[ieta][ix][iy].epsilon;
+            double e_local = hydro_fields->e_rk0[idx];
             double T_local = eos->get_temperature(e_local, rhob_center);
             double muB_local = eos->get_mu(e_local, rhob_center);
             if (T_local < 0) {
@@ -1530,8 +1297,10 @@ void Evolve::FreezeOut_equal_tau_Surface_XY(double tau, InitData *DATA,
     s_file.close();
 }
 
+
+//! This function freeze-out fluid cell for boost-invarinat simulations
 int Evolve::FindFreezeOutSurface_boostinvariant_Cornelius(
-                                double tau, InitData *DATA, Grid ***arena) {
+                            double tau, InitData *DATA, Field *hydro_fields) {
     // find boost-invariant hyper-surfaces
     int *all_frozen = new int [n_freeze_surf];
     for (int i_freezesurf = 0; i_freezesurf < n_freeze_surf; i_freezesurf++) {
@@ -1545,8 +1314,6 @@ int Evolve::FindFreezeOutSurface_boostinvariant_Cornelius(
         ofstream s_file;
         s_file.open(strs_name.str().c_str() , ios::out | ios::app );
     
-        int nx = grid_nx;
-        int ny = grid_ny;
         double FULLSU[4];  // d^3 \sigma_\mu
     
         double tau_center, x_center, y_center, eta_center;
@@ -1571,14 +1338,14 @@ int Evolve::FindFreezeOutSurface_boostinvariant_Cornelius(
         int intersect;
         int intersections = 0;
 
-        facTau = DATA->facTau;   // step to skip in tau direction
+        int facTau = DATA->facTau;   // step to skip in tau direction
         int fac_x = DATA->fac_x;
         int fac_y = DATA->fac_y;
 
-        double DX=fac_x*DATA->delta_x;
-        double DY=fac_y*DATA->delta_y;
-        double DETA=1.0;
-        double DTAU=facTau*DATA->delta_tau;
+        double DX = fac_x*DELTA_X;
+        double DY = fac_y*DELTA_Y;
+        double DETA = 1.0;
+        double DTAU = facTau*DELTA_TAU;
 
         lattice_spacing[0] = DTAU;
         lattice_spacing[1] = DX;
@@ -1603,55 +1370,70 @@ int Evolve::FindFreezeOutSurface_boostinvariant_Cornelius(
             }
         }
   
-        for (int ix=0; ix <= nx - fac_x; ix += fac_x) {
-            double x = ix*(DATA->delta_x) - (DATA->x_size/2.0); 
-            for (int iy=0; iy <= ny - fac_y; iy += fac_y) {
-                double y = iy*(DATA->delta_y) - (DATA->y_size/2.0);
+        int ieta = 0;
+        for (int ix=0; ix <= GRID_SIZE_X - fac_x; ix += fac_x) {
+            double x = (ix - static_cast<double>(GRID_SIZE_X + 1)/2.0)*DELTA_X;
+            for (int iy=0; iy <= GRID_SIZE_Y - fac_y; iy += fac_y) {
+                double y = ((iy - static_cast<double>(GRID_SIZE_Y + 1)/2.0)
+                            *DELTA_Y);
     
                 // make sure the epsilon value is never 
                 // exactly the same as epsFO...
-                if(arena[0][ix+fac_x][iy+fac_y].epsilon==epsFO)
-                    arena[0][ix+fac_x][iy+fac_y].epsilon+=0.000001;
-                if(arena[0][ix+fac_x][iy+fac_y].epsilon_prev==epsFO)
-                    arena[0][ix+fac_x][iy+fac_y].epsilon_prev+=0.000001;
-                if(arena[0][ix][iy].epsilon==epsFO)
-                    arena[0][ix][iy].epsilon+=0.000001;
-                if(arena[0][ix][iy].epsilon_prev==epsFO)
-                    arena[0][ix][iy].epsilon_prev+=0.000001;
-                if(arena[0][ix+fac_x][iy].epsilon==epsFO)
-                    arena[0][ix+fac_x][iy].epsilon+=0.000001;
-                if(arena[0][ix+fac_x][iy].epsilon_prev==epsFO)
-                    arena[0][ix+fac_x][iy].epsilon_prev+=0.000001;
-                if(arena[0][ix][iy+fac_y].epsilon==epsFO)
-                    arena[0][ix][iy+fac_y].epsilon+=0.000001;
-                if(arena[0][ix][iy+fac_y].epsilon_prev==epsFO)
-                    arena[0][ix][iy+fac_y].epsilon_prev+=0.000001;
-               
+                int idx = iy + ix*(GRID_SIZE_Y + 1);
+                if (hydro_fields->e_rk0[idx] == epsFO) {
+                    hydro_fields->e_rk0[idx] += 0.000001;
+                }
+                if (hydro_fields->e_prev[idx] == epsFO) {
+                    hydro_fields->e_prev[idx] += 0.000001;
+                }
+                double e100 = hydro_fields->e_rk0[idx];
+                double e000 = hydro_fields->e_prev[idx];
+                idx = iy + (ix + fac_x)*(GRID_SIZE_Y + 1);
+                if (hydro_fields->e_rk0[idx] == epsFO) {
+                    hydro_fields->e_rk0[idx] += 0.000001;
+                }
+                if (hydro_fields->e_prev[idx] == epsFO) {
+                    hydro_fields->e_prev[idx] += 0.000001;
+                }
+                double e110 = hydro_fields->e_rk0[idx];
+                double e010 = hydro_fields->e_prev[idx];
+                idx = iy + fac_y + ix*(GRID_SIZE_Y + 1);
+                if (hydro_fields->e_rk0[idx] == epsFO) {
+                    hydro_fields->e_rk0[idx] += 0.000001;
+                }
+                if (hydro_fields->e_prev[idx] == epsFO) {
+                    hydro_fields->e_prev[idx] += 0.000001;
+                }
+                double e101 = hydro_fields->e_rk0[idx];
+                double e001 = hydro_fields->e_prev[idx];
+                idx = iy + fac_y + (ix + fac_x)*(GRID_SIZE_Y + 1);
+                if (hydro_fields->e_rk0[idx] == epsFO) {
+                    hydro_fields->e_rk0[idx] += 0.000001;
+                }
+                if (hydro_fields->e_prev[idx] == epsFO) {
+                    hydro_fields->e_prev[idx] += 0.000001;
+                }
+                double e111 = hydro_fields->e_rk0[idx];
+                double e011 = hydro_fields->e_prev[idx];
+                
                 // judge intersection (from Bjoern)
-                intersect=1;
-                if ((arena[0][ix+fac_x][iy+fac_y].epsilon-epsFO)
-                    *(arena[0][ix][iy].epsilon_prev-epsFO) > 0.)
-                    if ((arena[0][ix+fac_x][iy].epsilon-epsFO)
-                        *(arena[0][ix][iy+fac_y].epsilon_prev-epsFO) > 0.)
-                        if ((arena[0][ix][iy+fac_y].epsilon-epsFO)
-                            *(arena[0][ix+fac_x][iy].epsilon_prev-epsFO) > 0.)
-                            if ((arena[0][ix][iy].epsilon-epsFO)
-                                *(arena[0][ix+fac_x][iy+fac_y].epsilon_prev-epsFO) > 0.)
-                                    intersect = 0;
+                intersect = 1;
+                if ((e111 - epsFO)*(e000 - epsFO) > 0.)
+                    if ((e110 - epsFO)*(e001 - epsFO) > 0.)
+                        if ((e101 - epsFO)*(e010 - epsFO) > 0.)
+                            if ((e100 - epsFO)*(e011 - epsFO) > 0.)
+                                intersect = 0;
+               
                 if (intersect == 0) {
                     continue;
-                } else {
-                    // if intersect, prepare for the hyper-cube
-                    intersections++;
-                    cube[0][0][0] = arena[0][ix][iy].epsilon_prev;
-                    cube[0][0][1] = arena[0][ix][iy+fac_y].epsilon_prev;
-                    cube[0][1][0] = arena[0][ix+fac_x][iy].epsilon_prev;
-                    cube[0][1][1] = arena[0][ix+fac_x][iy+fac_y].epsilon_prev;
-                    cube[1][0][0] = arena[0][ix][iy].epsilon;
-                    cube[1][0][1] = arena[0][ix][iy+fac_y].epsilon;
-                    cube[1][1][0] = arena[0][ix+fac_x][iy].epsilon;
-                    cube[1][1][1] = arena[0][ix+fac_x][iy+fac_y].epsilon;
                 }
+
+                // if intersect, prepare for the hyper-cube
+                intersections++;
+
+                prepare_freeze_out_cube_boost_invariant(cube,
+                        hydro_fields->e_prev, hydro_fields->e_rk0,
+                        ix, iy, fac_x, fac_y);
            
                 // Now, the magic will happen in the Cornelius ...
                 cornelius_ptr->find_surface_3d(cube);
@@ -1701,123 +1483,76 @@ int Evolve::FindFreezeOutSurface_boostinvariant_Cornelius(
                     // perform 3-d linear interpolation for all fluid quantities
 
                     // flow velocity u^\tau
-                    int ieta = 0;
-                    cube[0][0][0] = arena[ieta][ix][iy].u_prev[0];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].u_prev[0];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].u_prev[0];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].u_prev[0];
-                    cube[1][0][0] = arena[ieta][ix][iy].u[0][0];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].u[0][0];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].u[0][0];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].u[0][0];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                            hydro_fields->u_prev[0], hydro_fields->u_rk0[0],
+                            ix, iy, fac_x, fac_y);
                     utau_center = util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
 
                     // flow velocity u^x
-                    cube[0][0][0] = arena[ieta][ix][iy].u_prev[1];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].u_prev[1];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].u_prev[1];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].u_prev[1];
-                    cube[1][0][0] = arena[ieta][ix][iy].u[0][1];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].u[0][1];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].u[0][1];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].u[0][1];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                            hydro_fields->u_prev[1], hydro_fields->u_rk0[1],
+                            ix, iy, fac_x, fac_y);
                     ux_center = util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
 
                     // flow velocity u^y
-                    cube[0][0][0] = arena[ieta][ix][iy].u_prev[2];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].u_prev[2];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].u_prev[2];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].u_prev[2];
-                    cube[1][0][0] = arena[ieta][ix][iy].u[0][2];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].u[0][2];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].u[0][2];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].u[0][2];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                            hydro_fields->u_prev[2], hydro_fields->u_rk0[2],
+                            ix, iy, fac_x, fac_y);
                     uy_center = util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
 
                     // flow velocity u^eta
-                    cube[0][0][0] = arena[ieta][ix][iy].u_prev[3];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].u_prev[3];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].u_prev[3];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].u_prev[3];
-                    cube[1][0][0] = arena[ieta][ix][iy].u[0][3];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].u[0][3];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].u[0][3];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].u[0][3];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                            hydro_fields->u_prev[3], hydro_fields->u_rk0[3],
+                            ix, iy, fac_x, fac_y);
                     ueta_center = util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
 
                     // baryon density rho_b
-                    cube[0][0][0] = arena[ieta][ix][iy].rhob_prev;
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].rhob_prev;
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].rhob_prev;
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].rhob_prev;
-                    cube[1][0][0] = arena[ieta][ix][iy].rhob;
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].rhob;
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].rhob;
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].rhob;
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                        hydro_fields->rhob_prev, hydro_fields->rhob_rk0,
+                        ix, iy, fac_x, fac_y);
                     rhob_center = util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
 
                     // bulk viscous pressure pi_b
-                    cube[0][0][0] = arena[ieta][ix][iy].pi_b_prev;
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].pi_b_prev;
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].pi_b_prev;
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].pi_b_prev;
-                    cube[1][0][0] = arena[ieta][ix][iy].pi_b[0];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].pi_b[0];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].pi_b[0];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].pi_b[0];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                        hydro_fields->pi_b_prev, hydro_fields->pi_b_rk0,
+                        ix, iy, fac_x, fac_y);
                     pi_b_center = util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
                
                     // baryon diffusion current q^\tau
-                    cube[0][0][0] = arena[ieta][ix][iy].W_prev[10];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].W_prev[10];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].W_prev[10];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[10];
-                    cube[1][0][0] = arena[ieta][ix][iy].Wmunu[0][10];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].Wmunu[0][10];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][10];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][10];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                                            hydro_fields->Wmunu_prev[10],
+                                            hydro_fields->Wmunu_rk0[10],
+                                            ix, iy, fac_x, fac_y);
                     qtau_center = util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
                
                     // baryon diffusion current q^x
-                    cube[0][0][0] = arena[ieta][ix][iy].W_prev[11];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].W_prev[11];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].W_prev[11];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[11];
-                    cube[1][0][0] = arena[ieta][ix][iy].Wmunu[0][11];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].Wmunu[0][11];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][11];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][11];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                                            hydro_fields->Wmunu_prev[11],
+                                            hydro_fields->Wmunu_rk0[11],
+                                            ix, iy, fac_x, fac_y);
                     qx_center = util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
                
                     // baryon diffusion current q^y
-                    cube[0][0][0] = arena[ieta][ix][iy].W_prev[12];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].W_prev[12];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].W_prev[12];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[12];
-                    cube[1][0][0] = arena[ieta][ix][iy].Wmunu[0][12];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].Wmunu[0][12];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][12];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][12];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                                            hydro_fields->Wmunu_prev[12],
+                                            hydro_fields->Wmunu_rk0[12],
+                                            ix, iy, fac_x, fac_y);
                     qy_center = util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
                
                     // baryon diffusion current q^eta
-                    cube[0][0][0] = arena[ieta][ix][iy].W_prev[13];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].W_prev[13];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].W_prev[13];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[13];
-                    cube[1][0][0] = arena[ieta][ix][iy].Wmunu[0][13];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].Wmunu[0][13];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][13];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][13];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                                            hydro_fields->Wmunu_prev[13],
+                                            hydro_fields->Wmunu_rk0[13],
+                                            ix, iy, fac_x, fac_y);
                     qeta_center = util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
 
@@ -1850,131 +1585,91 @@ int Evolve::FindFreezeOutSurface_boostinvariant_Cornelius(
                     delete [] q_regulated;
 
                     // shear viscous tensor W^\tau\tau
-                    cube[0][0][0] = arena[ieta][ix][iy].W_prev[0];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].W_prev[0];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].W_prev[0];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[0];
-                    cube[1][0][0] = arena[ieta][ix][iy].Wmunu[0][0];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].Wmunu[0][0];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][0];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][0];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                                            hydro_fields->Wmunu_prev[0],
+                                            hydro_fields->Wmunu_rk0[0],
+                                            ix, iy, fac_x, fac_y);
                     Wtautau_center = 
                         util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
                   
                     // shear viscous tensor W^{\tau x}
-                    cube[0][0][0] = arena[ieta][ix][iy].W_prev[1];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].W_prev[1];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].W_prev[1];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[1];
-                    cube[1][0][0] = arena[ieta][ix][iy].Wmunu[0][1];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].Wmunu[0][1];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][1];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][1];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                                            hydro_fields->Wmunu_prev[1],
+                                            hydro_fields->Wmunu_rk0[1],
+                                            ix, iy, fac_x, fac_y);
                     Wtaux_center = 
                         util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
 
                     // shear viscous tensor W^{\tau y}
-                    cube[0][0][0] = arena[ieta][ix][iy].W_prev[2];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].W_prev[2];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].W_prev[2];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[2];
-                    cube[1][0][0] = arena[ieta][ix][iy].Wmunu[0][2];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].Wmunu[0][2];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][2];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][2];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                                            hydro_fields->Wmunu_prev[2],
+                                            hydro_fields->Wmunu_rk0[2],
+                                            ix, iy, fac_x, fac_y);
                     Wtauy_center = 
                         util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
                   
                     // shear viscous tensor W^{\tau \eta}
-                    cube[0][0][0] = arena[ieta][ix][iy].W_prev[3];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].W_prev[3];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].W_prev[3];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[3];
-                    cube[1][0][0] = arena[ieta][ix][iy].Wmunu[0][3];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].Wmunu[0][3];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][3];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][3];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                                            hydro_fields->Wmunu_prev[3],
+                                            hydro_fields->Wmunu_rk0[3],
+                                            ix, iy, fac_x, fac_y);
                     Wtaueta_center = 
                         util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
                   
                     // shear viscous tensor W^{xx}
-                    cube[0][0][0] = arena[ieta][ix][iy].W_prev[4];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].W_prev[4];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].W_prev[4];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[4];
-                    cube[1][0][0] = arena[ieta][ix][iy].Wmunu[0][4];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].Wmunu[0][4];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][4];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][4];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                                            hydro_fields->Wmunu_prev[4],
+                                            hydro_fields->Wmunu_rk0[4],
+                                            ix, iy, fac_x, fac_y);
                     Wxx_center = 
                         util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
 
                     // shear viscous tensor W^{xy}
-                    cube[0][0][0] = arena[ieta][ix][iy].W_prev[5];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].W_prev[5];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].W_prev[5];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[5];
-                    cube[1][0][0] = arena[ieta][ix][iy].Wmunu[0][5];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].Wmunu[0][5];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][5];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][5];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                                            hydro_fields->Wmunu_prev[5],
+                                            hydro_fields->Wmunu_rk0[5],
+                                            ix, iy, fac_x, fac_y);
                     Wxy_center = 
                         util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
 
                     // shear viscous tensor W^{x \eta}
-                    cube[0][0][0] = arena[ieta][ix][iy].W_prev[6];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].W_prev[6];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].W_prev[6];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[6];
-                    cube[1][0][0] = arena[ieta][ix][iy].Wmunu[0][6];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].Wmunu[0][6];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][6];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][6];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                                            hydro_fields->Wmunu_prev[6],
+                                            hydro_fields->Wmunu_rk0[6],
+                                            ix, iy, fac_x, fac_y);
                     Wxeta_center = 
                         util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
                   
                     // shear viscous tensor W^{yy}
-                    cube[0][0][0] = arena[ieta][ix][iy].W_prev[7];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].W_prev[7];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].W_prev[7];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[7];
-                    cube[1][0][0] = arena[ieta][ix][iy].Wmunu[0][7];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].Wmunu[0][7];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][7];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][7];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                                            hydro_fields->Wmunu_prev[7],
+                                            hydro_fields->Wmunu_rk0[7],
+                                            ix, iy, fac_x, fac_y);
                     Wyy_center = 
                         util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
                   
                     // shear viscous tensor W^{yeta}
-                    cube[0][0][0] = arena[ieta][ix][iy].W_prev[8];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].W_prev[8];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].W_prev[8];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[8];
-                    cube[1][0][0] = arena[ieta][ix][iy].Wmunu[0][8];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].Wmunu[0][8];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][8];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][8];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                                            hydro_fields->Wmunu_prev[8],
+                                            hydro_fields->Wmunu_rk0[8],
+                                            ix, iy, fac_x, fac_y);
                     Wyeta_center = 
                         util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
                   
                     // shear viscous tensor W^{\eta\eta}
-                    cube[0][0][0] = arena[ieta][ix][iy].W_prev[9];
-                    cube[0][0][1] = arena[ieta][ix][iy+fac_y].W_prev[9];
-                    cube[0][1][0] = arena[ieta][ix+fac_x][iy].W_prev[9];
-                    cube[0][1][1] = arena[ieta][ix+fac_x][iy+fac_y].W_prev[9];
-                    cube[1][0][0] = arena[ieta][ix][iy].Wmunu[0][9];
-                    cube[1][0][1] = arena[ieta][ix][iy+fac_y].Wmunu[0][9];
-                    cube[1][1][0] = arena[ieta][ix+fac_x][iy].Wmunu[0][9];
-                    cube[1][1][1] = arena[ieta][ix+fac_x][iy+fac_y].Wmunu[0][9];
+                    prepare_freeze_out_cube_boost_invariant(cube,
+                                            hydro_fields->Wmunu_prev[9],
+                                            hydro_fields->Wmunu_rk0[9],
+                                            ix, iy, fac_x, fac_y);
                     Wetaeta_center = 
                         util->three_dimension_linear_interpolation(
                                         lattice_spacing_ptr, x_fraction, cube);
@@ -2088,7 +1783,7 @@ int Evolve::FindFreezeOutSurface_boostinvariant_Cornelius(
     for (int ii = 0; ii < n_freeze_surf; ii++)
         all_frozen_flag *= all_frozen[ii];
     if (all_frozen_flag == 1)
-        cout << "All cells frozen out. Exiting." << endl;
+        cout << "Boost_invariant: All cells are frozen out. Exiting." << endl;
 
     delete [] all_frozen;
     return(all_frozen_flag);
@@ -2205,4 +1900,64 @@ void Evolve::flow_gubser(double tau, double x, double y, double * utau, double *
         *ux=(qparam*x)/sqrt(1 + pow(-1 + pow(qparam,2)*(tau - xperp)*(tau + xperp),2)/(4.*pow(qparam,2)*pow(tau,2)));
         *uy=(qparam*y)/sqrt(1 + pow(-1 + pow(qparam,2)*(tau - xperp)*(tau + xperp),2)/(4.*pow(qparam,2)*pow(tau,2)));
 
+}
+
+
+//! This is a function to prepare the freeze-out cube
+void Evolve::prepare_freeze_out_cube(double ****cube,
+                                     double* data_prev, double* data_array,
+                                     int ieta, int ix, int iy,
+                                     int fac_eta, int fac_x, int fac_y) {
+    int idx = (iy + ix*(GRID_SIZE_Y + 1)
+               + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+    cube[0][0][0][0] = data_prev[idx];
+    cube[1][0][0][0] = data_array[idx];
+    idx = (iy + (ix + fac_x)*(GRID_SIZE_Y + 1)
+               + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+    cube[0][1][0][0] = data_prev[idx];
+    cube[1][1][0][0] = data_array[idx];
+    idx = (iy + fac_y + ix*(GRID_SIZE_Y + 1)
+               + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+    cube[0][0][1][0] = data_prev[idx];
+    cube[1][0][1][0] = data_array[idx];
+    idx = (iy + ix*(GRID_SIZE_Y + 1)
+               + (ieta + fac_eta)*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+    cube[0][0][0][1] = data_prev[idx];
+    cube[1][0][0][1] = data_array[idx];
+    idx = (iy + fac_y + (ix + fac_x)*(GRID_SIZE_Y + 1)
+               + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+    cube[0][1][1][0] = data_prev[idx];
+    cube[1][1][1][0] = data_array[idx];
+    idx = (iy + fac_y + ix*(GRID_SIZE_Y + 1)
+               + (ieta + fac_eta)*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+    cube[0][0][1][1] = data_prev[idx];
+    cube[1][0][1][1] = data_array[idx];
+    idx = (iy + (ix + fac_x)*(GRID_SIZE_Y + 1)
+               + (ieta + fac_eta)*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+    cube[0][1][0][1] = data_prev[idx];
+    cube[1][1][0][1] = data_array[idx];
+    idx = (iy + fac_y + (ix + fac_x)*(GRID_SIZE_Y + 1)
+               + (ieta + fac_eta)*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+    cube[0][1][1][1] = data_prev[idx];
+    cube[1][1][1][1] = data_array[idx];
+}
+
+
+//! This is a function to prepare the freeze-out cube for boost-invariant
+//! surface
+void Evolve::prepare_freeze_out_cube_boost_invariant(
+                    double ***cube, double* data_prev, double* data_array,
+                    int ix, int iy, int fac_x, int fac_y) {
+    int idx = iy + ix*(GRID_SIZE_Y + 1);
+    cube[0][0][0] = data_prev[idx];
+    cube[1][0][0] = data_array[idx];
+    idx = iy + (ix + fac_x)*(GRID_SIZE_Y + 1);
+    cube[0][1][0] = data_prev[idx];
+    cube[1][1][0] = data_array[idx];
+    idx = iy + fac_y + ix*(GRID_SIZE_Y + 1);
+    cube[0][0][1] = data_prev[idx];
+    cube[1][0][1] = data_array[idx];
+    idx = iy + fac_y + (ix + fac_x)*(GRID_SIZE_Y + 1);
+    cube[0][1][1] = data_prev[idx];
+    cube[1][1][1] = data_array[idx];
 }

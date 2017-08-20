@@ -60,28 +60,51 @@ class Evolve {
     int AdvanceRK(double tau, InitData *DATA, Field *hydro_fields);
     int Update_prev_Arena(Grid ***arena);
     void Update_prev_Arena_XY(int ieta, Grid ***arena);
-
     void update_prev_field(Field *hydro_fields);
 
-    int FreezeOut_equal_tau_Surface(double tau, InitData *DATA, Grid ***arena);
+    //! This function is a shell function to freeze-out fluid cells
+    //! outside the freeze-out energy density at the first time step
+    //! of the evolution
+    int FreezeOut_equal_tau_Surface(double tau, InitData *DATA,
+                                    Field *hydro_fields);
+
+    //! This function freeze-outs fluid cells
+    //! outside the freeze-out energy density at the first time step
+    //! of the evolution in the transverse plane
     void FreezeOut_equal_tau_Surface_XY(double tau, InitData *DATA,
-                                        int ieta, Grid ***arena,
+                                        int ieta, Field *hydro_fields,
                                         int thread_id, double epsFO);
+
     // void FindFreezeOutSurface(double tau, InitData *DATA,
     //                          Grid ***arena, int size, int rank);
     // void FindFreezeOutSurface2(double tau, InitData *DATA,
     //                           Grid ***arena, int size, int rank);
     // int FindFreezeOutSurface3(double tau, InitData *DATA,
     //                          Grid ***arena, int size, int rank);
-    int FindFreezeOutSurface_Cornelius(double tau, InitData *DATA,
-                                       Grid ***arena);
-    int FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
-                                          int ieta, Grid ***arena,
-                                          int thread_id, double epsFO);
-    int FindFreezeOutSurface_boostinvariant_Cornelius(
-                                    double tau, InitData *DATA, Grid ***arena);
 
-    void store_previous_step_for_freezeout(Grid ***arena);
+    //! This is a function to prepare the freeze-out cube
+    void prepare_freeze_out_cube(double ****cube,
+                                 double* data_prev, double* data_array,
+                                 int ieta, int ix, int iy,
+                                 int fac_eta, int fac_x, int fac_y);
+
+    //! This is a function to prepare the freeze-out cube for boost-invariant
+    //! surface
+    void prepare_freeze_out_cube_boost_invariant(
+                    double ***cube, double* data_prev, double* data_array,
+                    int ix, int iy, int fac_x, int fac_y);
+
+    int FindFreezeOutSurface_Cornelius(double tau, InitData *DATA,
+                                       Field *hydro_fields);
+
+    int FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
+                                          int ieta, Field *hydro_fields,
+                                          int thread_id, double epsFO);
+
+    int FindFreezeOutSurface_boostinvariant_Cornelius(
+                            double tau, InitData *DATA, Field *hydro_fields);
+
+    void store_previous_step_for_freezeout(Field *hydro_fields);
 
     void regulate_qmu(double* u, double* q, double* q_regulated);
     void regulate_Wmunu(double* u, double** Wmunu, double** Wmunu_regulated);

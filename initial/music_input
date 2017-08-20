@@ -48,7 +48,7 @@ output_evolution_data  0
 Include_Shear_Visc_Yes_1_No_0  1 
 Shear_relaxation_time_tau_pi  0.01 
 eps_freeze_max  0.75 
-Do_FreezeOut_lowtemp  0
+Do_FreezeOut_lowtemp  1
 pseudofreeze  1 
 epsilon_freeze  0.18 
 N_freeze_out  14 
@@ -68,12 +68,13 @@ Include_deltaf  1
 pseudo_steps  47 
 max_pseudorapidity  5.0 
 eps_freeze_min  0.1 
-Do_FreezeOut_Yes_1_No_0  0 
+Do_FreezeOut_Yes_1_No_0  1
 Ncell_skip_y  3 
 Ncell_skip_x  3 
+freeze_Ncell_x_step 2
 pt_steps  15 
 phi_steps  40 
-average_surface_over_this_many_time_steps  5 
+average_surface_over_this_many_time_steps  20
 dNdyptdpt_eta_min  -0.5 
 dNdy_y_max  0.5 
 dNdy_eta_max  5.0 
