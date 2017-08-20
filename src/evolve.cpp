@@ -610,11 +610,11 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
         }
     }
 
-    double eta = DELTA_ETA*ieta - static_cast<double>(GRID_SIZE_ETA)/2.0;
+    double eta = (ieta - static_cast<double>(GRID_SIZE_ETA)/2.0)*DELTA_ETA;
     for (int ix = 0; ix <= GRID_SIZE_X - fac_x; ix += fac_x) {
-        double x = ix*DELTA_X - static_cast<double>(GRID_SIZE_X + 1)/2.0; 
+        double x = (ix - static_cast<double>(GRID_SIZE_X + 1)/2.0)*DELTA_X; 
         for (int iy = 0; iy <= GRID_SIZE_Y - fac_y; iy += fac_y) {
-            double y = iy*DELTA_Y - static_cast<double>(GRID_SIZE_Y + 1)/2.0;
+            double y = (iy - static_cast<double>(GRID_SIZE_Y + 1)/2.0)*DELTA_Y;
 
             // make sure the epsilon value is never exactly 
             // the same as epsFO...
@@ -1125,11 +1125,11 @@ void Evolve::FreezeOut_equal_tau_Surface_XY(double tau, InitData *DATA,
     double DY = fac_y*DELTA_Y;
     double DETA = fac_eta*DELTA_ETA;
 
-    double eta = DELTA_ETA*ieta - static_cast<double>(GRID_SIZE_ETA)/2.0;
+    double eta = (ieta - static_cast<double>(GRID_SIZE_ETA)/2.0)*DELTA_ETA;
     for (int ix = 0; ix <= GRID_SIZE_X - fac_x; ix += fac_x) {
-        double x = ix*DELTA_X - static_cast<double>(GRID_SIZE_X)/2.0;
+        double x = (ix - static_cast<double>(GRID_SIZE_X)/2.0)*DELTA_X;
         for (int iy = 0; iy <= GRID_SIZE_Y - fac_y; iy += fac_y) {
-            double y = iy*DELTA_Y - static_cast<double>(GRID_SIZE_Y)/2.0;
+            double y = (iy - static_cast<double>(GRID_SIZE_Y)/2.0)*DELTA_Y;
             int idx = (iy + ix*(GRID_SIZE_Y + 1)
                        + ieta*(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1));
 
