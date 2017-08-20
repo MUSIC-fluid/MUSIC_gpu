@@ -352,6 +352,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
             }
         }
     }
+
     if (VISCOUS_FLAG == 1) {
         #pragma acc parallel loop gang worker vector collapse(3) independent present(hydro_fields)\
                          private(this[0:1])
@@ -395,7 +396,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
             }
         }
     }
-
+    
     if (rk_flag == 0) {
         #pragma acc parallel loop gang worker vector collapse(3) independent present(hydro_fields)\
                          private(this[0:1])
@@ -516,6 +517,7 @@ int Advance::ReconstIt_velocity_Newton(
     double v_guess = sqrt(1. - 1./(u0_guess*u0_guess + 1e-15));
     if (v_guess != v_guess) {  //v_guess is NaN
         v_guess = 0.0;
+        u0_guess = 1.0;
     }
     int v_status = 1;
     int iter = 0;
@@ -542,7 +544,7 @@ int Advance::ReconstIt_velocity_Newton(
     } while (fabs(abs_error_v) > abs_err && fabs(rel_error_v) > rel_err);
 
     double v_solution;
-    if (v_status == 1) {
+    if (v_status == 1 && v_next >= 0. && v_next <= 1.0) {
         v_solution = v_next;
     } else {
         revert_grid(grid_array, grid_array_p);
@@ -572,9 +574,11 @@ int Advance::ReconstIt_velocity_Newton(
             }
         } while (fabs(abs_error_u0) > abs_err && fabs(rel_error_u0) > rel_err);
 
-        if (u0_status == 1) {
+        if (u0_status == 1 && u0_next >= 1.0) {
             u0_solution = u0_next;
         } else {
+            revert_grid(grid_array, grid_array_p);
+            return(-1);
         }  // if iteration is unsuccessful, revert
     }
 
