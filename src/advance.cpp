@@ -263,7 +263,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     double grid_array_hL[5];
     double grid_array_hR[5];
 
-    cout << "pre parallel" << endl;
+    // enter GPU parallel region, variable tmp is used to check whether the
+    // code is running on GPU
     #pragma acc parallel loop gang worker vector collapse(3) independent copy(tmp[0:1]) present(hydro_fields)\
                          private(this[0:1], grid_array[0:5], qi_array[0:5], qi_array_new[0:5], qi_rk0[0:5], \
                          qi_nbr_x[0:4][0:5], qi_nbr_y[0:4][0:5], qi_nbr_eta[0:4][0:5], \
@@ -362,8 +363,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
             }
         }
     }
-    // clean up
-    std::cout << "check tmp=" << tmp[0]  << "\n";
+
+    //std::cout << "check tmp=" << tmp[0]  << "\n";
 
     return(1);
 }/* AdvanceIt */
