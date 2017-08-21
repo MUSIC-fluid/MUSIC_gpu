@@ -3,7 +3,6 @@
 #include "./evolve.h"
 #include "./util.h"
 #include "./data.h"
-#include "./grid.h"
 #include "./eos.h"
 #include "./advance.h"
 #include "./cornelius.h"
@@ -13,7 +12,6 @@ using namespace std;
 
 Evolve::Evolve(EOS *eosIn, InitData *DATA_in) {
     eos = eosIn;
-    grid = new Grid;
     grid_info = new Grid_info(DATA_in, eosIn);
     util = new Util;
     u_derivative = new U_derivative(eosIn, DATA_in);
@@ -32,7 +30,6 @@ Evolve::Evolve(EOS *eosIn, InitData *DATA_in) {
 
 // destructor
 Evolve::~Evolve() {
-    delete grid;
     delete grid_info;
     delete util;
     delete advance;
@@ -310,6 +307,8 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
     return(1); /* successful */
 }/* Evolve */
 
+
+// update hydro fields information for freeze-out
 void Evolve::store_previous_step_for_freezeout(Field *hydro_fields) {
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
         for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
@@ -331,126 +330,6 @@ void Evolve::store_previous_step_for_freezeout(Field *hydro_fields) {
     }
 }
 
-// update grid information after the tau RK evolution 
-int Evolve::Update_prev_Arena(Grid ***arena) {
-    int neta = grid_neta;
-    int ieta;
-    #pragma omp parallel private(ieta)
-    {
-        #pragma omp for
-        for (ieta = 0; ieta < neta; ieta++) {
-            Update_prev_Arena_XY(ieta, arena);
-        } /* ieta */
-    }
-    return 1;
-}
-
-void Evolve::Update_prev_Arena_XY(int ieta, Grid ***arena) {
-    int nx = grid_nx;
-    int ny = grid_ny;
-    for (int ix = 0; ix <= nx; ix++) {
-        for (int iy = 0; iy <= ny; iy++) {
-            arena[ieta][ix][iy].prev_epsilon = arena[ieta][ix][iy].epsilon;
-            arena[ieta][ix][iy].prev_rhob = arena[ieta][ix][iy].rhob;
-     
-            // previous pi_b is stored in prevPimunu
-            arena[ieta][ix][iy].prev_pi_b[0] = arena[ieta][ix][iy].pi_b[0];
-            for (int ii = 0; ii < 14; ii++) {
-                /* this was the previous value */
-                arena[ieta][ix][iy].prevWmunu[0][ii] = (
-                                arena[ieta][ix][iy].Wmunu[0][ii]); 
-            }
-            for (int mu = 0; mu < 4; mu++) {
-                /* this was the previous value */
-                arena[ieta][ix][iy].prev_u[0][mu] = (
-                                        arena[ieta][ix][iy].u[0][mu]); 
-            }
-        }
-    }
-}
-
-void Evolve::update_prev_field(Field *hydro_fields) {
-    int n_cell = DATA_ptr->neta*(DATA_ptr->nx + 1)*(DATA_ptr->ny + 1);
-    for (int i = 0; i < n_cell; i++) {
-        hydro_fields->e_prev[i] = hydro_fields->e_rk0[i];
-        hydro_fields->rhob_prev[i] = hydro_fields->rhob_rk0[i];
-        for (int ii = 0; ii < 4; ii++) {
-            hydro_fields->u_prev[i][ii] = hydro_fields->u_rk0[i][ii];
-        }
-        for (int ii = 0; ii < 14; ii++) {
-            hydro_fields->Wmunu_prev[i][ii] = hydro_fields->Wmunu_rk0[i][ii];
-        }
-        hydro_fields->pi_b_prev[i] = hydro_fields->pi_b_rk0[i];
-    }
-
-}
-
-void Evolve::copy_dUsup_from_grid_to_field(Grid ***arena, Field *hydro_fields) {
-    int nx = grid_nx + 1;
-    int ny = grid_ny + 1;
-    int neta = grid_neta;
-    for (int ieta = 0; ieta < neta; ieta++) {
-        for (int ix = 0; ix < nx; ix++) {
-            for (int iy = 0; iy < ny; iy++) {
-                int idx = iy + ix*ny + ieta*ny*nx;
-                for (int ii = 0; ii < 5; ii++) {
-                    for (int jj = 0; jj < 4; jj++) {
-                        int iidx = jj + 4*ii;
-                        hydro_fields->dUsup[idx][iidx] =
-                            arena[ieta][ix][iy].dUsup[0][ii][jj];
-                    }
-                }
-            }
-        }
-    }
-}
-
-void Evolve::convert_grid_to_field(Grid ***arena, Field *hydro_fields) {
-    int nx = grid_nx + 1;
-    int ny = grid_ny + 1;
-    int neta = grid_neta;
-    for (int ieta = 0; ieta < neta; ieta++) {
-        for (int ix = 0; ix < nx; ix++) {
-            for (int iy = 0; iy < ny; iy++) {
-                int idx = iy + ix*ny + ieta*ny*nx;
-                hydro_fields->e_rk0[idx] = arena[ieta][ix][iy].epsilon;
-                hydro_fields->e_rk1[idx] = arena[ieta][ix][iy].epsilon_t;
-                hydro_fields->e_prev[idx] = arena[ieta][ix][iy].prev_epsilon;
-                hydro_fields->rhob_rk0[idx] = arena[ieta][ix][iy].rhob;
-                hydro_fields->rhob_rk1[idx] = arena[ieta][ix][iy].rhob_t;
-                hydro_fields->rhob_prev[idx] = arena[ieta][ix][iy].prev_rhob;
-                for (int ii = 0; ii < 4; ii++) {
-                    hydro_fields->u_rk0[idx][ii] =
-                                            arena[ieta][ix][iy].u[0][ii];
-                    hydro_fields->u_rk1[idx][ii] =
-                                            arena[ieta][ix][iy].u[1][ii];
-                    hydro_fields->u_prev[idx][ii] =
-                                            arena[ieta][ix][iy].prev_u[0][ii];
-                }
-                for (int ii = 0; ii < 5; ii++) {
-                    for (int jj = 0; jj < 4; jj++) {
-                        int iidx = jj + 4*ii;
-                        hydro_fields->dUsup[idx][iidx] =
-                            arena[ieta][ix][iy].dUsup[0][ii][jj];
-                    }
-                }
-                for (int ii = 0; ii < 14; ii++) {
-                    hydro_fields->Wmunu_rk0[idx][ii] = 
-                                            arena[ieta][ix][iy].Wmunu[0][ii];
-                    hydro_fields->Wmunu_rk1[idx][ii] = 
-                                            arena[ieta][ix][iy].Wmunu[1][ii];
-                    hydro_fields->Wmunu_prev[idx][ii] = 
-                                        arena[ieta][ix][iy].prevWmunu[0][ii];
-                }
-                hydro_fields->pi_b_rk0[idx] = arena[ieta][ix][iy].pi_b[0];
-                hydro_fields->pi_b_rk1[idx] = arena[ieta][ix][iy].pi_b[1];
-                hydro_fields->pi_b_prev[idx] =
-                                            arena[ieta][ix][iy].prev_pi_b[0];
-            }
-        }
-    }
-}
-
 
 //! This is a control function for Runge-Kutta evolution in tau
 int Evolve::AdvanceRK(double tau, InitData *DATA, Field *hydro_fields) {
@@ -462,37 +341,6 @@ int Evolve::AdvanceRK(double tau, InitData *DATA, Field *hydro_fields) {
     return(flag);
 }
 
-void Evolve::copy_fields_to_grid(Field *hydro_fields, Grid ***arena) {
-    int nx = grid_nx + 1;
-    int ny = grid_ny + 1;
-    int neta = grid_neta;
-    for (int ieta = 0; ieta < neta; ieta++) {
-        for (int ix = 0; ix < nx; ix++) {
-            for (int iy = 0; iy < ny; iy++) {
-                int idx = iy + ix*ny + ieta*ny*nx;
-                arena[ieta][ix][iy].epsilon = hydro_fields->e_rk0[idx];
-                arena[ieta][ix][iy].epsilon_t = hydro_fields->e_rk1[idx];
-                arena[ieta][ix][iy].prev_epsilon = hydro_fields->e_prev[idx];
-                arena[ieta][ix][iy].rhob = hydro_fields->rhob_rk0[idx];
-                arena[ieta][ix][iy].rhob_t = hydro_fields->rhob_rk1[idx];
-                arena[ieta][ix][iy].prev_rhob = hydro_fields->rhob_prev[idx];
-                for (int ii = 0; ii < 4; ii++) {
-                    arena[ieta][ix][iy].u[0][ii] = hydro_fields->u_rk0[idx][ii];
-                    arena[ieta][ix][iy].u[1][ii] = hydro_fields->u_rk1[idx][ii];
-                    arena[ieta][ix][iy].prev_u[0][ii] = hydro_fields->u_prev[idx][ii];
-                }
-                for (int ii = 0; ii < 14; ii++) {
-                    arena[ieta][ix][iy].Wmunu[0][ii] = hydro_fields->Wmunu_rk0[idx][ii];
-                    arena[ieta][ix][iy].Wmunu[1][ii] = hydro_fields->Wmunu_rk1[idx][ii];
-                    arena[ieta][ix][iy].prevWmunu[0][ii] = hydro_fields->Wmunu_prev[idx][ii];
-                }
-                arena[ieta][ix][iy].pi_b[0] = hydro_fields->pi_b_rk0[idx];
-                arena[ieta][ix][iy].pi_b[1] = hydro_fields->pi_b_rk1[idx];
-                arena[ieta][ix][iy].prev_pi_b[0] = hydro_fields->pi_b_prev[idx];
-            }
-        }
-    }
-}
       
 //! This function is find freeze-out fluid cells
 int Evolve::FindFreezeOutSurface_Cornelius(double tau, InitData *DATA,
