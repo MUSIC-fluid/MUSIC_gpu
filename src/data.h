@@ -8,6 +8,8 @@
 #define GRID_SIZE_Y 199
 #define GRID_SIZE_ETA 1
 
+#define get_indx(IETA, IX, IY)  IY + IX*(GRID_SIZE_Y + 1) + IETA*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1)
+
 #define SUB_GRID_SIZE_X 1
 #define SUB_GRID_SIZE_Y 1
 #define SUB_GRID_SIZE_ETA 1

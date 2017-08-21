@@ -40,7 +40,6 @@ Evolve::~Evolve() {
 }
 
 void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
-    int n_cell = DATA_ptr->neta*(DATA_ptr->nx + 1)*(DATA_ptr->ny + 1);
     delete[] hydro_fields->e_rk0;
     delete[] hydro_fields->e_rk1;
     delete[] hydro_fields->e_prev;
@@ -81,8 +80,7 @@ void Evolve::initial_field_with_ideal_Gubser(double tau, Field *hydro_fields) {
             double x_local = x_min + ix*DELTA_X;
             for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
                 double y_local = y_min + iy*DELTA_Y;
-                int idx = (iy + ix*(GRID_SIZE_Y+1)
-                            + ieta*(GRID_SIZE_Y+1)*(GRID_SIZE_X+1));
+                int idx = get_indx(ieta, ix, iy);
                 e_local = energy_gubser(tau, x_local, y_local);
                 flow_gubser(tau, x_local, y_local, &utau_local, &ux_local,
                             &uy_local);
@@ -135,8 +133,7 @@ void Evolve::check_field_with_ideal_Gubser(double tau, Field *hydro_fields) {
             double x_local = x_min + ix*DELTA_X;
             for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
                 double y_local = y_min + iy*DELTA_Y;
-                int idx = (iy + ix*(GRID_SIZE_Y+1)
-                            + ieta*(GRID_SIZE_Y+1)*(GRID_SIZE_X+1));
+                int idx = get_indx(ieta, ix, iy);
                 e_local = energy_gubser(tau, x_local, y_local);
                 flow_gubser(tau, x_local, y_local, &utau_local, &ux_local,
                             &uy_local);
@@ -180,7 +177,7 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
 
     int itmax = static_cast<int>(DATA->tau_size/DATA->delta_tau);
     double tau0 = DATA->tau0;
-    double dt = DATA->delta_tau;
+    double dt = DELTA_TAU;
     DATA->delta_tau = DELTA_TAU;
     DATA->delta_x = DELTA_X;
     DATA->delta_y = DELTA_Y;
@@ -288,14 +285,14 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
                 #pragma acc update host(hydro_fields->u_rk0[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
                 #pragma acc update host(hydro_fields->Wmunu_rk0[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
                 #pragma acc update host(hydro_fields->pi_b_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA])
-               if (freezeout_method == 4) {
-                   if (boost_invariant_flag == 0) {
-                       frozen = FindFreezeOutSurface_Cornelius(tau, DATA,
-                                                               hydro_fields);
-                   } else {
-                       frozen = FindFreezeOutSurface_boostinvariant_Cornelius(
-                                                    tau, DATA, hydro_fields);
-                   }
+                if (freezeout_method == 4) {
+                    if (boost_invariant_flag == 0) {
+                        frozen = FindFreezeOutSurface_Cornelius(tau, DATA,
+                                                                hydro_fields);
+                    } else {
+                        frozen = FindFreezeOutSurface_boostinvariant_Cornelius(
+                                                     tau, DATA, hydro_fields);
+                    }
                }
                store_previous_step_for_freezeout(hydro_fields);
             }
@@ -317,8 +314,7 @@ void Evolve::store_previous_step_for_freezeout(Field *hydro_fields) {
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
         for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
             for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
-                int idx = (iy + ix*(GRID_SIZE_Y + 1)
-                           + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+                int idx = get_indx(ieta, ix, iy);
                 hydro_fields->e_prev[idx] = hydro_fields->e_rk0[idx];
                 hydro_fields->rhob_prev[idx] = hydro_fields->rhob_rk0[idx];
                 for (int ii = 0; ii < 4; ii++) {
@@ -618,8 +614,8 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
 
             // make sure the epsilon value is never exactly 
             // the same as epsFO...
-            int idx = (iy + ix*(GRID_SIZE_Y + 1)
-                       + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            int idx = get_indx(ieta, ix, iy);
+
             if (hydro_fields->e_rk0[idx] == epsFO) {
                 hydro_fields->e_rk0[idx] += 0.000001;
             }
@@ -628,8 +624,7 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
             }
             double e1000 = hydro_fields->e_rk0[idx];
             double e0000 = hydro_fields->e_prev[idx];
-            idx = (iy + (ix + fac_x)*(GRID_SIZE_Y + 1)
-                       + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            idx = get_indx(ieta, ix + fac_x, iy);
             if (hydro_fields->e_rk0[idx] == epsFO) {
                 hydro_fields->e_rk0[idx] += 0.000001;
             }
@@ -638,8 +633,7 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
             }
             double e1100 = hydro_fields->e_rk0[idx];
             double e0100 = hydro_fields->e_prev[idx];
-            idx = (iy + fac_y + ix*(GRID_SIZE_Y + 1)
-                       + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            idx = get_indx(ieta, ix, iy + fac_y);
             if (hydro_fields->e_rk0[idx] == epsFO) {
                 hydro_fields->e_rk0[idx] += 0.000001;
             }
@@ -648,8 +642,7 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
             }
             double e1010 = hydro_fields->e_rk0[idx];
             double e0010 = hydro_fields->e_prev[idx];
-            idx = (iy + ix*(GRID_SIZE_Y + 1)
-                       + (ieta + fac_eta)*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            idx = get_indx(ieta + fac_eta, ix, iy);
             if (hydro_fields->e_rk0[idx] == epsFO) {
                 hydro_fields->e_rk0[idx] += 0.000001;
             }
@@ -658,8 +651,7 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
             }
             double e1001 = hydro_fields->e_rk0[idx];
             double e0001 = hydro_fields->e_prev[idx];
-            idx = (iy + fac_y + (ix + fac_x)*(GRID_SIZE_Y + 1)
-                       + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            idx = get_indx(ieta, ix + fac_x, iy + fac_y);
             if (hydro_fields->e_rk0[idx] == epsFO) {
                 hydro_fields->e_rk0[idx] += 0.000001;
             }
@@ -668,8 +660,7 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
             }
             double e1110 = hydro_fields->e_rk0[idx];
             double e0110 = hydro_fields->e_prev[idx];
-            idx = (iy + (ix + fac_x)*(GRID_SIZE_Y + 1)
-                       + (ieta + fac_eta)*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            idx = get_indx(ieta + fac_eta, ix + fac_x, iy);
             if (hydro_fields->e_rk0[idx] == epsFO) {
                 hydro_fields->e_rk0[idx] += 0.000001;
             }
@@ -678,8 +669,7 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
             }
             double e1101 = hydro_fields->e_rk0[idx];
             double e0101 = hydro_fields->e_prev[idx];
-            idx = (iy + fac_y + ix*(GRID_SIZE_Y + 1)
-                       + (ieta + fac_eta)*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            idx = get_indx(ieta + fac_eta, ix, iy + fac_y);
             if (hydro_fields->e_rk0[idx] == epsFO) {
                 hydro_fields->e_rk0[idx] += 0.000001;
             }
@@ -688,8 +678,7 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
             }
             double e1011 = hydro_fields->e_rk0[idx];
             double e0011 = hydro_fields->e_prev[idx];
-            idx = (iy + fac_y + (ix + fac_x)*(GRID_SIZE_Y + 1)
-                       + (ieta + fac_eta)*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+            idx = get_indx(ieta + fac_eta, ix + fac_x, iy + fac_y);
             if (hydro_fields->e_rk0[idx] == epsFO) {
                 hydro_fields->e_rk0[idx] += 0.000001;
             }
@@ -1130,8 +1119,7 @@ void Evolve::FreezeOut_equal_tau_Surface_XY(double tau, InitData *DATA,
         double x = (ix - static_cast<double>(GRID_SIZE_X)/2.0)*DELTA_X;
         for (int iy = 0; iy <= GRID_SIZE_Y - fac_y; iy += fac_y) {
             double y = (iy - static_cast<double>(GRID_SIZE_Y)/2.0)*DELTA_Y;
-            int idx = (iy + ix*(GRID_SIZE_Y + 1)
-                       + ieta*(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1));
+            int idx = get_indx(ieta, ix, iy);
 
             // judge intersection
             intersect = 0;
@@ -1379,7 +1367,7 @@ int Evolve::FindFreezeOutSurface_boostinvariant_Cornelius(
     
                 // make sure the epsilon value is never 
                 // exactly the same as epsFO...
-                int idx = iy + ix*(GRID_SIZE_Y + 1);
+                int idx = get_indx(ieta, ix, iy);
                 if (hydro_fields->e_rk0[idx] == epsFO) {
                     hydro_fields->e_rk0[idx] += 0.000001;
                 }
@@ -1388,7 +1376,7 @@ int Evolve::FindFreezeOutSurface_boostinvariant_Cornelius(
                 }
                 double e100 = hydro_fields->e_rk0[idx];
                 double e000 = hydro_fields->e_prev[idx];
-                idx = iy + (ix + fac_x)*(GRID_SIZE_Y + 1);
+                idx = get_indx(ieta, ix + fac_x, iy);
                 if (hydro_fields->e_rk0[idx] == epsFO) {
                     hydro_fields->e_rk0[idx] += 0.000001;
                 }
@@ -1397,7 +1385,7 @@ int Evolve::FindFreezeOutSurface_boostinvariant_Cornelius(
                 }
                 double e110 = hydro_fields->e_rk0[idx];
                 double e010 = hydro_fields->e_prev[idx];
-                idx = iy + fac_y + ix*(GRID_SIZE_Y + 1);
+                idx = get_indx(ieta, ix, iy + fac_y);
                 if (hydro_fields->e_rk0[idx] == epsFO) {
                     hydro_fields->e_rk0[idx] += 0.000001;
                 }
@@ -1406,7 +1394,7 @@ int Evolve::FindFreezeOutSurface_boostinvariant_Cornelius(
                 }
                 double e101 = hydro_fields->e_rk0[idx];
                 double e001 = hydro_fields->e_prev[idx];
-                idx = iy + fac_y + (ix + fac_x)*(GRID_SIZE_Y + 1);
+                idx = get_indx(ieta, ix + fac_x, iy + fac_y);
                 if (hydro_fields->e_rk0[idx] == epsFO) {
                     hydro_fields->e_rk0[idx] += 0.000001;
                 }
@@ -1908,8 +1896,7 @@ void Evolve::prepare_freeze_out_cube(double ****cube,
                                      double* data_prev, double* data_array,
                                      int ieta, int ix, int iy,
                                      int fac_eta, int fac_x, int fac_y) {
-    int idx = (iy + ix*(GRID_SIZE_Y + 1)
-               + ieta*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1));
+    int idx = get_indx(ieta, ix, iy);
     cube[0][0][0][0] = data_prev[idx];
     cube[1][0][0][0] = data_array[idx];
     idx = (iy + (ix + fac_x)*(GRID_SIZE_Y + 1)
@@ -1948,7 +1935,7 @@ void Evolve::prepare_freeze_out_cube(double ****cube,
 void Evolve::prepare_freeze_out_cube_boost_invariant(
                     double ***cube, double* data_prev, double* data_array,
                     int ix, int iy, int fac_x, int fac_y) {
-    int idx = iy + ix*(GRID_SIZE_Y + 1);
+    int idx = get_indx(0, ix, iy);
     cube[0][0][0] = data_prev[idx];
     cube[1][0][0] = data_array[idx];
     idx = iy + (ix + fac_x)*(GRID_SIZE_Y + 1);
