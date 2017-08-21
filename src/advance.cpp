@@ -213,7 +213,6 @@ void Advance::prepare_velocity_array(double tau_rk, Field *hydro_fields,
     int trk_flag = 1 - rk_flag;
 
     int field_idx = get_indx(ieta, ix, iy);
-    int idx = 0;
     update_grid_array_from_field(hydro_fields, field_idx,
                                  grid_array, rk_flag);
 
@@ -413,7 +412,6 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
         }
     }
 
-    int idx = 0;
     ReconstIt_velocity_Newton(grid_array, tau_next, qi_array_new,
                               grid_array);
     return(0);
@@ -690,7 +688,6 @@ int Advance::FirstRKStepW(double tau, int rk_flag,
                        vis_array_new);
     }
     
-    int idx = 0;
     if (rk_flag == 0) {
         for (int alpha = 0; alpha < 15; alpha++) {
             vis_array_new[alpha] /= vis_array_new[15];
@@ -955,7 +952,6 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
     int sub_grid_x = 1;
     int sub_grid_y = 1;
     int sub_grid_neta = 1;
-    int idx = 0;
 
     // implement Kurganov-Tadmor scheme
     // here computes the half way T^\tau\mu currents
@@ -969,28 +965,28 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
         
         double gphR, gmhL, gphR2, gmhL2;
         if (i + 1 < sub_grid_x) {
-            int idx_p_1 = j + (i+1)*sub_grid_y + k*sub_grid_x*sub_grid_y;
+            //int idx_p_1 = j + (i+1)*sub_grid_y + k*sub_grid_x*sub_grid_y;
             gphR = qi_array[alpha];
         } else {
             int idx_p_1 = 4*j + k*4*sub_grid_y + 2;
             gphR = qi_nbr_x[idx_p_1][alpha];
         }
         if (i - 1 >= 0) {
-            int idx_m_1 = j + (i-1)*sub_grid_y + k*sub_grid_x*sub_grid_y;
+            //int idx_m_1 = j + (i-1)*sub_grid_y + k*sub_grid_x*sub_grid_y;
             gmhL = qi_array[alpha];
         } else {
             int idx_m_1 = 4*j + k*4*sub_grid_y + 1;
             gmhL = qi_nbr_x[idx_m_1][alpha];
         }
         if (i + 2 < sub_grid_x) {
-            int idx_p_2 = j + (i+2)*sub_grid_y + k*sub_grid_x*sub_grid_y;
+            //int idx_p_2 = j + (i+2)*sub_grid_y + k*sub_grid_x*sub_grid_y;
             gphR2 = qi_array[alpha];
         } else {
             int idx_p_2 = 4*j + k*4*sub_grid_y + 4 + i - sub_grid_x;
             gphR2 = qi_nbr_x[idx_p_2][alpha];
         }
         if (i - 2 >= 0) {
-            int idx_m_2 = j + (i-2)*sub_grid_y + k*sub_grid_x*sub_grid_y;
+            //int idx_m_2 = j + (i-2)*sub_grid_y + k*sub_grid_x*sub_grid_y;
             gmhL2 = qi_array[alpha];
         } else {
             int idx_m_2 = 4*j + k*4*sub_grid_y + i;
@@ -1061,28 +1057,28 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
 
         double gphR, gmhL, gphR2, gmhL2;
         if (j + 1 < sub_grid_y) {
-            int idx_p_1 = j + 1 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
+            //int idx_p_1 = j + 1 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
             gphR = qi_array[alpha];
         } else {
             int idx_p_1 = 4*i + 4*k*sub_grid_x + 2;
             gphR = qi_nbr_y[idx_p_1][alpha];
         }
         if (j - 1 >= 0) {
-            int idx_m_1 = j - 1 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
+            //int idx_m_1 = j - 1 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
             gmhL = qi_array[alpha];
         } else {
             int idx_m_1 = 4*i + 4*k*sub_grid_x + 1;
             gmhL = qi_nbr_y[idx_m_1][alpha];
         }
         if (j + 2 < sub_grid_y) {
-            int idx_p_2 = j + 2 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
+            //int idx_p_2 = j + 2 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
             gphR2 = qi_array[alpha];
         } else {
             int idx_p_2 = 4*i + 4*k*sub_grid_x + 4 + j - sub_grid_y;
             gphR2 = qi_nbr_y[idx_p_2][alpha];
         }
         if (j - 2 >= 0) {
-            int idx_m_2 = j - 2 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
+            //int idx_m_2 = j - 2 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
             gmhL2 = qi_array[alpha];
         } else {
             int idx_m_2 = 4*i + 4*k*sub_grid_x + j;
@@ -1153,28 +1149,28 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
 
         double gphR, gmhL, gphR2, gmhL2;
         if (k + 1 < sub_grid_neta) {
-            int idx_p_1 = j + i*sub_grid_y + (k+1)*sub_grid_x*sub_grid_y;
+            //int idx_p_1 = j + i*sub_grid_y + (k+1)*sub_grid_x*sub_grid_y;
             gphR = qi_array[alpha];
         } else {
             int idx_p_1 = 4*j + 4*i*sub_grid_y + 2;
             gphR = qi_nbr_eta[idx_p_1][alpha];
         }
         if (k - 1 >= 0) {
-            int idx_m_1 = j + i*sub_grid_y + (k-1)*sub_grid_x*sub_grid_y;
+            //int idx_m_1 = j + i*sub_grid_y + (k-1)*sub_grid_x*sub_grid_y;
             gmhL = qi_array[alpha];
         } else {
             int idx_m_1 = 4*j + 4*i*sub_grid_y + 1;
             gmhL = qi_nbr_eta[idx_m_1][alpha];
         }
         if (k + 2 < sub_grid_neta) {
-            int idx_p_2 = j + i*sub_grid_y + (k+2)*sub_grid_x*sub_grid_y;
+            //int idx_p_2 = j + i*sub_grid_y + (k+2)*sub_grid_x*sub_grid_y;
             gphR2 = qi_array[alpha];
         } else {
             int idx_p_2 = 4*j + 4*i*sub_grid_y + 4 + k - sub_grid_neta;
             gphR2 = qi_nbr_eta[idx_p_2][alpha];
         }
         if (k - 2 >= 0) {
-            int idx_m_2 = j + i*sub_grid_y + (k-2)*sub_grid_x*sub_grid_y;
+            //int idx_m_2 = j + i*sub_grid_y + (k-2)*sub_grid_x*sub_grid_y;
             gmhL2 = qi_array[alpha];
         } else {
             int idx_m_2 = 4*j + 4*i*sub_grid_y + k;
@@ -1578,7 +1574,6 @@ void Advance::MakeWSource(double tau, double *vis_array, double *vis_nbr_tau,
     int i = 0;
     int j = 0;
     int k = 0;
-    int idx = 0;
     int sub_grid_x = 1;
     int sub_grid_y = 1;
     int sub_grid_neta = 1;
@@ -1790,7 +1785,6 @@ int Advance::Make_uWRHS(double tau,
     int i = 0;
     int j = 0;
     int k = 0;
-    int idx = 0;
     int sub_grid_x = 1;
     int sub_grid_y = 1;
     int sub_grid_neta = 1;
