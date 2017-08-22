@@ -194,10 +194,6 @@ class Advance {
                                         double *vis_array,int rk_flag);
 
 #pragma acc routine seq
-    void update_grid_array_to_hydro_fields(
-            double *grid_array, Field *hydro_fields, int idx, int rk_flag);
-
-#pragma acc routine seq
     void update_grid_cell(double *grid_array, Field *hydro_fields, int rk_flag,
                           int ieta, int ix, int iy);
 #pragma acc routine seq

@@ -343,22 +343,48 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
         }
     }
     
+
+    // update the hydro fields
     if (rk_flag == 0) {
         #pragma acc parallel loop gang worker vector collapse(3) independent present(hydro_fields)\
                          private(this[0:1])
         for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta += SUB_GRID_SIZE_ETA) {
             for (int ix = 0; ix <= GRID_SIZE_X; ix += SUB_GRID_SIZE_X) {
                 for (int iy = 0; iy <= GRID_SIZE_Y; iy += SUB_GRID_SIZE_Y) {
-                    int indx = iy + ix*(GRID_SIZE_Y + 1) + ieta*(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1);
+                    int indx = get_indx(ieta, ix, iy);
                     hydro_fields->e_prev[indx] = hydro_fields->e_rk0[indx];
                     hydro_fields->rhob_prev[indx] = hydro_fields->rhob_rk0[indx];
+                    hydro_fields->e_rk0[indx] = hydro_fields->e_rk1[indx];
+                    hydro_fields->rhob_rk0[indx] = hydro_fields->rhob_rk1[indx];
                     for (int ii = 0; ii < 4; ii++) {
                         hydro_fields->u_prev[ii][indx] = hydro_fields->u_rk0[ii][indx];
+                        hydro_fields->u_rk0[ii][indx] = hydro_fields->u_rk1[ii][indx];
                     }
                     for (int ii = 0; ii < 14; ii++) {
                         hydro_fields->Wmunu_prev[ii][indx] = hydro_fields->Wmunu_rk0[ii][indx];
+                        hydro_fields->Wmunu_rk0[ii][indx] = hydro_fields->Wmunu_rk1[ii][indx];
                     }
                     hydro_fields->pi_b_prev[indx] = hydro_fields->pi_b_rk0[indx];
+                    hydro_fields->pi_b_rk0[indx] = hydro_fields->pi_b_rk1[indx];
+                }
+            }
+        }
+    } else {
+        #pragma acc parallel loop gang worker vector collapse(3) independent present(hydro_fields)\
+                         private(this[0:1])
+        for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta += SUB_GRID_SIZE_ETA) {
+            for (int ix = 0; ix <= GRID_SIZE_X; ix += SUB_GRID_SIZE_X) {
+                for (int iy = 0; iy <= GRID_SIZE_Y; iy += SUB_GRID_SIZE_Y) {
+                    int indx = get_indx(ieta, ix, iy);
+                    hydro_fields->e_rk0[indx] = hydro_fields->e_rk1[indx];
+                    hydro_fields->rhob_rk0[indx] = hydro_fields->rhob_rk1[indx];
+                    for (int ii = 0; ii < 4; ii++) {
+                        hydro_fields->u_rk0[ii][indx] = hydro_fields->u_rk1[ii][indx];
+                    }
+                    for (int ii = 0; ii < 14; ii++) {
+                        hydro_fields->Wmunu_rk0[ii][indx] = hydro_fields->Wmunu_rk1[ii][indx];
+                    }
+                    hydro_fields->pi_b_rk0[indx] = hydro_fields->pi_b_rk1[indx];
                 }
             }
         }
@@ -814,29 +840,6 @@ void Advance::update_vis_prev_tau_from_field(Field *hydro_fields, int idx,
     }
 }
 
-
-
-void Advance::update_grid_array_to_hydro_fields(
-            double *grid_array, Field *hydro_fields, int idx, int rk_flag) {
-    double gamma = 1./sqrt(1. - grid_array[1]*grid_array[1]
-                              - grid_array[2]*grid_array[2]
-                              - grid_array[3]*grid_array[3]);
-    if (rk_flag == 0) {
-        hydro_fields->e_rk1[idx] = grid_array[0];
-        hydro_fields->rhob_rk1[idx] = grid_array[4];
-        hydro_fields->u_rk1[0][idx] = gamma;
-        for (int i = 1; i < 4; i++) {
-            hydro_fields->u_rk1[i][idx] = gamma*grid_array[i];
-        }
-    } else {
-        hydro_fields->e_rk0[idx] = grid_array[0];
-        hydro_fields->rhob_rk0[idx] = grid_array[4];
-        hydro_fields->u_rk0[0][idx] = gamma;
-        for (int i = 1; i < 4; i++) {
-            hydro_fields->u_rk0[i][idx] = gamma*grid_array[i];
-        }
-    }
-}
 
 //! this function reduce the size of shear stress tensor and bulk pressure
 //! in the dilute region to stablize numerical simulations
@@ -1371,8 +1374,15 @@ void Advance::get_qmu_from_grid_array(double tau, double qi[5],
 void Advance::update_grid_cell(double *grid_array, Field *hydro_fields, int rk_flag,
                                int ieta, int ix, int iy) {
     int field_idx = get_indx(ieta, ix, iy);
-    update_grid_array_to_hydro_fields(
-                        grid_array, hydro_fields, field_idx, rk_flag);
+    double gamma = 1./sqrt(1. - grid_array[1]*grid_array[1]
+                              - grid_array[2]*grid_array[2]
+                              - grid_array[3]*grid_array[3]);
+    hydro_fields->e_rk1[field_idx] = grid_array[0];
+    hydro_fields->rhob_rk1[field_idx] = grid_array[4];
+    hydro_fields->u_rk1[0][field_idx] = gamma;
+    for (int i = 1; i < 4; i++) {
+        hydro_fields->u_rk1[i][field_idx] = gamma*grid_array[i];
+    }
 }           
 
 void Advance::update_grid_cell_viscous(double *vis_array, Field *hydro_fields,
