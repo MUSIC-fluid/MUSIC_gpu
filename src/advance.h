@@ -145,12 +145,14 @@ class Advance {
 #pragma acc routine seq
     double Make_uWSource(double tau, double *vis_array,
                          double *velocity_array, double *grid_array,
-                         double *vis_array_new);
+                         double *vis_array_new, Field *hydro_fields,
+                         int ieta, int ix, int iy);
 
 #pragma acc routine seq
     double Make_uPiSource(double tau, double *vis_array,
                           double *velocity_array, double *grid_array,
-                          double *vis_array_new);
+                          double *vis_array_new, Field *hydro_fields,
+                          int ieta, int ix, int iy);
 
 #pragma acc routine seq
     double Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
