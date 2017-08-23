@@ -226,6 +226,12 @@ class Advance {
 
 #pragma acc routine vector
     int MakeDTau_1(double tau, Field *hydro_fields, int ieta, int ix, int iy);
+
+#pragma acc routine vector
+    void update_field_rk0_to_prev(Field *hydro_fields, int indx);
+
+#pragma acc routine vector
+    void update_field_rk1_to_rk0(Field *hydro_fields, int indx);
 };
 
 #endif  // SRC_ADVANCE_H_

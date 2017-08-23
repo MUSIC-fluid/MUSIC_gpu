@@ -313,20 +313,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
             for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
                 for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
                     int indx = get_indx(ieta, ix, iy);
-                    hydro_fields->e_prev[indx] = hydro_fields->e_rk0[indx];
-                    hydro_fields->e_rk0[indx] = hydro_fields->e_rk1[indx];
-                    hydro_fields->rhob_prev[indx] = hydro_fields->rhob_rk0[indx];
-                    hydro_fields->rhob_rk0[indx] = hydro_fields->rhob_rk1[indx];
-                    for (int ii = 0; ii < 4; ii++) {
-                        hydro_fields->u_prev[ii][indx] = hydro_fields->u_rk0[ii][indx];
-                        hydro_fields->u_rk0[ii][indx] = hydro_fields->u_rk1[ii][indx];
-                    }
-                    for (int ii = 0; ii < 14; ii++) {
-                        hydro_fields->Wmunu_prev[ii][indx] = hydro_fields->Wmunu_rk0[ii][indx];
-                        hydro_fields->Wmunu_rk0[ii][indx] = hydro_fields->Wmunu_rk1[ii][indx];
-                    }
-                    hydro_fields->pi_b_prev[indx] = hydro_fields->pi_b_rk0[indx];
-                    hydro_fields->pi_b_rk0[indx] = hydro_fields->pi_b_rk1[indx];
+                    update_field_rk0_to_prev(hydro_fields, indx);
+                    update_field_rk1_to_rk0(hydro_fields, indx);
                 }
             }
         }
@@ -337,15 +325,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
             for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
                 for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
                     int indx = get_indx(ieta, ix, iy);
-                    hydro_fields->e_rk0[indx] = hydro_fields->e_rk1[indx];
-                    hydro_fields->rhob_rk0[indx] = hydro_fields->rhob_rk1[indx];
-                    for (int ii = 0; ii < 4; ii++) {
-                        hydro_fields->u_rk0[ii][indx] = hydro_fields->u_rk1[ii][indx];
-                    }
-                    for (int ii = 0; ii < 14; ii++) {
-                        hydro_fields->Wmunu_rk0[ii][indx] = hydro_fields->Wmunu_rk1[ii][indx];
-                    }
-                    hydro_fields->pi_b_rk0[indx] = hydro_fields->pi_b_rk1[indx];
+                    update_field_rk1_to_rk0(hydro_fields, indx);
                 }
             }
         }
@@ -2952,4 +2932,28 @@ int Advance::MakeDTau_1(double tau, Field *hydro_fields,
     f = (tildemu - tildemu_prev)/(DELTA_TAU);
     hydro_fields->dUsup[16][idx] = -f;   // g00 = -1
     return(1);
+}
+
+void Advance::update_field_rk1_to_rk0(Field *hydro_fields, int indx) {
+    hydro_fields->e_rk0[indx] = hydro_fields->e_rk1[indx];
+    hydro_fields->rhob_rk0[indx] = hydro_fields->rhob_rk1[indx];
+    for (int ii = 0; ii < 4; ii++) {
+        hydro_fields->u_rk0[ii][indx] = hydro_fields->u_rk1[ii][indx];
+    }
+    for (int ii = 0; ii < 14; ii++) {
+        hydro_fields->Wmunu_rk0[ii][indx] = hydro_fields->Wmunu_rk1[ii][indx];
+    }
+    hydro_fields->pi_b_rk0[indx] = hydro_fields->pi_b_rk1[indx];
+}
+
+void Advance::update_field_rk0_to_prev(Field *hydro_fields, int indx) {
+    hydro_fields->e_prev[indx] = hydro_fields->e_rk0[indx];
+    hydro_fields->rhob_prev[indx] = hydro_fields->rhob_rk0[indx];
+    for (int ii = 0; ii < 4; ii++) {
+        hydro_fields->u_prev[ii][indx] = hydro_fields->u_rk0[ii][indx];
+    }
+    for (int ii = 0; ii < 14; ii++) {
+        hydro_fields->Wmunu_prev[ii][indx] = hydro_fields->Wmunu_rk0[ii][indx];
+    }
+    hydro_fields->pi_b_prev[indx] = hydro_fields->pi_b_rk0[indx];
 }
