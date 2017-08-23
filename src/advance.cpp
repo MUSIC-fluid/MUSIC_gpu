@@ -183,7 +183,9 @@ void Advance::prepare_velocity_array(double tau_rk, Field *hydro_fields,
                                      double *vis_array_new,
                                      double *grid_array_temp) {
     int field_idx = get_indx(ieta, ix, iy);
-    //update_grid_array_from_field(hydro_fields, field_idx, grid_array);
+
+    // update grid_array to be used in FirstRKstepW
+    update_grid_array_from_field(hydro_fields, field_idx, grid_array);
 
     for (int alpha = 0; alpha < 15; alpha++) {
         vis_array_new[alpha] = 0.0;
@@ -193,19 +195,19 @@ void Advance::prepare_velocity_array(double tau_rk, Field *hydro_fields,
     vis_array_new[17] = hydro_fields->u_rk1[2][field_idx];
     vis_array_new[18] = hydro_fields->u_rk1[3][field_idx];
 
-    velocity_array[0] = calculate_expansion_rate_1(tau_rk, hydro_fields,
-                                                   field_idx);
-    calculate_Du_supmu_1(tau_rk, hydro_fields, field_idx, velocity_array);
-    calculate_velocity_shear_tensor_2(tau_rk, hydro_fields, field_idx,
-                                      velocity_array);
+    //velocity_array[0] = calculate_expansion_rate_1(tau_rk, hydro_fields,
+    //                                               field_idx);
+    //calculate_Du_supmu_1(tau_rk, hydro_fields, field_idx, velocity_array);
+    //calculate_velocity_shear_tensor_2(tau_rk, hydro_fields, field_idx,
+    //                                  velocity_array);
 
-    //velocity_array[0] = hydro_fields->expansion_rate[field_idx];
-    //for (int i = 0; i < 4; i++) {
-    //    velocity_array[1+i] = hydro_fields->Du_mu[i][field_idx];
-    //}
-    //for (int i = 0; i < 10; i++) {
-    //    velocity_array[6+i] = hydro_fields->sigma_munu[i][field_idx];
-    //}
+    velocity_array[0] = hydro_fields->expansion_rate[field_idx];
+    for (int i = 0; i < 4; i++) {
+        velocity_array[1+i] = hydro_fields->Du_mu[i][field_idx];
+    }
+    for (int i = 0; i < 10; i++) {
+        velocity_array[6+i] = hydro_fields->sigma_munu[i][field_idx];
+    }
     for (int alpha = 0; alpha < 4; alpha++) {
         velocity_array[16+alpha] = (
                         hydro_fields->D_mu_mu_B_over_T[alpha][field_idx]);
@@ -267,9 +269,11 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
         for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
             for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
                 for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
-			        MakeDSpatial_1(tau, hydro_fields, ieta, ix, iy);
-			        MakeDTau_1(tau, hydro_fields, ieta, ix, iy);
-                    //calculate_u_derivatives(tau, hydro_fields, ieta, ix, iy);
+                    double tau_rk = tau + rk_flag*DELTA_TAU;
+			        //MakeDSpatial_1(tau, hydro_fields, ieta, ix, iy);
+			        //MakeDTau_1(tau, hydro_fields, ieta, ix, iy);
+                    calculate_u_derivatives(tau_rk, hydro_fields,
+                                            ieta, ix, iy);
                 }
             }
         }
@@ -280,7 +284,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
             for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
                 for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
                     for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
-                        calculate_D_mu_muB_over_T(tau, hydro_fields,
+                        double tau_rk = tau + rk_flag*DELTA_TAU;
+                        calculate_D_mu_muB_over_T(tau_rk, hydro_fields,
                                                   ieta, ix, iy);
                     }
                 }
