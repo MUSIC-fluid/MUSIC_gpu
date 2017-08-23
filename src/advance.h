@@ -126,7 +126,8 @@ class Advance {
                      double vis_nbr_x[][19],
                      double vis_nbr_y[][19], double vis_nbr_eta[][19],
                      double *velocity_array, double *grid_array,
-                     double *vis_array_new);
+                     double *vis_array_new, Field *hydro_fields,
+                     int ieta, int ix, int iy);
 
 #pragma acc routine seq
     void MakeWSource(double tau, double *qi_array_new, Field *hydro_fields,
@@ -138,7 +139,8 @@ class Advance {
                    double *vis_array, double vis_nbr_x[][19],
                    double vis_nbr_y[][19], double vis_nbr_eta[][19],
                    double *velocity_array,
-                   double *vis_array_new);
+                   double *vis_array_new, Field *hydro_fields,
+                   int ieta, int ix, int iy);
 
 #pragma acc routine seq
     double Make_uWSource(double tau, double *vis_array,
