@@ -111,14 +111,14 @@ class Advance {
 
 #pragma acc routine seq
     void prepare_vis_array(
-        Field *hydro_fields, int rk_flag, int ieta, int ix, int iy,
+        Field *hydro_fields, int ieta, int ix, int iy,
         double *vis_array, double *vis_nbr_tau,
         double vis_nbr_x[][19], double vis_nbr_y[][19],
         double vis_nbr_eta[][19]);
 
 #pragma acc routine seq
     void prepare_velocity_array(double tau_rk, Field *hydro_fields,
-                                int ieta, int ix, int iy, int rk_flag,
+                                int ieta, int ix, int iy,
                                 double *velocity_array, 
                                 double *grid_array,
                                 double *vis_array_new,
@@ -165,17 +165,16 @@ class Advance {
                          double vis_array_new[][19]);
 
 #pragma acc routine seq
-    double calculate_expansion_rate_1(
-            double tau, Field *hydro_fields, int idx, int rk_flag);
+    double calculate_expansion_rate_1(double tau, Field *hydro_fields,
+                                      int idx);
 
 #pragma acc routine seq
-    void calculate_Du_supmu_1(double tau, Field *hydro_fields,
-                                        int idx, int rk_flag, double *a);
+    void calculate_Du_supmu_1(double tau, Field *hydro_fields, int idx,
+                              double *a);
 
 #pragma acc routine seq
-    void calculate_velocity_shear_tensor_2(
-                    double tau, Field *hydro_fields, int idx, int rk_flag,
-                    double *velocity_array);
+    void calculate_velocity_shear_tensor_2(double tau, Field *hydro_fields,
+                                           int idx, double *velocity_array);
 
 
 #pragma acc routine seq
@@ -183,25 +182,30 @@ class Advance {
 
 #pragma acc routine seq
     void update_grid_array_from_field(
-                Field *hydro_fields, int idx, double *grid_array, int rk_flag);
+                Field *hydro_fields, int idx, double *grid_array);
+
+#pragma acc routine seq
+    void update_grid_array_from_field_prev(
+                Field *hydro_fields, int idx, double *grid_array);
 
 #pragma acc routine seq
     void update_vis_array_from_field(Field *hydro_fields, int idx,
-                                     double *vis_array, int rk_flag);
+                                     double *vis_array);
 
 #pragma acc routine seq
     void update_vis_prev_tau_from_field(Field *hydro_fields, int idx,
-                                        double *vis_array,int rk_flag);
+                                        double *vis_array);
 
 #pragma acc routine seq
-    void update_grid_cell(double *grid_array, Field *hydro_fields, int rk_flag,
+    void update_grid_cell(double *grid_array, Field *hydro_fields,
                           int ieta, int ix, int iy);
 #pragma acc routine seq
     void update_grid_cell_viscous(double *vis_array, Field *hydro_fields,
-                                  int rk_flag, int ieta, int ix, int iy);
+                                  int ieta, int ix, int iy);
 
 #pragma acc routine seq
     int QuestRevert(double tau, double *vis_array, double *grid_array);
+
 #pragma acc routine seq
     int QuestRevert_qmu(double tau, double *vis_array, double *grid_array);
 
@@ -209,14 +213,19 @@ class Advance {
     //! grid_array [e, v^i, rhob]
 #pragma acc routine seq
     void get_qmu_from_grid_array(double tau, double qi[5], double grid_array[5]);
+
 #pragma acc routine seq
     double minmod_dx(double up1, double u, double um1);
+
 #pragma acc routine seq
     int map_2d_idx_to_1d(int a, int b);
+
 #pragma acc routine vector
-    int MakeDSpatial_1(double tau, Field *hydro_fields, int ieta, int ix, int iy, int rk_flag);
+    int MakeDSpatial_1(double tau, Field *hydro_fields,
+                       int ieta, int ix, int iy);
+
 #pragma acc routine vector
-    int MakeDTau_1(double tau, Field *hydro_fields, int ieta, int ix, int iy, int rk_flag);
+    int MakeDTau_1(double tau, Field *hydro_fields, int ieta, int ix, int iy);
 };
 
 #endif  // SRC_ADVANCE_H_

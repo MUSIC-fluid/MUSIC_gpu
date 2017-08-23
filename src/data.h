@@ -10,10 +10,6 @@
 
 #define get_indx(IETA, IX, IY)  IY + IX*(GRID_SIZE_Y + 1) + IETA*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1)
 
-#define SUB_GRID_SIZE_X 1
-#define SUB_GRID_SIZE_Y 1
-#define SUB_GRID_SIZE_ETA 1
-
 #define DELTA_TAU 0.005
 #define DELTA_X 0.17
 #define DELTA_Y 0.17
