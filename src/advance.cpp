@@ -231,7 +231,6 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                          private(this[0:1], grid_array[0:5], qi_array[0:5], qi_array_new[0:5], qi_rk0[0:5], \
                          qi_nbr_x[0:4][0:5], qi_nbr_y[0:4][0:5], qi_nbr_eta[0:4][0:5], \
                          grid_array_temp[0:5], \
-                         vis_array[0:19], vis_nbr_tau[0:19], vis_nbr_x[0:4][0:19], vis_nbr_y[0:4][0:19], vis_nbr_eta[0:4][0:19], \
                          grid_array_hL[0:5], qimhL[0:5], grid_array_hR[0:5], qiphL[0:5], qimhR[0:5], \
                          rhs[0:5], qiphR[0:5])
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
@@ -244,14 +243,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                                  qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
                                  qi_rk0, grid_array, grid_array_temp);
                 
-                prepare_vis_array(hydro_fields, ieta, ix, iy,
-                                  vis_array, vis_nbr_tau, vis_nbr_x,
-                                  vis_nbr_y, vis_nbr_eta);
-                
-                FirstRKStepT(tau, rk_flag,
+                FirstRKStepT(tau, rk_flag, hydro_fields, ieta, ix, iy,
                              qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
-                             vis_array, vis_nbr_tau,
-                             vis_nbr_x, vis_nbr_y, vis_nbr_eta,
                              qi_rk0, qi_array_new, grid_array,
                              rhs, qiphL, qiphR, qimhL, qimhR,
                              grid_array_hL, grid_array_hR);
@@ -339,11 +332,10 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
 
 /* %%%%%%%%%%%%%%%%%%%%%% First steps begins here %%%%%%%%%%%%%%%%%% */
 int Advance::FirstRKStepT(double tau, int rk_flag,
+                          Field *hydro_fields, int ieta, int ix, int iy,
                           double *qi_array, double qi_nbr_x[][5],
                           double qi_nbr_y[][5], double qi_nbr_eta[][5],
-                          double *vis_array, double *vis_nbr_tau,
-                          double vis_nbr_x[][19], double vis_nbr_y[][19],
-                          double vis_nbr_eta[][19], double *qi_rk0,
+                          double *qi_rk0,
                           double *qi_array_new, double *grid_array,
                           double *rhs, double *qiphL, double *qiphR,
                           double *qimhL, double *qimhR,
@@ -368,8 +360,7 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
 
     // now MakeWSource returns partial_a W^{a mu}
     // (including geometric terms) 
-    MakeWSource(tau_rk, vis_array, vis_nbr_tau, vis_nbr_x, vis_nbr_y,
-                vis_nbr_eta, qi_array_new);
+    MakeWSource(tau_rk, qi_array_new, hydro_fields, ieta, ix, iy);
 
     if (rk_flag == 1) {
         // if rk_flag == 1, we now have q0 + k1 + k2. 
@@ -1328,78 +1319,78 @@ void Advance::revert_grid(double *grid_array, double *grid_prev) {
 double Advance::get_pressure(double e_local, double rhob) {
     double p = e_local/3.;
 
-    double e1 = e_local;
-    double e2 = e1*e_local;
-    double e3 = e2*e_local;
-    double e4 = e3*e_local;
-    double e5 = e4*e_local;
-    double e6 = e5*e_local;
-    double e7 = e6*e_local;
-    double e8 = e7*e_local;
-    double e9 = e8*e_local;
-    double e10 = e9*e_local;
-    double e11 = e10*e_local;
-    double e12 = e11*e_local;
-	
-	p = ((  1.9531729608963267e-11*e12
-          + 3.1188455176941583e-7*e11
-          + 0.0009417586777847889*e10
-          + 0.7158279081255019*e9
-          + 141.5073484468774*e8
-          + 6340.448389300905*e7
-          + 41913.439282708554*e6
-          + 334334.4309240126*e5
-          + 1.6357487344679043e6*e4
-          + 3.1729694865420084e6*e3
-          + 1.077580993288114e6*e2
-          + 9737.845799644809*e1
-          - 0.25181736420168666)
-         /(  3.2581066229887368e-18*e12
-           + 5.928138360995685e-11*e11
-           + 9.601103399348206e-7*e10
-           + 0.002962497695527404*e9
-           + 2.3405487982094204*e8
-           + 499.04919730607065*e7
-           + 26452.34905933697*e6
-           + 278581.2989342773*e5
-           + 1.7851642641834426e6*e4
-           + 1.3512402226067686e7*e3
-           + 2.0931169138134286e7*e2
-           + 4.0574329080826794e6*e1
-           + 45829.44617893836));
+    //double e1 = e_local;
+    //double e2 = e1*e_local;
+    //double e3 = e2*e_local;
+    //double e4 = e3*e_local;
+    //double e5 = e4*e_local;
+    //double e6 = e5*e_local;
+    //double e7 = e6*e_local;
+    //double e8 = e7*e_local;
+    //double e9 = e8*e_local;
+    //double e10 = e9*e_local;
+    //double e11 = e10*e_local;
+    //double e12 = e11*e_local;
+	//
+	//p = ((  1.9531729608963267e-11*e12
+    //      + 3.1188455176941583e-7*e11
+    //      + 0.0009417586777847889*e10
+    //      + 0.7158279081255019*e9
+    //      + 141.5073484468774*e8
+    //      + 6340.448389300905*e7
+    //      + 41913.439282708554*e6
+    //      + 334334.4309240126*e5
+    //      + 1.6357487344679043e6*e4
+    //      + 3.1729694865420084e6*e3
+    //      + 1.077580993288114e6*e2
+    //      + 9737.845799644809*e1
+    //      - 0.25181736420168666)
+    //     /(  3.2581066229887368e-18*e12
+    //       + 5.928138360995685e-11*e11
+    //       + 9.601103399348206e-7*e10
+    //       + 0.002962497695527404*e9
+    //       + 2.3405487982094204*e8
+    //       + 499.04919730607065*e7
+    //       + 26452.34905933697*e6
+    //       + 278581.2989342773*e5
+    //       + 1.7851642641834426e6*e4
+    //       + 1.3512402226067686e7*e3
+    //       + 2.0931169138134286e7*e2
+    //       + 4.0574329080826794e6*e1
+    //       + 45829.44617893836));
     return(p);
 }
 
 double Advance::get_cs2(double e_local, double rhob) {
     double cs2 = 1./3.;
 	
-    double e1 = e_local;
-	double e2 = e1*e1;
-	double e3 = e2*e1;
-	double e4 = e3*e1;
-	double e5 = e4*e1;
-	double e6 = e5*e1;
-	double e7 = e6*e1;
-	double e8 = e7*e1;
-	double e9 = e8*e1;
-	double e10 = e9*e1;
-	double e11 = e10*e1;
-	double e12 = e11*e1;
-	double e13 = e12*e1;
-	cs2 = ((5.191934309650155e-32 + 4.123605749683891e-23*e1
-            + 3.1955868410879504e-16*e2 + 1.4170364808063119e-10*e3
-            + 6.087136671592452e-6*e4 + 0.02969737949090831*e5
-            + 15.382615282179595*e6 + 460.6487249985994*e7
-            + 1612.4245252438795*e8 + 275.0492627924299*e9
-            + 58.60283714484669*e10 + 6.504847576502024*e11
-            + 0.03009027913262399*e12 + 8.189430244031285e-6*e13)
-		   /(1.4637868900982493e-30 + 6.716598285341542e-22*e1
-             + 3.5477700458515908e-15*e2 + 1.1225580509306008e-9*e3
-             + 0.00003551782901018317*e4 + 0.13653226327408863*e5
-             + 60.85769171450653*e6 + 1800.5461219450308*e7
-             + 15190.225535036281*e8 + 590.2572000057821*e9
-             + 293.99144775704605*e10 + 21.461303090563028*e11
-             + 0.09301685073435291*e12 + 0.000024810902623582917*e13));
+    //double e1 = e_local;
+	//double e2 = e1*e1;
+	//double e3 = e2*e1;
+	//double e4 = e3*e1;
+	//double e5 = e4*e1;
+	//double e6 = e5*e1;
+	//double e7 = e6*e1;
+	//double e8 = e7*e1;
+	//double e9 = e8*e1;
+	//double e10 = e9*e1;
+	//double e11 = e10*e1;
+	//double e12 = e11*e1;
+	//double e13 = e12*e1;
+	//cs2 = ((5.191934309650155e-32 + 4.123605749683891e-23*e1
+    //        + 3.1955868410879504e-16*e2 + 1.4170364808063119e-10*e3
+    //        + 6.087136671592452e-6*e4 + 0.02969737949090831*e5
+    //        + 15.382615282179595*e6 + 460.6487249985994*e7
+    //        + 1612.4245252438795*e8 + 275.0492627924299*e9
+    //        + 58.60283714484669*e10 + 6.504847576502024*e11
+    //        + 0.03009027913262399*e12 + 8.189430244031285e-6*e13)
+	//	   /(1.4637868900982493e-30 + 6.716598285341542e-22*e1
+    //         + 3.5477700458515908e-15*e2 + 1.1225580509306008e-9*e3
+    //         + 0.00003551782901018317*e4 + 0.13653226327408863*e5
+    //         + 60.85769171450653*e6 + 1800.5461219450308*e7
+    //         + 15190.225535036281*e8 + 590.2572000057821*e9
+    //         + 293.99144775704605*e10 + 21.461303090563028*e11
+    //         + 0.09301685073435291*e12 + 0.000024810902623582917*e13));
 
     return(cs2);
 }
@@ -1426,29 +1417,29 @@ double Advance::get_temperature(double e_local, double rhob) {
     double res = 90.0/M_PI/M_PI*(e_local/3.0)/(2*(Nc*Nc-1)+7./2*Nc*Nf);
     double temperature = pow(res, 0.25);
 	
-    double e1 = e_local;
-	double e2 = e1*e1;
-	double e3 = e2*e1;
-	double e4 = e3*e1;
-	double e5 = e4*e1;
-	double e6 = e5*e1;
-	double e7 = e6*e1;
-	double e8 = e7*e1;
-	double e9 = e8*e1;
-	double e10 = e9*e1;
-	double e11 = e10*e1;
-	temperature = ((1.510073201405604e-29 + 8.014062800678687e-18*e1
-                    + 2.4954778310451065e-10*e2 + 0.000063810382643387*e3
-                    + 0.4873490574161924*e4 + 207.48582344326206*e5
-                    + 6686.07424325115*e6 + 14109.766109389702*e7
-                    + 1471.6180520527757*e8 + 14.055788949565482*e9
-                    + 0.015421252394182246*e10 + 1.5780479034557783e-6*e11)
-                   /(7.558667139355393e-28 + 1.3686372302041508e-16*e1
-                     + 2.998130743142826e-9*e2 + 0.0005036835870305458*e3
-                     + 2.316902328874072*e4 + 578.0778724946719*e5
-                     + 11179.193315394154*e6 + 17965.67607192861*e7
-                     + 1051.0730543534657*e8 + 5.916312075925817*e9
-                     + 0.003778342768228011*e10 + 1.8472801679382593e-7*e11));
+    //double e1 = e_local;
+	//double e2 = e1*e1;
+	//double e3 = e2*e1;
+	//double e4 = e3*e1;
+	//double e5 = e4*e1;
+	//double e6 = e5*e1;
+	//double e7 = e6*e1;
+	//double e8 = e7*e1;
+	//double e9 = e8*e1;
+	//double e10 = e9*e1;
+	//double e11 = e10*e1;
+	//temperature = ((1.510073201405604e-29 + 8.014062800678687e-18*e1
+    //                + 2.4954778310451065e-10*e2 + 0.000063810382643387*e3
+    //                + 0.4873490574161924*e4 + 207.48582344326206*e5
+    //                + 6686.07424325115*e6 + 14109.766109389702*e7
+    //                + 1471.6180520527757*e8 + 14.055788949565482*e9
+    //                + 0.015421252394182246*e10 + 1.5780479034557783e-6*e11)
+    //               /(7.558667139355393e-28 + 1.3686372302041508e-16*e1
+    //                 + 2.998130743142826e-9*e2 + 0.0005036835870305458*e3
+    //                 + 2.316902328874072*e4 + 578.0778724946719*e5
+    //                 + 11179.193315394154*e6 + 17965.67607192861*e7
+    //                 + 1051.0730543534657*e8 + 5.916312075925817*e9
+    //                 + 0.003778342768228011*e10 + 1.8472801679382593e-7*e11));
     return(temperature);
 }
 
@@ -1471,10 +1462,8 @@ double Advance::minmod_dx(double up1, double u, double um1) {
 }/* minmod_dx */
 
 
-void Advance::MakeWSource(double tau, double *vis_array, double *vis_nbr_tau,
-                          double vis_nbr_x[][19],
-                          double vis_nbr_y[][19], double vis_nbr_eta[][19],
-                          double *qi_array_new) {
+void Advance::MakeWSource(double tau, double *qi_array_new,
+                          Field *hydro_fields, int ieta, int ix, int iy) {
 //! calculate d_m (tau W^{m,alpha}) + (geom source terms)
 //! partial_tau W^tau alpha
 //! this is partial_tau evaluated at tau
@@ -1498,19 +1487,18 @@ void Advance::MakeWSource(double tau, double *vis_array, double *vis_nbr_tau,
     if (INCLUDE_DIFF) {
         alpha_max = 5;
     }
-    int i = 0;
-    int j = 0;
-    int k = 0;
-    int sub_grid_x = 1;
-    int sub_grid_y = 1;
-    int sub_grid_neta = 1;
+
+    int field_idx = get_indx(ieta, ix, iy);
 
     for (int alpha = 0; alpha < alpha_max; alpha++) {
         // dW/dtau
         // backward time derivative (first order is more stable)
         int idx_1d_alpha0 = map_2d_idx_to_1d(alpha, 0);
         double dWdtau;
-        dWdtau = ((vis_array[idx_1d_alpha0] - vis_nbr_tau[idx_1d_alpha0])
+        //dWdtau = ((vis_array[idx_1d_alpha0] - vis_nbr_tau[idx_1d_alpha0])
+        //          /DELTA_TAU);
+        dWdtau = ((hydro_fields->Wmunu_rk0[idx_1d_alpha0][field_idx]
+                    - hydro_fields->Wmunu_prev[idx_1d_alpha0][field_idx])
                   /DELTA_TAU);
 
         // bulk pressure term
@@ -1518,109 +1506,77 @@ void Advance::MakeWSource(double tau, double *vis_array, double *vis_nbr_tau,
         double Pi_alpha0 = 0.0;
         if (alpha < 4 && INCLUDE_BULK) {
             double gfac = (alpha == 0 ? -1.0 : 0.0);
-            Pi_alpha0 = (vis_array[14]
-                         *(gfac + vis_array[15+alpha]
-                                  *vis_array[15]));
+            //Pi_alpha0 = (vis_array[14]
+            //             *(gfac + vis_array[15+alpha]
+            //                      *vis_array[15]));
+            Pi_alpha0 = (hydro_fields->pi_b_rk0[field_idx]
+                         *(gfac + hydro_fields->u_rk0[alpha][field_idx]
+                                  *hydro_fields->u_rk0[0][field_idx]));
 
-            dPidtau = (Pi_alpha0
-                       - vis_nbr_tau[14]
-                         *(gfac + vis_nbr_tau[alpha+15]
-                                  *vis_nbr_tau[15]))/DELTA_TAU;
+            //dPidtau = (Pi_alpha0
+            //           - vis_nbr_tau[14]
+            //             *(gfac + vis_nbr_tau[alpha+15]
+            //                      *vis_nbr_tau[15]))/DELTA_TAU;
+            dPidtau = ((Pi_alpha0 - hydro_fields->pi_b_prev[field_idx]
+                                    *(gfac + hydro_fields->u_prev[alpha][field_idx]
+                                             *hydro_fields->u_prev[0][field_idx]))/DELTA_TAU);
         }
 
         // use central difference to preserve
         // the conservation law exactly
         int idx_1d;
-        int idx_p_1, idx_m_1;
         double dWdx_perp = 0.0;
         double dPidx_perp = 0.0;
 
         double sg, sgp1, sgm1, bg, bgp1, bgm1;
         // x-direction
         idx_1d = map_2d_idx_to_1d(alpha, 1);
-        sg = vis_array[idx_1d];
-        if (i + 1 < sub_grid_x) {
-            idx_p_1 = j + (i+1)*sub_grid_y + k*sub_grid_x*sub_grid_y;
-            sgp1 = vis_array[idx_1d];
-        } else {
-            idx_p_1 = 4*j + k*4*sub_grid_y + 2;
-            sgp1 = vis_nbr_x[idx_p_1][idx_1d];
-        }
-        if (i - 1 >= 0) {
-            idx_m_1 = j + (i-1)*sub_grid_y + k*sub_grid_x*sub_grid_y;
-            sgm1 = vis_array[idx_1d];
-        } else {
-            idx_m_1 = 4*j + k*4*sub_grid_y + 1;
-            sgm1 = vis_nbr_x[idx_m_1][idx_1d];
-        }
+
+        sg = hydro_fields->Wmunu_rk0[idx_1d][field_idx];
+        int field_idx_p_1 = get_indx(ieta, MIN(ix + 1, GRID_SIZE_X), iy);
+        sgp1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_p_1];
+        int field_idx_m_1 = get_indx(ieta, MAX(ix - 1, 0), iy);
+        sgm1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_m_1];
+
         //dWdx_perp += (sgp1 - sgm1)/(2.*DELTA_X);
         dWdx_perp += minmod_dx(sgp1, sg, sgm1)/DELTA_X;
+
         if (alpha < 4 && INCLUDE_BULK) {
             double gfac1 = (alpha == 1 ? 1.0 : 0.0);
-            bg = vis_array[14]*(gfac1 + vis_array[15+alpha]
-                                             *vis_array[16]);
-            if (i + 1 < sub_grid_x) {
-                bgp1 = (vis_array[14]
-                            *(gfac1 + vis_array[15+alpha]
-                                      *vis_array[16]));
-            } else {
-                bgp1 = (vis_nbr_x[idx_p_1][14]
-                            *(gfac1 + vis_nbr_x[idx_p_1][15+alpha]
-                                      *vis_nbr_x[idx_p_1][16]));
-            }
-            if (i - 1 >= 0) {
-                bgm1 = (vis_array[14]
-                            *(gfac1 + vis_array[15+alpha]
-                                      *vis_array[16]));
-            } else {
-                bgm1 = (vis_nbr_x[idx_m_1][14]
-                            *(gfac1 + vis_nbr_x[idx_m_1][15+alpha]
-                                      *vis_nbr_x[idx_m_1][16]));
-            }
+            bg = (hydro_fields->pi_b_rk0[field_idx]
+                  *(gfac1 + hydro_fields->u_rk0[alpha][field_idx]
+                            *hydro_fields->u_rk0[1][field_idx]));
+            bgp1 = (hydro_fields->pi_b_rk0[field_idx_p_1]
+                    *(gfac1 + hydro_fields->u_rk0[alpha][field_idx_p_1]
+                              *hydro_fields->u_rk0[1][field_idx_p_1]));
+            bgm1 = (hydro_fields->pi_b_rk0[field_idx_m_1]
+                    *(gfac1 + hydro_fields->u_rk0[alpha][field_idx_m_1]
+                              *hydro_fields->u_rk0[1][field_idx_m_1]));
             //dPidx_perp += (bgp1 - bgm1)/(2.*DELTA_X);
             dPidx_perp += minmod_dx(bgp1, bg, bgm1)/DELTA_X;
         }
+
         // y-direction
         idx_1d = map_2d_idx_to_1d(alpha, 2);
-        sg = vis_array[idx_1d];
-        if (j + 1 < sub_grid_y) {
-            idx_p_1 = j + 1 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
-            sgp1 = vis_array[idx_1d];
-        } else {
-            idx_p_1 = 4*i + 4*k*sub_grid_x + 2;
-            sgp1 = vis_nbr_y[idx_p_1][idx_1d];
-        }
-        if (j - 1 >= 0) {
-            idx_m_1 = j - 1 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
-            sgm1 = vis_array[idx_1d];
-        } else {
-            idx_m_1 = 4*i + 4*k*sub_grid_x + 1;
-            sgm1 = vis_nbr_y[idx_m_1][idx_1d];
-        }
+        sg = hydro_fields->Wmunu_rk0[idx_1d][field_idx];
+        field_idx_p_1 = get_indx(ieta, ix, MIN(iy + 1, GRID_SIZE_Y));
+        sgp1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_p_1];
+        field_idx_m_1 = get_indx(ieta, ix, MAX(iy - 1, 0));
+        sgm1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_m_1];
         //dWdx_perp += (sgp1 - sgm1)/(2.*DELTA_Y);
         dWdx_perp += minmod_dx(sgp1, sg, sgm1)/DELTA_Y;
+
         if (alpha < 4 && INCLUDE_BULK) {
             double gfac1 = (alpha == 2 ? 1.0 : 0.0);
-            bg = vis_array[14]*(gfac1 + vis_array[15+alpha]
-                                             *vis_array[17]);
-            if (j + 1 < sub_grid_x) {
-                bgp1 = (vis_array[14]
-                            *(gfac1 + vis_array[15+alpha]
-                                      *vis_array[17]));
-            } else {
-                bgp1 = (vis_nbr_y[idx_p_1][14]
-                            *(gfac1 + vis_nbr_y[idx_p_1][15+alpha]
-                                      *vis_nbr_y[idx_p_1][17]));
-            }
-            if (j - 1 >= 0) {
-                bgm1 = (vis_array[14]
-                            *(gfac1 + vis_array[15+alpha]
-                                      *vis_array[17]));
-            } else {
-                bgm1 = (vis_nbr_y[idx_m_1][14]
-                            *(gfac1 + vis_nbr_y[idx_m_1][15+alpha]
-                                      *vis_nbr_y[idx_m_1][17]));
-            }
+            bg = (hydro_fields->pi_b_rk0[field_idx]
+                  *(gfac1 + hydro_fields->u_rk0[alpha][field_idx]
+                            *hydro_fields->u_rk0[2][field_idx]));
+            bgp1 = (hydro_fields->pi_b_rk0[field_idx_p_1]
+                    *(gfac1 + hydro_fields->u_rk0[alpha][field_idx_p_1]
+                              *hydro_fields->u_rk0[2][field_idx_p_1]));
+            bgm1 = (hydro_fields->pi_b_rk0[field_idx_m_1]
+                    *(gfac1 + hydro_fields->u_rk0[alpha][field_idx_m_1]
+                              *hydro_fields->u_rk0[2][field_idx_m_1]));
             //dPidx_perp += (bgp1 - bgm1)/(2.*DELTA_Y);
             dPidx_perp += minmod_dx(bgp1, bg, bgm1)/DELTA_Y;
         }
@@ -1630,45 +1586,25 @@ void Advance::MakeWSource(double tau, double *vis_array, double *vis_nbr_tau,
         double dWdeta = 0.0;
         double dPideta = 0.0;
         idx_1d = map_2d_idx_to_1d(alpha, 3);
-        sg = vis_array[idx_1d];
-        if (k + 1 < sub_grid_neta) {
-            idx_p_1 = j + i*sub_grid_y + (k+1)*sub_grid_x*sub_grid_y;
-            sgp1 = vis_array[idx_1d];
-        } else {
-            idx_p_1 = 4*j + 4*i*sub_grid_y + 2;
-            sgp1 = vis_nbr_eta[idx_p_1][idx_1d];
-        }
-        if (k - 1 >= 0) {
-            idx_m_1 = j + i*sub_grid_y + (k-1)*sub_grid_x*sub_grid_y;
-            sgm1 = vis_array[idx_1d];
-        } else {
-            idx_m_1 = 4*j + 4*i*sub_grid_y + 1;
-            sgm1 = vis_nbr_eta[idx_m_1][idx_1d];
-        }
+        sg = hydro_fields->Wmunu_rk0[idx_1d][field_idx];
+        field_idx_p_1 = get_indx(MIN(ieta + 1, GRID_SIZE_ETA - 1), ix, iy);
+        sgp1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_p_1];
+        field_idx_m_1 = get_indx(MAX(ieta - 1, 0), ix, iy);
+        sgm1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_m_1];
         //dWdeta = (sgp1 - sgm1)/(2.*DELTA_ETA*taufactor);
         dWdx_perp += minmod_dx(sgp1, sg, sgm1)/(DELTA_ETA*taufactor);
+
         if (alpha < 4 && INCLUDE_BULK) {
             double gfac3 = (alpha == 3 ? 1.0 : 0.0);
-            bg = vis_array[14]*(gfac3 + vis_array[15+alpha]
-                                             *vis_array[18]);
-            if (k + 1 < sub_grid_neta) {
-                bgp1 = (vis_array[14]
-                           *(gfac3 + vis_array[15+alpha]
-                                     *vis_array[18]));
-            } else {
-                bgp1 = (vis_nbr_eta[idx_p_1][14]
-                           *(gfac3 + vis_nbr_eta[idx_p_1][15+alpha]
-                                     *vis_nbr_eta[idx_p_1][18]));
-            }
-            if (k - 1 >= 0) {
-                bgm1 = (vis_array[14]
-                           *(gfac3 + vis_array[15+alpha]
-                                     *vis_array[18]));
-            } else {
-                bgm1 = (vis_nbr_eta[idx_m_1][14]
-                           *(gfac3 + vis_nbr_eta[idx_m_1][15+alpha]
-                                     *vis_nbr_eta[idx_m_1][18]));
-            }
+            bg = (hydro_fields->pi_b_rk0[field_idx]
+                  *(gfac3 + hydro_fields->u_rk0[alpha][field_idx]
+                            *hydro_fields->u_rk0[3][field_idx]));
+            bgp1 = (hydro_fields->pi_b_rk0[field_idx_p_1]
+                    *(gfac3 + hydro_fields->u_rk0[alpha][field_idx_p_1]
+                              *hydro_fields->u_rk0[3][field_idx_p_1]));
+            bgm1 = (hydro_fields->pi_b_rk0[field_idx_m_1]
+                    *(gfac3 + hydro_fields->u_rk0[alpha][field_idx_m_1]
+                              *hydro_fields->u_rk0[3][field_idx_m_1]));
             //dPideta = ((bgp1 - bgm1)
             //           /(2.*DELTA_ETA*taufactor));
             dPidx_perp += minmod_dx(bgp1, bg, bgm1)/(DELTA_ETA*taufactor);
@@ -1676,21 +1612,29 @@ void Advance::MakeWSource(double tau, double *vis_array, double *vis_nbr_tau,
 
         // partial_m (tau W^mn) = W^0n + tau partial_m W^mn
         double sf = (tau*(dWdtau + dWdx_perp + dWdeta)
-                     + vis_array[idx_1d_alpha0]);
+                     + hydro_fields->Wmunu_rk0[idx_1d_alpha0][field_idx]);
         double bf = (tau*(dPidtau + dPidx_perp + dPideta)
                      + Pi_alpha0);
 
         // sources due to coordinate transform
         // this is added to partial_m W^mn
         if (alpha == 0) {
-            sf += vis_array[9];
-            bf += vis_array[14]*(1.0 + vis_array[18]
-                                            *vis_array[18]);
+            //sf += vis_array[9];
+            //bf += vis_array[14]*(1.0 + vis_array[18]
+            //                                *vis_array[18]);
+            sf += hydro_fields->Wmunu_rk0[9][field_idx];
+            bf += (hydro_fields->pi_b_rk0[field_idx]
+                   *(1.0 + hydro_fields->u_rk0[3][field_idx]
+                           *hydro_fields->u_rk0[3][field_idx]));
         }
         if (alpha == 3) {
-            sf += vis_array[3];
-            bf += vis_array[14]*(vis_array[15]
-                                      *vis_array[18]);
+            //sf += vis_array[3];
+            //bf += vis_array[14]*(vis_array[15]
+            //                          *vis_array[18]);
+            sf += hydro_fields->Wmunu_rk0[3][field_idx];
+            bf += (hydro_fields->pi_b_rk0[field_idx]
+                   *(hydro_fields->u_rk0[0][field_idx]
+                     *hydro_fields->u_rk0[3][field_idx]));
         }
 
         double result = 0.0;

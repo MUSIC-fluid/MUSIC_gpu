@@ -11,8 +11,8 @@
 ##  
 
 CC := pgc++
-#CFLAGS= -g -fast -mp -acc -ta=multicore -Minfo=accel
-CFLAGS= -g -fast -mp -acc -ta=tesla:cc60 -Minfo=accel
+CFLAGS= -g -fast -mp -acc -ta=multicore -Minfo=accel
+#CFLAGS= -g -fast -mp -acc -ta=tesla:cc60 -Minfo=accel
 #CFLAGS= -g -fast -Kieee -acc -ta=tesla:cc60 -Minfo=accel
 #CFLAGS= -O3 -acc -ta=tesla:cc35  --no_warnings 
 

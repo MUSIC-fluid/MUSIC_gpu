@@ -50,18 +50,14 @@ class Advance {
 
 #pragma acc routine seq
     int FirstRKStepT(double tau, int rk_flag,
-                          double *qi_array, double qi_nbr_x[][5],
-                          double qi_nbr_y[][5], double qi_nbr_eta[][5],
-                          double *vis_array, double *vis_nbr_tau,
-                          double vis_nbr_x[][19], double vis_nbr_y[][19],
-                          double vis_nbr_eta[][19], double *qi_rk0,
-                          double *qi_array_new, double *grid_array,
-                          double *rhs, double *qiphL, double *qiphR,
-                          double *qimhL, double *qimhR,
-                          double *grid_array_hL, double *grid_array_hR);
+                     Field *hydro_fields, int ieta, int ix, int iy,
+                     double *qi_array, double qi_nbr_x[][5],
+                     double qi_nbr_y[][5], double qi_nbr_eta[][5],
+                     double *qi_rk0, double *qi_array_new, double *grid_array,
+                     double *rhs, double *qiphL, double *qiphR,
+                     double *qimhL, double *qimhR,
+                     double *grid_array_hL, double *grid_array_hR);
                          
-
-
 #pragma acc routine seq
     void MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
                      double qi_nbr_y[][5], double qi_nbr_eta[][5],
@@ -133,10 +129,8 @@ class Advance {
                      double *vis_array_new);
 
 #pragma acc routine seq
-    void MakeWSource(double tau, double *vis_array, double *vis_nbr_tau,
-                     double vis_nbr_x[][19],
-                     double vis_nbr_y[][19], double vis_nbr_eta[][19],
-                     double *qi_array_new);
+    void MakeWSource(double tau, double *qi_array_new, Field *hydro_fields,
+                     int ieta, int ix, int iy);
 
 
 #pragma acc routine seq
