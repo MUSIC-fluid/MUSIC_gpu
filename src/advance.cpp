@@ -183,8 +183,7 @@ void Advance::prepare_velocity_array(double tau_rk, Field *hydro_fields,
                                      double *vis_array_new,
                                      double *grid_array_temp) {
     int field_idx = get_indx(ieta, ix, iy);
-    update_grid_array_from_field(hydro_fields, field_idx, grid_array);
-
+    //update_grid_array_from_field(hydro_fields, field_idx, grid_array);
 
     for (int alpha = 0; alpha < 15; alpha++) {
         vis_array_new[alpha] = 0.0;
@@ -199,9 +198,17 @@ void Advance::prepare_velocity_array(double tau_rk, Field *hydro_fields,
     calculate_Du_supmu_1(tau_rk, hydro_fields, field_idx, velocity_array);
     calculate_velocity_shear_tensor_2(tau_rk, hydro_fields, field_idx,
                                       velocity_array);
+
+    //velocity_array[0] = hydro_fields->expansion_rate[field_idx];
+    //for (int i = 0; i < 4; i++) {
+    //    velocity_array[1+i] = hydro_fields->Du_mu[i][field_idx];
+    //}
+    //for (int i = 0; i < 10; i++) {
+    //    velocity_array[6+i] = hydro_fields->sigma_munu[i][field_idx];
+    //}
     for (int alpha = 0; alpha < 4; alpha++) {
         velocity_array[16+alpha] = (
-                        hydro_fields->dUsup[16+alpha][field_idx]);
+                        hydro_fields->D_mu_mu_B_over_T[alpha][field_idx]);
     }
 }
 
@@ -262,6 +269,20 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                 for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
 			        MakeDSpatial_1(tau, hydro_fields, ieta, ix, iy);
 			        MakeDTau_1(tau, hydro_fields, ieta, ix, iy);
+                    //calculate_u_derivatives(tau, hydro_fields, ieta, ix, iy);
+                }
+            }
+        }
+        
+        if (INCLUDE_DIFF == 1) {
+            #pragma acc parallel loop gang worker vector collapse(3) independent present(hydro_fields)\
+                         private(this[0:1])
+            for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
+                for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
+                    for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
+                        calculate_D_mu_muB_over_T(tau, hydro_fields,
+                                                  ieta, ix, iy);
+                    }
                 }
             }
         }
@@ -281,7 +302,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                     double tau_rk = tau + rk_flag*DELTA_TAU;
                     prepare_velocity_array(tau_rk, hydro_fields,
                                            ieta, ix, iy, velocity_array,
-                                            grid_array, vis_array_new,
+                                           grid_array, vis_array_new,
                                            grid_array_temp);
                     
                     FirstRKStepW(tau, rk_flag,
@@ -2744,6 +2765,173 @@ double Advance::get_temperature_dependent_zeta_s(double temperature) {
     
 
     return(bulk);
+}
+
+
+//! This function computes derivatives of flow velocity
+void Advance::calculate_u_derivatives(double tau, Field *hydro_fields,
+                                      int ieta, int ix, int iy) {
+    int idx = get_indx(ieta, ix, iy);
+
+    double u0 = hydro_fields->u_rk0[0][idx];
+    double u1 = hydro_fields->u_rk0[1][idx];
+    double u2 = hydro_fields->u_rk0[2][idx];
+    double u3 = hydro_fields->u_rk0[3][idx];
+
+    // the tau-direction
+    double D0u1 = - (u1 - hydro_fields->u_prev[1][idx])/DELTA_TAU;
+    double D0u2 = - (u2 - hydro_fields->u_prev[2][idx])/DELTA_TAU;
+    double D0u3 = - (u3 - hydro_fields->u_prev[3][idx])/DELTA_TAU;
+    double D0u0 = (u1*D0u1 + u2*D0u2 + u3*D0u3)/u0;
+
+    // the x-direction
+    int idx_p_1 = get_indx(ieta, MIN(ix + 1, GRID_SIZE_X), iy);
+    int idx_m_1 = get_indx(ieta, MAX(ix - 1, 0), iy);
+
+    double D1u1 = minmod_dx(hydro_fields->u_rk0[1][idx_p_1], u1,
+                            hydro_fields->u_rk0[1][idx_m_1])/DELTA_X;
+    double D1u2 = minmod_dx(hydro_fields->u_rk0[2][idx_p_1], u2,
+                            hydro_fields->u_rk0[2][idx_m_1])/DELTA_X;
+    double D1u3 = minmod_dx(hydro_fields->u_rk0[3][idx_p_1], u3,
+                            hydro_fields->u_rk0[3][idx_m_1])/DELTA_X;
+    double D1u0 = (u1*D1u1 + u2*D1u2 + u3*D1u3)/u0;
+    
+    // the y-direction
+    idx_p_1 = get_indx(ieta, ix, MIN(iy + 1, GRID_SIZE_Y));
+    idx_m_1 = get_indx(ieta, ix, MAX(iy - 1, 0));
+
+    double D2u1 = minmod_dx(hydro_fields->u_rk0[1][idx_p_1], u1,
+                            hydro_fields->u_rk0[1][idx_m_1])/DELTA_Y;
+    double D2u2 = minmod_dx(hydro_fields->u_rk0[2][idx_p_1], u2,
+                            hydro_fields->u_rk0[2][idx_m_1])/DELTA_Y;
+    double D2u3 = minmod_dx(hydro_fields->u_rk0[3][idx_p_1], u3,
+                            hydro_fields->u_rk0[3][idx_m_1])/DELTA_Y;
+    double D2u0 = (u1*D2u1 + u2*D2u2 + u3*D2u3)/u0;
+
+    // the eta-direction
+    idx_p_1 = get_indx(MIN(ieta + 1, GRID_SIZE_ETA - 1), ix, iy);
+    idx_m_1 = get_indx(MAX(ieta - 1, 0), ix, iy);
+
+    double D3u1 = minmod_dx(hydro_fields->u_rk0[1][idx_p_1], u1,
+                            hydro_fields->u_rk0[1][idx_m_1])/(DELTA_ETA*tau);
+    double D3u2 = minmod_dx(hydro_fields->u_rk0[2][idx_p_1], u2,
+                            hydro_fields->u_rk0[2][idx_m_1])/(DELTA_ETA*tau);
+    double D3u3 = minmod_dx(hydro_fields->u_rk0[3][idx_p_1], u3,
+                            hydro_fields->u_rk0[3][idx_m_1])/(DELTA_ETA*tau);
+    double D3u0 = (u1*D3u1 + u2*D3u2 + u3*D3u3)/u0;
+
+    // calculate the expansion rate
+    hydro_fields->expansion_rate[idx] = - D0u0 + D1u1 + D2u2 + D3u3 + u0/tau;
+
+    // calculate the Du^mu, where D = u^nu partial_nu
+    hydro_fields->Du_mu[0][idx] = - u0*D0u0 + u1*D1u0 + u2*D2u0 + u3*D3u0;
+    hydro_fields->Du_mu[1][idx] = - u0*D0u1 + u1*D1u1 + u2*D2u1 + u3*D3u1;
+    hydro_fields->Du_mu[2][idx] = - u0*D0u2 + u1*D1u2 + u2*D2u2 + u3*D3u2;
+    hydro_fields->Du_mu[3][idx] = - u0*D0u3 + u1*D1u3 + u2*D2u3 + u3*D3u3;
+
+    // calculate the velocity shear tensor sigma^\mu\nu
+    // sigma^11
+    hydro_fields->sigma_munu[4][idx] = (
+        D1u1 - (1. + u1*u1)*hydro_fields->expansion_rate[idx]/3.
+        + u1*hydro_fields->Du_mu[1][idx]);
+    // sigma^12
+    hydro_fields->sigma_munu[5][idx] = (
+        (D2u1 + D1u2)/2. - (0. + u1*u2)*hydro_fields->expansion_rate[idx]/3.
+        + (u1*hydro_fields->Du_mu[2][idx] + u2*hydro_fields->Du_mu[1][idx])/2.
+    );
+    // sigma^13
+    hydro_fields->sigma_munu[6][idx] = (
+        (D3u1 + D1u3)/2. - (0. + u1*u3)*hydro_fields->expansion_rate[idx]/3.
+        + (u1*hydro_fields->Du_mu[3][idx] + u3*hydro_fields->Du_mu[1][idx])/2.
+        + u3*u0/(2.*tau)*u1);
+    // sigma^22
+    hydro_fields->sigma_munu[7][idx] = (
+        D2u2 - (1. + u2*u2)*hydro_fields->expansion_rate[idx]/3.
+        + u2*hydro_fields->Du_mu[2][idx]);
+    // sigma^23
+    hydro_fields->sigma_munu[8][idx] = (
+        (D2u3 + D3u2)/2. - (0. + u2*u3)*hydro_fields->expansion_rate[idx]/3.
+        + (u2*hydro_fields->Du_mu[3][idx] + u3*hydro_fields->Du_mu[2][idx])/2.
+        + u3*u0/(2.*tau)*u2);
+    
+    // make sigma^33 using traceless condition
+    hydro_fields->sigma_munu[9][idx] = (
+        (2.*(u1*u2*hydro_fields->sigma_munu[5][idx]
+             + u1*u3*hydro_fields->sigma_munu[6][idx]
+             + u2*u3*hydro_fields->sigma_munu[8][idx])
+         - (u0*u0 - u1*u1)*hydro_fields->sigma_munu[4][idx]
+         - (u0*u0 - u2*u2)*hydro_fields->sigma_munu[7][idx])/(u0*u0 - u3*u3));
+
+    // make sigma^0i using transversality
+    hydro_fields->sigma_munu[1][idx] = (
+        (hydro_fields->sigma_munu[4][idx]*u1
+         + hydro_fields->sigma_munu[5][idx]*u2
+         + hydro_fields->sigma_munu[6][idx]*u3)/u0);
+    hydro_fields->sigma_munu[2][idx] = (
+        (hydro_fields->sigma_munu[5][idx]*u1
+         + hydro_fields->sigma_munu[7][idx]*u2
+         + hydro_fields->sigma_munu[8][idx]*u3)/u0);
+    hydro_fields->sigma_munu[3][idx] = (
+        (hydro_fields->sigma_munu[6][idx]*u1
+         + hydro_fields->sigma_munu[8][idx]*u2
+         + hydro_fields->sigma_munu[9][idx]*u3)/u0);
+    hydro_fields->sigma_munu[0][idx] = (
+        (hydro_fields->sigma_munu[1][idx]*u1
+         + hydro_fields->sigma_munu[2][idx]*u2
+         + hydro_fields->sigma_munu[3][idx]*u3)/u0);
+}
+
+
+//! This function computes D^\mu(mu_B/T)
+void Advance::calculate_D_mu_muB_over_T(double tau, Field *hydro_fields,
+                                        int ieta, int ix, int iy) {
+    double rhob, eps;
+    double f, fp1, fm1;
+
+    int idx = get_indx(ieta, ix, iy);
+    rhob = hydro_fields->rhob_rk0[idx];
+    eps = hydro_fields->e_rk0[idx];
+    f = get_mu(eps, rhob)/get_temperature(eps, rhob);
+
+    // the tau-direction
+    rhob = hydro_fields->rhob_prev[idx];
+    eps = hydro_fields->e_prev[idx];
+    fm1 = get_mu(eps, rhob)/get_temperature(eps, rhob);
+    hydro_fields->D_mu_mu_B_over_T[1][idx] = - (f - fm1)/(DELTA_TAU);
+
+    // the x-direction
+    int idx_p_1 = get_indx(ieta, MIN(ix + 1, GRID_SIZE_X), iy);
+    int idx_m_1 = get_indx(ieta, MAX(ix - 1, 0), iy);
+    rhob = hydro_fields->rhob_rk0[idx_p_1];
+    eps = hydro_fields->e_rk0[idx_p_1];
+    fp1 = (get_mu(eps, rhob)/get_temperature(eps, rhob));
+    rhob = hydro_fields->rhob_rk0[idx_m_1];
+    eps = hydro_fields->e_rk0[idx_m_1];
+    fm1 = (get_mu(eps, rhob)/get_temperature(eps, rhob));
+    hydro_fields->D_mu_mu_B_over_T[1][idx] = minmod_dx(fp1, f, fm1)/(DELTA_X);
+    
+    // the y-direction
+    idx_p_1 = get_indx(ieta, ix, MIN(iy + 1, GRID_SIZE_Y));
+    idx_m_1 = get_indx(ieta, ix, MAX(iy - 1, 0));
+    rhob = hydro_fields->rhob_rk0[idx_p_1];
+    eps = hydro_fields->e_rk0[idx_p_1];
+    fp1 = (get_mu(eps, rhob)/get_temperature(eps, rhob));
+    rhob = hydro_fields->rhob_rk0[idx_m_1];
+    eps = hydro_fields->e_rk0[idx_m_1];
+    fm1 = (get_mu(eps, rhob)/get_temperature(eps, rhob));
+    hydro_fields->D_mu_mu_B_over_T[2][idx] = minmod_dx(fp1, f, fm1)/(DELTA_Y);
+    
+    // the eta-direction
+    idx_p_1 = get_indx(MIN(ieta + 1, GRID_SIZE_ETA - 1), ix, iy);
+    idx_m_1 = get_indx(MAX(ieta - 1, 0), ix, iy);
+    rhob = hydro_fields->rhob_rk0[idx_p_1];
+    eps = hydro_fields->e_rk0[idx_p_1];
+    fp1 = (get_mu(eps, rhob)/get_temperature(eps, rhob));
+    rhob = hydro_fields->rhob_rk0[idx_m_1];
+    eps = hydro_fields->e_rk0[idx_m_1];
+    fm1 = (get_mu(eps, rhob)/get_temperature(eps, rhob));
+    hydro_fields->D_mu_mu_B_over_T[3][idx] = (
+                                minmod_dx(fp1, f, fm1)/(DELTA_ETA*tau));
 }
 
 int Advance::MakeDSpatial_1(double tau, Field *hydro_fields,

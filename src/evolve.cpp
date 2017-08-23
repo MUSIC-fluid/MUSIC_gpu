@@ -43,10 +43,16 @@ void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
     delete[] hydro_fields->rhob_rk0;
     delete[] hydro_fields->rhob_rk1;
     delete[] hydro_fields->rhob_prev;
+    delete[] hydro_fields->expansion_rate;
     for (int i = 0; i < 4; i++) {
         delete[] hydro_fields->u_rk0[i];
         delete[] hydro_fields->u_rk1[i];
         delete[] hydro_fields->u_prev[i];
+        delete[] hydro_fields->Du_mu[i];
+        delete[] hydro_fields->D_mu_mu_B_over_T[i];
+    }
+    for (int i = 0; i < 10; i++) {
+        delete[] hydro_fields->sigma_munu[i];
     }
     for (int i = 0; i < 20; i++) {
         delete[] hydro_fields->dUsup[i];
@@ -59,6 +65,9 @@ void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
     delete[] hydro_fields->u_rk0;
     delete[] hydro_fields->u_rk1;
     delete[] hydro_fields->u_prev;
+    delete[] hydro_fields->Du_mu;
+    delete[] hydro_fields->D_mu_mu_B_over_T;
+    delete[] hydro_fields->sigma_munu;
     delete[] hydro_fields->dUsup;
     delete[] hydro_fields->Wmunu_rk0;
     delete[] hydro_fields->Wmunu_rk1;
@@ -99,6 +108,13 @@ void Evolve::initial_field_with_ideal_Gubser(double tau, Field *hydro_fields) {
                 hydro_fields->u_prev[1][idx] = ux_local;
                 hydro_fields->u_prev[2][idx] = uy_local;
                 hydro_fields->u_prev[3][idx] = 0.0;
+                hydro_fields->expansion_rate[idx] = 0.0;
+                for (int ii = 0; ii < 4; ii++) {
+                    hydro_fields->Du_mu[ii][idx] = 0.0;
+                }
+                for (int ii = 0; ii < 10; ii++) {
+                    hydro_fields->sigma_munu[ii][idx] = 0.0;
+                }
                 for (int ii = 0; ii < 20; ii++) {
                     hydro_fields->dUsup[ii][idx] = 0.0;
                 }
@@ -192,6 +208,10 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
                          hydro_fields->u_rk0[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->u_rk1[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->u_prev[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->expansion_rate[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->Du_mu[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->sigma_munu[0:10][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
+                         hydro_fields->D_mu_mu_B_over_T[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->dUsup[0:20][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->Wmunu_rk0[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->Wmunu_rk1[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \

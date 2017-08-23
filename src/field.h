@@ -14,6 +14,10 @@ struct Field {
      double **u_rk1;
      double **u_prev;
      double **dUsup;
+     double *expansion_rate;
+     double **Du_mu;
+     double **sigma_munu;
+     double **D_mu_mu_B_over_T;
      double **Wmunu_rk0;
      double **Wmunu_rk1;
      double **Wmunu_prev;

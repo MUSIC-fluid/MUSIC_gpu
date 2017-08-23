@@ -218,6 +218,14 @@ class Advance {
     int MakeDSpatial_1(double tau, Field *hydro_fields,
                        int ieta, int ix, int iy);
 
+#pragma acc routine seq
+    void calculate_D_mu_muB_over_T(double tau, Field *hydro_fields,
+                                   int ieta, int ix, int iy);
+
+#pragma acc routine seq
+    void calculate_u_derivatives(double tau, Field *hydro_fields,
+                                 int ieta, int ix, int iy);
+
 #pragma acc routine vector
     int MakeDTau_1(double tau, Field *hydro_fields, int ieta, int ix, int iy);
 
