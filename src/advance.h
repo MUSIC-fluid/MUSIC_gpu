@@ -40,7 +40,7 @@ class Advance {
 #pragma acc routine seq
     int FirstRKStepT(double tau, int rk_flag,
                      Field *hydro_fields, int ieta, int ix, int iy,
-                     double *qi_array, double *grid_array,
+                     double *grid_array,
                      double *qiphL, double *qiphR,
                      double *qimhL, double *qimhR,
                      double *grid_array_hL, double *grid_array_hR);
@@ -152,7 +152,8 @@ class Advance {
 
 #pragma acc routine seq
     void update_grid_cell(double *grid_array, Field *hydro_fields,
-                          int ieta, int ix, int iy);
+                          int ieta, int ix, int iy, double *qi_array,
+                          double tau);
 #pragma acc routine seq
     void update_grid_cell_viscous(double *vis_array, Field *hydro_fields,
                                   int ieta, int ix, int iy);

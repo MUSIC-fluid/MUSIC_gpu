@@ -88,10 +88,9 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                        int rk_flag) {
     double tmp[1]={-1.1};
 
-    double grid_array[5], qi_array[5], qi_array_new[5];
+    double grid_array[5], qi_array[5];
     double vis_array[19], vis_array_new[19], vis_nbr_tau[19];
     double vis_nbr_x[4][19], vis_nbr_y[4][19], vis_nbr_eta[4][19];
-    double rhs[5];
     double qiphL[5];
     double qiphR[5];
     double qimhL[5];
@@ -114,7 +113,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     }
 
     #pragma acc parallel loop gang worker vector collapse(3) independent copy(tmp[0:1]) present(hydro_fields)\
-                         private(this[0:1], grid_array[0:5], qi_array[0:5], \
+                         private(this[0:1], grid_array[0:5], \
                          grid_array_hL[0:5], qimhL[0:5], grid_array_hR[0:5], qiphL[0:5], qimhR[0:5], \
                          qiphR[0:5])
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
@@ -123,11 +122,21 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                 tmp[0]=tau;  // check code is running on GPU
 
                 FirstRKStepT(tau, rk_flag, hydro_fields, ieta, ix, iy,
-                             qi_array, grid_array,
+                             grid_array,
                              qiphL, qiphR, qimhL, qimhR,
                              grid_array_hL, grid_array_hR);
+            }
+        }
+    }
 
-                update_grid_cell(grid_array, hydro_fields, ieta, ix, iy);
+    #pragma acc parallel loop gang worker vector collapse(3) independent \
+        present(hydro_fields) \
+        private(this[0:1], grid_array[0:5], qi_array[0:5])
+    for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
+        for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
+            for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
+                update_grid_cell(grid_array, hydro_fields, ieta, ix, iy,
+                                 qi_array, tau + DELTA_TAU);
             }
         }
     }
@@ -240,7 +249,7 @@ void Advance::calculate_qi_array(double tau, Field *hydro_fields, int idx) {
 /* %%%%%%%%%%%%%%%%%%%%%% First steps begins here %%%%%%%%%%%%%%%%%% */
 int Advance::FirstRKStepT(double tau, int rk_flag,
                           Field *hydro_fields, int ieta, int ix, int iy,
-                          double *qi_array, double *grid_array,
+                          double *grid_array,
                           double *qiphL, double *qiphR,
                           double *qimhL, double *qimhR,
                           double *grid_array_hL, double *grid_array_hR) {
@@ -298,12 +307,6 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
         }
     }
     
-    for (int alpha = 0; alpha < 5; alpha++) {
-        qi_array[alpha] = hydro_fields->qi_array_new[alpha][idx];
-    }
-
-    ReconstIt_velocity_Newton(grid_array, tau_next, qi_array,
-                              grid_array);
     return(0);
 }
 
@@ -340,14 +343,8 @@ int Advance::ReconstIt_velocity_Newton(
 
     double u0, u1, u2, u3, epsilon, pressure, rhob;
 
-    double u0_guess = 1./sqrt(1. - grid_array_p[1]*grid_array_p[1]
-                              - grid_array_p[2]*grid_array_p[2]
-                              - grid_array_p[3]*grid_array_p[3]);
-    double v_guess = sqrt(1. - 1./(u0_guess*u0_guess + 1e-15));
-    if (v_guess != v_guess) {  //v_guess is NaN
-        v_guess = 0.0;
-        u0_guess = 1.0;
-    }
+    double v_guess = 0.0;
+    double u0_guess = 1.0;
     int v_status = 1;
     int iter = 0;
     double rel_error_v = 10.0;
@@ -1156,8 +1153,16 @@ void Advance::get_qmu_from_grid_array(double tau, double qi[5],
 }
 
 void Advance::update_grid_cell(double *grid_array, Field *hydro_fields,
-                               int ieta, int ix, int iy) {
+                               int ieta, int ix, int iy, double *qi_array,
+                               double tau_next) {
     int field_idx = get_indx(ieta, ix, iy);
+    update_grid_array_from_field(hydro_fields, field_idx, grid_array);
+    for (int alpha = 0; alpha < 5; alpha++) {
+        qi_array[alpha] = hydro_fields->qi_array_new[alpha][field_idx];
+    }
+
+    ReconstIt_velocity_Newton(grid_array, tau_next, qi_array, grid_array);
+
     double gamma = 1./sqrt(1. - grid_array[1]*grid_array[1]
                               - grid_array[2]*grid_array[2]
                               - grid_array[3]*grid_array[3]);
