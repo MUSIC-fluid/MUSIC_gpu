@@ -40,20 +40,17 @@ class Advance {
 #pragma acc routine seq
     int FirstRKStepT(double tau, int rk_flag,
                      Field *hydro_fields, int ieta, int ix, int iy,
-                     double *qi_array, double qi_nbr_x[][5],
-                     double qi_nbr_y[][5], double qi_nbr_eta[][5],
-                     double *grid_array,
+                     double *qi_array, double *grid_array,
                      double *rhs, double *qiphL, double *qiphR,
                      double *qimhL, double *qimhR,
                      double *grid_array_hL, double *grid_array_hR);
                          
 #pragma acc routine seq
-    void MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
-                     double qi_nbr_y[][5], double qi_nbr_eta[][5],
-                     double *grid_array,
+    void MakeDeltaQI(double tau, double *qi_array, double *grid_array,
                      double *rhs, double *qiphL, double *qiphR,
                      double *qimhL, double *qimhR,
-                     double *grid_array_hL, double *grid_array_hR);
+                     double *grid_array_hL, double *grid_array_hR,
+                     Field *hydro_fields, int ieta, int ix, int iy);
     
 #pragma acc routine seq
     double MaxSpeed(double tau, int direc, double *grid_array);
@@ -90,9 +87,7 @@ class Advance {
 #pragma acc routine seq
     void prepare_qi_array(
         double tau, Field *hydro_fields, int rk_flag, int ieta, int ix, int iy,
-        double *qi_array, double qi_nbr_x[][5],
-        double qi_nbr_y[][5], double qi_nbr_eta[][5],
-        double *grid_array, double *grid_array_temp);
+        double *qi_array, double *grid_array);
 
 #pragma acc routine seq
     void calculate_qi_array(double tau, Field *hydro_fields, int idx);

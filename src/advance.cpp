@@ -22,9 +22,7 @@ Advance::~Advance() {
 
 void Advance::prepare_qi_array(
         double tau, Field *hydro_fields, int rk_flag, int ieta, int ix, int iy,
-        double *qi_array, double qi_nbr_x[][5],
-        double qi_nbr_y[][5], double qi_nbr_eta[][5],
-        double *grid_array, double *grid_array_temp) {
+        double *qi_array, double *grid_array) {
 
     double tau_rk = tau + rk_flag*DELTA_TAU;
 
@@ -32,66 +30,10 @@ void Advance::prepare_qi_array(
     // first build qi cube sub_grid_x*sub_grid_x*sub_grid_neta
     field_idx = get_indx(ieta, ix, iy);
     update_grid_array_from_field(hydro_fields, field_idx, grid_array);
-    get_qmu_from_grid_array(tau_rk, qi_array, grid_array);
-
-    int idx = 0;
-    // now build neighbouring cells
-    // x-direction
-    int idx_m_2 = MAX(0, ix - 2);
-    int idx_m_1 = MAX(0, ix - 1);
-    int idx_p_1 = MIN(ix + 1, GRID_SIZE_X);
-    int idx_p_2 = MIN(ix + 2, GRID_SIZE_X);
-
-    field_idx = get_indx(ieta, idx_m_2, iy);
-    update_grid_array_from_field(hydro_fields, field_idx, grid_array_temp);
-    get_qmu_from_grid_array(tau_rk, qi_nbr_x[idx], grid_array_temp);
-    field_idx = get_indx(ieta, idx_m_1, iy);
-    update_grid_array_from_field(hydro_fields, field_idx, grid_array_temp);
-    get_qmu_from_grid_array(tau_rk, qi_nbr_x[idx+1], grid_array_temp);
-    field_idx = get_indx(ieta, idx_p_1, iy);
-    update_grid_array_from_field(hydro_fields, field_idx, grid_array_temp);
-    get_qmu_from_grid_array(tau_rk, qi_nbr_x[idx+2], grid_array_temp);
-    field_idx = get_indx(ieta, idx_p_2, iy);
-    update_grid_array_from_field(hydro_fields, field_idx, grid_array_temp);
-    get_qmu_from_grid_array(tau_rk, qi_nbr_x[idx+3], grid_array_temp);
-
-    // y-direction
-    idx_m_2 = MAX(0, iy - 2);
-    idx_m_1 = MAX(0, iy - 1);
-    idx_p_1 = MIN(iy + 1, GRID_SIZE_Y);
-    idx_p_2 = MIN(iy + 2, GRID_SIZE_Y);
-
-    field_idx = get_indx(ieta, ix, idx_m_2);
-    update_grid_array_from_field(hydro_fields, field_idx, grid_array_temp);
-    get_qmu_from_grid_array(tau_rk, qi_nbr_y[idx], grid_array_temp);
-    field_idx = get_indx(ieta, ix, idx_m_1);
-    update_grid_array_from_field(hydro_fields, field_idx, grid_array_temp);
-    get_qmu_from_grid_array(tau_rk, qi_nbr_y[idx+1], grid_array_temp);
-    field_idx = get_indx(ieta, ix, idx_p_1);
-    update_grid_array_from_field(hydro_fields, field_idx, grid_array_temp);
-    get_qmu_from_grid_array(tau_rk, qi_nbr_y[idx+2], grid_array_temp);
-    field_idx = get_indx(ieta, ix, idx_p_2);
-    update_grid_array_from_field(hydro_fields, field_idx, grid_array_temp);
-    get_qmu_from_grid_array(tau_rk, qi_nbr_y[idx+3], grid_array_temp);
-
-    // eta-direction
-    idx_m_2 = MAX(0, ieta - 2);
-    idx_m_1 = MAX(0, ieta - 1);
-    idx_p_1 = MIN(ieta + 1, GRID_SIZE_ETA-1);
-    idx_p_2 = MIN(ieta + 2, GRID_SIZE_ETA-1);
-
-    field_idx = get_indx(idx_m_2, ix, iy);
-    update_grid_array_from_field(hydro_fields, field_idx, grid_array_temp);
-    get_qmu_from_grid_array(tau_rk, qi_nbr_eta[idx], grid_array_temp);
-    field_idx = get_indx(idx_m_1, ix, iy);
-    update_grid_array_from_field(hydro_fields, field_idx, grid_array_temp);
-    get_qmu_from_grid_array(tau_rk, qi_nbr_eta[idx+1], grid_array_temp);
-    field_idx = get_indx(idx_p_1, ix, iy);
-    update_grid_array_from_field(hydro_fields, field_idx, grid_array_temp);
-    get_qmu_from_grid_array(tau_rk, qi_nbr_eta[idx+2], grid_array_temp);
-    field_idx = get_indx(idx_p_2, ix, iy);
-    update_grid_array_from_field(hydro_fields, field_idx, grid_array_temp);
-    get_qmu_from_grid_array(tau_rk, qi_nbr_eta[idx+3], grid_array_temp);
+    //get_qmu_from_grid_array(tau_rk, qi_array, grid_array);
+    for (int i = 0; i < 5; i++) {
+        qi_array[i] = hydro_fields->qi_array[i][field_idx];
+    }
 }
 
 void Advance::prepare_vis_array(
@@ -163,10 +105,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     double tmp[1]={-1.1};
 
     double grid_array[5], qi_array[5], qi_array_new[5];
-    double qi_nbr_x[4][5], qi_nbr_y[4][5], qi_nbr_eta[4][5];
     double vis_array[19], vis_array_new[19], vis_nbr_tau[19];
     double vis_nbr_x[4][19], vis_nbr_y[4][19], vis_nbr_eta[4][19];
-    double grid_array_temp[5];
     double rhs[5];
     double qiphL[5];
     double qiphR[5];
@@ -191,8 +131,6 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
 
     #pragma acc parallel loop gang worker vector collapse(3) independent copy(tmp[0:1]) present(hydro_fields)\
                          private(this[0:1], grid_array[0:5], qi_array[0:5], \
-                         qi_nbr_x[0:4][0:5], qi_nbr_y[0:4][0:5], qi_nbr_eta[0:4][0:5], \
-                         grid_array_temp[0:5], \
                          grid_array_hL[0:5], qimhL[0:5], grid_array_hR[0:5], qiphL[0:5], qimhR[0:5], \
                          rhs[0:5], qiphR[0:5])
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
@@ -202,12 +140,10 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                 tmp[0]=tau;  // check code is running on GPU
 
                 prepare_qi_array(tau, hydro_fields, rk_flag, ieta, ix, iy,
-                                 qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
-                                 grid_array, grid_array_temp);
+                                 qi_array, grid_array);
                 
                 FirstRKStepT(tau, rk_flag, hydro_fields, ieta, ix, iy,
-                             qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
-                             grid_array,
+                             qi_array, grid_array,
                              rhs, qiphL, qiphR, qimhL, qimhR,
                              grid_array_hL, grid_array_hR);
 
@@ -322,9 +258,7 @@ void Advance::calculate_qi_array(double tau, Field *hydro_fields, int idx) {
 /* %%%%%%%%%%%%%%%%%%%%%% First steps begins here %%%%%%%%%%%%%%%%%% */
 int Advance::FirstRKStepT(double tau, int rk_flag,
                           Field *hydro_fields, int ieta, int ix, int iy,
-                          double *qi_array, double qi_nbr_x[][5],
-                          double qi_nbr_y[][5], double qi_nbr_eta[][5],
-                          double *grid_array,
+                          double *qi_array, double *grid_array,
                           double *rhs, double *qiphL, double *qiphR,
                           double *qimhL, double *qimhR,
                           double *grid_array_hL, double *grid_array_hR) {
@@ -344,9 +278,9 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
     // rhs[alpha] is what MakeDeltaQI outputs. 
     // It is the spatial derivative part of partial_a T^{a mu}
     // (including geometric terms)
-    MakeDeltaQI(tau_rk, qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
-                grid_array,
-                rhs, qiphL, qiphR, qimhL, qimhR, grid_array_hL, grid_array_hR);
+    MakeDeltaQI(tau_rk, qi_array, grid_array,
+                rhs, qiphL, qiphR, qimhL, qimhR, grid_array_hL, grid_array_hR,
+                hydro_fields, ieta, ix, iy);
 
     // now MakeWSource returns partial_a W^{a mu}
     // (including geometric terms) 
@@ -849,12 +783,11 @@ int Advance::QuestRevert(double tau, double *vis_array, Field *hydro_fields,
 
 //! This function computes the rhs array. It computes the spatial
 //! derivatives of T^\mu\nu using the KT algorithm
-void Advance::MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
-                          double qi_nbr_y[][5], double qi_nbr_eta[][5],
-                          double *grid_array,
+void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
                           double *rhs, double *qiphL, double *qiphR,
                           double *qimhL, double *qimhR,
-                          double *grid_array_hL, double *grid_array_hR) {
+                          double *grid_array_hL, double *grid_array_hR,
+                          Field *hydro_fields, int ieta, int ix, int iy) {
     /* \partial_tau (tau Ttautau) + \partial_eta Tetatau 
             + \partial_x (tau Txtau) + \partial_y (tau Tytau) + Tetaeta = 0 */
     /* \partial_tau (tau Ttaueta) + \partial_eta Teteta 
@@ -888,6 +821,7 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
     int sub_grid_x = 1;
     int sub_grid_y = 1;
     int sub_grid_neta = 1;
+    int idx = get_indx(ieta, ix, iy);
 
     // implement Kurganov-Tadmor scheme
     // here computes the half way T^\tau\mu currents
@@ -895,39 +829,19 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
     int direc = 1;
     double tau_fac = tau;
     for (int alpha = 0; alpha < 5; alpha++) {
-        double gp = qi_array[alpha];
-        double gphL = qi_array[alpha];
-        double gmhR = qi_array[alpha];
+        double gp =   hydro_fields->qi_array[alpha][idx];
+        double gphL = hydro_fields->qi_array[alpha][idx];
+        double gmhR = hydro_fields->qi_array[alpha][idx];
         
         double gphR, gmhL, gphR2, gmhL2;
-        if (i + 1 < sub_grid_x) {
-            //int idx_p_1 = j + (i+1)*sub_grid_y + k*sub_grid_x*sub_grid_y;
-            gphR = qi_array[alpha];
-        } else {
-            int idx_p_1 = 4*j + k*4*sub_grid_y + 2;
-            gphR = qi_nbr_x[idx_p_1][alpha];
-        }
-        if (i - 1 >= 0) {
-            //int idx_m_1 = j + (i-1)*sub_grid_y + k*sub_grid_x*sub_grid_y;
-            gmhL = qi_array[alpha];
-        } else {
-            int idx_m_1 = 4*j + k*4*sub_grid_y + 1;
-            gmhL = qi_nbr_x[idx_m_1][alpha];
-        }
-        if (i + 2 < sub_grid_x) {
-            //int idx_p_2 = j + (i+2)*sub_grid_y + k*sub_grid_x*sub_grid_y;
-            gphR2 = qi_array[alpha];
-        } else {
-            int idx_p_2 = 4*j + k*4*sub_grid_y + 4 + i - sub_grid_x;
-            gphR2 = qi_nbr_x[idx_p_2][alpha];
-        }
-        if (i - 2 >= 0) {
-            //int idx_m_2 = j + (i-2)*sub_grid_y + k*sub_grid_x*sub_grid_y;
-            gmhL2 = qi_array[alpha];
-        } else {
-            int idx_m_2 = 4*j + k*4*sub_grid_y + i;
-            gmhL2 = qi_nbr_x[idx_m_2][alpha];
-        }
+        int idx_p_1 = get_indx(ieta, MIN(ix + 1, GRID_SIZE_X), iy);
+        gphR = hydro_fields->qi_array[alpha][idx_p_1];
+        int idx_m_1 = get_indx(ieta, MAX(ix - 1, 0), iy);
+        gmhL = hydro_fields->qi_array[alpha][idx_m_1];
+        int idx_p_2 = get_indx(ieta, MIN(ix + 2, GRID_SIZE_X), iy);
+        gphR2 = hydro_fields->qi_array[alpha][idx_p_2];
+        int idx_m_2 = get_indx(ieta, MAX(ix - 2, 0), iy);
+        gmhL2 = hydro_fields->qi_array[alpha][idx_m_2];
 
         double fphL = 0.5*minmod_dx(gphR, gp, gmhL);
         double fphR = -0.5*minmod_dx(gphR2, gphR, gp);
@@ -992,34 +906,14 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
         double gmhR = qi_array[alpha];
 
         double gphR, gmhL, gphR2, gmhL2;
-        if (j + 1 < sub_grid_y) {
-            //int idx_p_1 = j + 1 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
-            gphR = qi_array[alpha];
-        } else {
-            int idx_p_1 = 4*i + 4*k*sub_grid_x + 2;
-            gphR = qi_nbr_y[idx_p_1][alpha];
-        }
-        if (j - 1 >= 0) {
-            //int idx_m_1 = j - 1 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
-            gmhL = qi_array[alpha];
-        } else {
-            int idx_m_1 = 4*i + 4*k*sub_grid_x + 1;
-            gmhL = qi_nbr_y[idx_m_1][alpha];
-        }
-        if (j + 2 < sub_grid_y) {
-            //int idx_p_2 = j + 2 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
-            gphR2 = qi_array[alpha];
-        } else {
-            int idx_p_2 = 4*i + 4*k*sub_grid_x + 4 + j - sub_grid_y;
-            gphR2 = qi_nbr_y[idx_p_2][alpha];
-        }
-        if (j - 2 >= 0) {
-            //int idx_m_2 = j - 2 + i*sub_grid_y + k*sub_grid_x*sub_grid_y;
-            gmhL2 = qi_array[alpha];
-        } else {
-            int idx_m_2 = 4*i + 4*k*sub_grid_x + j;
-            gmhL2 = qi_nbr_y[idx_m_2][alpha];
-        }
+        int idx_p_1 = get_indx(ieta, ix, MIN(iy + 1, GRID_SIZE_Y));
+        gphR = hydro_fields->qi_array[alpha][idx_p_1];
+        int idx_m_1 = get_indx(ieta, ix, MAX(iy - 1, 0));
+        gmhL = hydro_fields->qi_array[alpha][idx_m_1];
+        int idx_p_2 = get_indx(ieta, ix, MIN(iy + 2, GRID_SIZE_Y));
+        gphR2 = hydro_fields->qi_array[alpha][idx_p_2];
+        int idx_m_2 = get_indx(ieta, ix, MAX(iy - 2, 0));
+        gmhL2 = hydro_fields->qi_array[alpha][idx_m_2];
 
         double fphL = 0.5*minmod_dx(gphR, gp, gmhL);
         double fphR = -0.5*minmod_dx(gphR2, gphR, gp);
@@ -1084,34 +978,14 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
         double gmhR = qi_array[alpha];
 
         double gphR, gmhL, gphR2, gmhL2;
-        if (k + 1 < sub_grid_neta) {
-            //int idx_p_1 = j + i*sub_grid_y + (k+1)*sub_grid_x*sub_grid_y;
-            gphR = qi_array[alpha];
-        } else {
-            int idx_p_1 = 4*j + 4*i*sub_grid_y + 2;
-            gphR = qi_nbr_eta[idx_p_1][alpha];
-        }
-        if (k - 1 >= 0) {
-            //int idx_m_1 = j + i*sub_grid_y + (k-1)*sub_grid_x*sub_grid_y;
-            gmhL = qi_array[alpha];
-        } else {
-            int idx_m_1 = 4*j + 4*i*sub_grid_y + 1;
-            gmhL = qi_nbr_eta[idx_m_1][alpha];
-        }
-        if (k + 2 < sub_grid_neta) {
-            //int idx_p_2 = j + i*sub_grid_y + (k+2)*sub_grid_x*sub_grid_y;
-            gphR2 = qi_array[alpha];
-        } else {
-            int idx_p_2 = 4*j + 4*i*sub_grid_y + 4 + k - sub_grid_neta;
-            gphR2 = qi_nbr_eta[idx_p_2][alpha];
-        }
-        if (k - 2 >= 0) {
-            //int idx_m_2 = j + i*sub_grid_y + (k-2)*sub_grid_x*sub_grid_y;
-            gmhL2 = qi_array[alpha];
-        } else {
-            int idx_m_2 = 4*j + 4*i*sub_grid_y + k;
-            gmhL2 = qi_nbr_eta[idx_m_2][alpha];
-        }
+        int idx_p_1 = get_indx(MIN(ieta + 1, GRID_SIZE_ETA - 1), ix, iy);
+        gphR = hydro_fields->qi_array[alpha][idx_p_1];
+        int idx_m_1 = get_indx(MAX(ieta - 1, 0), ix, iy);
+        gmhL = hydro_fields->qi_array[alpha][idx_m_1];
+        int idx_p_2 = get_indx(MIN(ieta + 2, GRID_SIZE_ETA - 1), ix, iy);
+        gphR2 = hydro_fields->qi_array[alpha][idx_p_2];
+        int idx_m_2 = get_indx(MAX(ieta - 2, 0), ix, iy);
+        gmhL2 = hydro_fields->qi_array[alpha][idx_m_2];
 
         double fphL = 0.5*minmod_dx(gphR, gp, gmhL);
         double fphR = -0.5*minmod_dx(gphR2, gphR, gp);
@@ -1174,7 +1048,7 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
                *DELTA_TAU);
     
     for (int alpha = 0; alpha < 5; alpha++) {
-        qi_array[alpha] = qi_array[alpha] + rhs[alpha];
+        qi_array[alpha] = hydro_fields->qi_array[alpha][idx] + rhs[alpha];
     }
 }
 
