@@ -174,9 +174,21 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     double qimhR[5];
     double grid_array_hL[5];
     double grid_array_hR[5];
-
+    
     // enter GPU parallel region, variable tmp is used to check whether the
     // code is running on GPU
+    #pragma acc parallel loop gang worker vector collapse(3) independent \
+                                    present(hydro_fields) private(this[0:1])
+    for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
+        for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
+            for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
+                int idx = get_indx(ieta, ix, iy);
+                double tau_rk = tau + rk_flag*DELTA_TAU;
+                calculate_qi_array(tau_rk, hydro_fields, idx);
+            }
+        }
+    }
+
     #pragma acc parallel loop gang worker vector collapse(3) independent copy(tmp[0:1]) present(hydro_fields)\
                          private(this[0:1], grid_array[0:5], qi_array[0:5], \
                          qi_nbr_x[0:4][0:5], qi_nbr_y[0:4][0:5], qi_nbr_eta[0:4][0:5], \
@@ -211,8 +223,6 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
             for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
                 for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
                     double tau_rk = tau + rk_flag*DELTA_TAU;
-			        //MakeDSpatial_1(tau, hydro_fields, ieta, ix, iy);
-			        //MakeDTau_1(tau, hydro_fields, ieta, ix, iy);
                     calculate_u_derivatives(tau_rk, hydro_fields,
                                             ieta, ix, iy);
                 }
@@ -287,6 +297,26 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
 
     return(1);
 }/* AdvanceIt */
+
+
+void Advance::calculate_qi_array(double tau, Field *hydro_fields, int idx) {
+    double e = hydro_fields->e_rk0[idx];
+    double pressure = get_pressure(e, hydro_fields->rhob_rk0[idx]);
+    hydro_fields->qi_array[0][idx] = (
+            tau*((e + pressure)*hydro_fields->u_rk0[0][idx]
+                               *hydro_fields->u_rk0[0][idx] - pressure));
+    hydro_fields->qi_array[1][idx] = (
+            tau*((e + pressure)*hydro_fields->u_rk0[0][idx]
+                               *hydro_fields->u_rk0[1][idx]));
+    hydro_fields->qi_array[2][idx] = (
+            tau*((e + pressure)*hydro_fields->u_rk0[0][idx]
+                               *hydro_fields->u_rk0[2][idx]));
+    hydro_fields->qi_array[3][idx] = (
+            tau*((e + pressure)*hydro_fields->u_rk0[0][idx]
+                               *hydro_fields->u_rk0[3][idx]));
+    hydro_fields->qi_array[4][idx] = (
+            tau*hydro_fields->rhob_rk0[idx]*hydro_fields->u_rk0[0][idx]);
+}
 
 
 /* %%%%%%%%%%%%%%%%%%%%%% First steps begins here %%%%%%%%%%%%%%%%%% */

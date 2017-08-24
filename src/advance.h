@@ -95,6 +95,9 @@ class Advance {
         double *grid_array, double *grid_array_temp);
 
 #pragma acc routine seq
+    void calculate_qi_array(double tau, Field *hydro_fields, int idx);
+
+#pragma acc routine seq
     void prepare_vis_array(
         Field *hydro_fields, int ieta, int ix, int iy,
         double *vis_array, double *vis_nbr_tau,
