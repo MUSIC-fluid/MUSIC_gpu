@@ -274,23 +274,32 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
         // So add q0 and multiply by 1/2
         double pressure = get_pressure(hydro_fields->e_prev[idx],
                                        hydro_fields->rhob_prev[idx]);
-        qi_array[0] += tau*((hydro_fields->e_prev[idx] + pressure)
-                             *hydro_fields->u_prev[0][idx]
-                             *hydro_fields->u_prev[0][idx] - pressure);
-        qi_array[1] += tau*((hydro_fields->e_prev[idx] + pressure)
-                             *hydro_fields->u_prev[0][idx]
-                             *hydro_fields->u_prev[1][idx]);
-        qi_array[2] += tau*((hydro_fields->e_prev[idx] + pressure)
-                             *hydro_fields->u_prev[0][idx]
-                             *hydro_fields->u_prev[2][idx]);
-        qi_array[3] += tau*((hydro_fields->e_prev[idx] + pressure)
-                             *hydro_fields->u_prev[0][idx]
-                             *hydro_fields->u_prev[3][idx]);
-        qi_array[4] += tau*(hydro_fields->rhob_prev[idx]
-                            *hydro_fields->u_prev[0][idx]);
+        hydro_fields->qi_array_new[0][idx] += (
+            tau*((hydro_fields->e_prev[idx] + pressure)
+                  *hydro_fields->u_prev[0][idx]
+                  *hydro_fields->u_prev[0][idx] - pressure));
+        hydro_fields->qi_array_new[1][idx] += (
+            tau*((hydro_fields->e_prev[idx] + pressure)
+                  *hydro_fields->u_prev[0][idx]
+                  *hydro_fields->u_prev[1][idx]));
+        hydro_fields->qi_array_new[2][idx] += (
+            tau*((hydro_fields->e_prev[idx] + pressure)
+                  *hydro_fields->u_prev[0][idx]
+                  *hydro_fields->u_prev[2][idx]));
+        hydro_fields->qi_array_new[3][idx] += (
+            tau*((hydro_fields->e_prev[idx] + pressure)
+                  *hydro_fields->u_prev[0][idx]
+                  *hydro_fields->u_prev[3][idx]));
+        hydro_fields->qi_array_new[4][idx] += (
+            tau*(hydro_fields->rhob_prev[idx]
+                 *hydro_fields->u_prev[0][idx]));
         for (int alpha = 0; alpha < 5; alpha++) {
-            qi_array[alpha] *= 0.5;
+            hydro_fields->qi_array_new[alpha][idx] *= 0.5;
         }
+    }
+    
+    for (int alpha = 0; alpha < 5; alpha++) {
+        qi_array[alpha] = hydro_fields->qi_array_new[alpha][idx];
     }
 
     ReconstIt_velocity_Newton(grid_array, tau_next, qi_array,
@@ -778,12 +787,6 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
     /* \partial_tau (tau Txtau) + \partial_eta Tetax + \partial_x tau T_xx
             + \partial_y tau Tyx = 0 */
     
-    //double check0 = 0.0;
-    //for (int i = 0; i < 5; i++) {
-    //    check0 += fabs(qi_array[0][i] - qi[i]);
-    //}
-    //cout << check0 << endl;
-
     // tau*Tmu0
     //double rhs[5];
     for (int alpha = 0; alpha < 5; alpha++) {
@@ -849,7 +852,8 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
         double Fiph = 0.5*((FiphL + FiphR)
                             - aiph*(qiphR[alpha] - qiphL[alpha]));
-        rhs[alpha] = -Fiph/DELTA_X*DELTA_TAU;
+        //rhs[alpha] = -Fiph/DELTA_X*DELTA_TAU;
+        hydro_fields->qi_array_new[alpha][idx] = -Fiph/DELTA_X*DELTA_TAU;
     }
 
     flag *= ReconstIt_velocity_Newton(grid_array_hL, tau,
@@ -870,7 +874,8 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
         double Fimh = 0.5*((FimhL + FimhR)
                             - aimh*(qimhR[alpha] - qimhL[alpha]));
-        rhs[alpha] += Fimh/DELTA_X*DELTA_TAU;
+        //rhs[alpha] += Fimh/DELTA_X*DELTA_TAU;
+        hydro_fields->qi_array_new[alpha][idx] += Fimh/DELTA_X*DELTA_TAU;
     }
     //cout << "x-direction" << endl;
     
@@ -921,7 +926,8 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
         double Fiph = 0.5*((FiphL + FiphR)
                             - aiph*(qiphR[alpha] - qiphL[alpha]));
 
-        rhs[alpha] -= Fiph/DELTA_Y*DELTA_TAU;
+        //rhs[alpha] -= Fiph/DELTA_Y*DELTA_TAU;
+        hydro_fields->qi_array_new[alpha][idx] -= Fiph/DELTA_Y*DELTA_TAU;
     }
 
     flag *= ReconstIt_velocity_Newton(grid_array_hL, tau,
@@ -942,7 +948,8 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
         double Fimh = 0.5*((FimhL + FimhR)
                             - aimh*(qimhR[alpha] - qimhL[alpha]));
-        rhs[alpha] += Fimh/DELTA_Y*DELTA_TAU;
+        //rhs[alpha] += Fimh/DELTA_Y*DELTA_TAU;
+        hydro_fields->qi_array_new[alpha][idx] += Fimh/DELTA_Y*DELTA_TAU;
     }
     //cout << "y-direction" << endl;
     
@@ -993,7 +1000,8 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
         double Fiph = 0.5*((FiphL + FiphR)
                             - aiph*(qiphR[alpha] - qiphL[alpha]));
 
-        rhs[alpha] -= Fiph/DELTA_ETA*DELTA_TAU;
+        //rhs[alpha] -= Fiph/DELTA_ETA*DELTA_TAU;
+        hydro_fields->qi_array_new[alpha][idx] -= Fiph/DELTA_ETA*DELTA_TAU;
     }
 
     flag *= ReconstIt_velocity_Newton(grid_array_hL, tau,
@@ -1014,18 +1022,21 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
         double Fimh = 0.5*((FimhL + FimhR)
                             - aimh*(qimhR[alpha] - qimhL[alpha]));
-        rhs[alpha] += Fimh/DELTA_ETA*DELTA_TAU;
+        //rhs[alpha] += Fimh/DELTA_ETA*DELTA_TAU;
+        hydro_fields->qi_array_new[alpha][idx] += Fimh/DELTA_ETA*DELTA_TAU;
     }
     //cout << "eta-direction" << endl;
 
     // geometric terms
-    rhs[0] -= (get_TJb_new(grid_array, 3, 3)
-               *DELTA_TAU);
-    rhs[3] -= (get_TJb_new(grid_array, 3, 0)
-               *DELTA_TAU);
+    hydro_fields->qi_array_new[0][idx] -= (get_TJb_new(grid_array, 3, 3)
+                                           *DELTA_TAU);
+    hydro_fields->qi_array_new[3][idx] -= (get_TJb_new(grid_array, 3, 0)
+                                           *DELTA_TAU);
     
     for (int alpha = 0; alpha < 5; alpha++) {
-        qi_array[alpha] = hydro_fields->qi_array[alpha][idx] + rhs[alpha];
+        //qi_array[alpha] = hydro_fields->qi_array[alpha][idx] + rhs[alpha];
+        hydro_fields->qi_array_new[alpha][idx] += (
+                                    hydro_fields->qi_array[alpha][idx]);
     }
 }
 
@@ -1507,7 +1518,8 @@ void Advance::MakeWSource(double tau, double *qi_array,
             result = sf;
         }
         //qi_array_new[alpha] -= result*DELTA_TAU;
-        qi_array[alpha] -= result*DELTA_TAU;
+        //qi_array[alpha] -= result*DELTA_TAU;
+        hydro_fields->qi_array_new[alpha][field_idx] -= result*DELTA_TAU;
     }
 }
 
