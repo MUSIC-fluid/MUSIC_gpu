@@ -5,6 +5,7 @@
 
 struct Field {
     double **qi_array;
+    double **qi_array_new;
     double *e_rk0;
     double *e_rk1;
     double *e_prev;

@@ -42,6 +42,7 @@ void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
     delete[] hydro_fields->expansion_rate;
     for (int i = 0; i < 5; i++) {
         delete[] hydro_fields->qi_array[i];
+        delete[] hydro_fields->qi_array_new[i];
     }
     for (int i = 0; i < 4; i++) {
         delete[] hydro_fields->u_rk0[i];
@@ -59,6 +60,7 @@ void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
         delete[] hydro_fields->Wmunu_prev[i];
     }
     delete[] hydro_fields->qi_array;
+    delete[] hydro_fields->qi_array_new;
     delete[] hydro_fields->u_rk0;
     delete[] hydro_fields->u_rk1;
     delete[] hydro_fields->u_prev;
@@ -107,6 +109,7 @@ void Evolve::initial_field_with_ideal_Gubser(double tau, Field *hydro_fields) {
                 hydro_fields->expansion_rate[idx] = 0.0;
                 for (int ii = 0; ii < 5; ii++) {
                     hydro_fields->qi_array[ii][idx] = 0.0;
+                    hydro_fields->qi_array_new[ii][idx] = 0.0;
                 }
                 for (int ii = 0; ii < 4; ii++) {
                     hydro_fields->Du_mu[ii][idx] = 0.0;
@@ -196,6 +199,7 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
     cout << "Pre data copy" << endl;
     #pragma acc data copyin (hydro_fields[0:1],\
                          hydro_fields->qi_array[0:5][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
+                         hydro_fields->qi_array_new[0:5][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
                          hydro_fields->e_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
                          hydro_fields->e_prev[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\
                          hydro_fields->rhob_rk0[0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA],\

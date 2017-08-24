@@ -83,12 +83,6 @@ class Advance {
 #pragma acc routine seq
     double get_TJb_new(double *grid_array, int mu, int nu);
 
-    
-#pragma acc routine seq
-    void prepare_qi_array(
-        double tau, Field *hydro_fields, int rk_flag, int ieta, int ix, int iy,
-        double *qi_array, double *grid_array);
-
 #pragma acc routine seq
     void calculate_qi_array(double tau, Field *hydro_fields, int idx);
 

@@ -20,22 +20,6 @@ Advance::~Advance() {
 }
 
 
-void Advance::prepare_qi_array(
-        double tau, Field *hydro_fields, int rk_flag, int ieta, int ix, int iy,
-        double *qi_array, double *grid_array) {
-
-    double tau_rk = tau + rk_flag*DELTA_TAU;
-
-    int field_idx;
-    // first build qi cube sub_grid_x*sub_grid_x*sub_grid_neta
-    field_idx = get_indx(ieta, ix, iy);
-    update_grid_array_from_field(hydro_fields, field_idx, grid_array);
-    //get_qmu_from_grid_array(tau_rk, qi_array, grid_array);
-    for (int i = 0; i < 5; i++) {
-        qi_array[i] = hydro_fields->qi_array[i][field_idx];
-    }
-}
-
 void Advance::prepare_vis_array(
         Field *hydro_fields, int ieta, int ix, int iy,
         double *vis_array, double *vis_nbr_tau,
@@ -136,12 +120,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
         for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
             for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
-
                 tmp[0]=tau;  // check code is running on GPU
 
-                prepare_qi_array(tau, hydro_fields, rk_flag, ieta, ix, iy,
-                                 qi_array, grid_array);
-                
                 FirstRKStepT(tau, rk_flag, hydro_fields, ieta, ix, iy,
                              qi_array, grid_array,
                              rhs, qiphL, qiphR, qimhL, qimhR,
@@ -238,20 +218,22 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
 void Advance::calculate_qi_array(double tau, Field *hydro_fields, int idx) {
     double e = hydro_fields->e_rk0[idx];
     double pressure = get_pressure(e, hydro_fields->rhob_rk0[idx]);
-    hydro_fields->qi_array[0][idx] = (
-            tau*((e + pressure)*hydro_fields->u_rk0[0][idx]
-                               *hydro_fields->u_rk0[0][idx] - pressure));
-    hydro_fields->qi_array[1][idx] = (
-            tau*((e + pressure)*hydro_fields->u_rk0[0][idx]
-                               *hydro_fields->u_rk0[1][idx]));
-    hydro_fields->qi_array[2][idx] = (
-            tau*((e + pressure)*hydro_fields->u_rk0[0][idx]
-                               *hydro_fields->u_rk0[2][idx]));
-    hydro_fields->qi_array[3][idx] = (
-            tau*((e + pressure)*hydro_fields->u_rk0[0][idx]
-                               *hydro_fields->u_rk0[3][idx]));
+    for (int i = 0; i < 4; i++) {
+        // here we compute tau*T^\tau\mu = tau*((e + P)*u^0*u^mu)
+        hydro_fields->qi_array[i][idx] = (
+                tau*((e + pressure)*hydro_fields->u_rk0[0][idx]
+                                   *hydro_fields->u_rk0[i][idx]));
+    }
+    // for tau*T^\tau\tau need one more term + tau*(P*g^00)
+    hydro_fields->qi_array[0][idx] -= tau*pressure;
+
+    // J^tau = rhob*u^tau
     hydro_fields->qi_array[4][idx] = (
             tau*hydro_fields->rhob_rk0[idx]*hydro_fields->u_rk0[0][idx]);
+
+    for (int i = 0; i < 5; i++) {
+        hydro_fields->qi_array_new[i][idx] = 0.0;
+    }
 }
 
 
@@ -268,6 +250,7 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
     double tau_rk = tau + rk_flag*DELTA_TAU;
 
     int idx = get_indx(ieta, ix, iy);
+    update_grid_array_from_field(hydro_fields, idx, grid_array);
     
     // Solve partial_a T^{a mu} = -partial_a W^{a mu}
     // Update T^{mu nu}
@@ -815,12 +798,6 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
     //double *grid_array_hL = new double[5];
     //double *grid_array_hR = new double[5];
     
-    int i = 0;
-    int j = 0;
-    int k = 0;
-    int sub_grid_x = 1;
-    int sub_grid_y = 1;
-    int sub_grid_neta = 1;
     int idx = get_indx(ieta, ix, iy);
 
     // implement Kurganov-Tadmor scheme
@@ -901,9 +878,9 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
     direc = 2;
     tau_fac = tau;
     for (int alpha = 0; alpha < 5; alpha++) {
-        double gp = qi_array[alpha];
-        double gphL = qi_array[alpha];
-        double gmhR = qi_array[alpha];
+        double gp =   hydro_fields->qi_array[alpha][idx];
+        double gphL = hydro_fields->qi_array[alpha][idx];
+        double gmhR = hydro_fields->qi_array[alpha][idx];
 
         double gphR, gmhL, gphR2, gmhL2;
         int idx_p_1 = get_indx(ieta, ix, MIN(iy + 1, GRID_SIZE_Y));
@@ -973,9 +950,9 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
     direc = 3;
     tau_fac = 1.0;
     for (int alpha = 0; alpha < 5; alpha++) {
-        double gp = qi_array[alpha];
-        double gphL = qi_array[alpha];
-        double gmhR = qi_array[alpha];
+        double gp =   hydro_fields->qi_array[alpha][idx];
+        double gphL = hydro_fields->qi_array[alpha][idx];
+        double gmhR = hydro_fields->qi_array[alpha][idx];
 
         double gphR, gmhL, gphR2, gmhL2;
         int idx_p_1 = get_indx(MIN(ieta + 1, GRID_SIZE_ETA - 1), ix, iy);
@@ -1478,7 +1455,7 @@ void Advance::MakeWSource(double tau, double *qi_array,
         field_idx_m_1 = get_indx(MAX(ieta - 1, 0), ix, iy);
         sgm1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_m_1];
         //dWdeta = (sgp1 - sgm1)/(2.*DELTA_ETA*taufactor);
-        dWdx_perp += minmod_dx(sgp1, sg, sgm1)/(DELTA_ETA*taufactor);
+        dWdeta = minmod_dx(sgp1, sg, sgm1)/(DELTA_ETA*taufactor);
 
         if (alpha < 4 && INCLUDE_BULK) {
             double gfac3 = (alpha == 3 ? 1.0 : 0.0);
@@ -1493,7 +1470,7 @@ void Advance::MakeWSource(double tau, double *qi_array,
                               *hydro_fields->u_rk0[3][field_idx_m_1]));
             //dPideta = ((bgp1 - bgm1)
             //           /(2.*DELTA_ETA*taufactor));
-            dPidx_perp += minmod_dx(bgp1, bg, bgm1)/(DELTA_ETA*taufactor);
+            dPideta = minmod_dx(bgp1, bg, bgm1)/(DELTA_ETA*taufactor);
         }
 
         // partial_m (tau W^mn) = W^0n + tau partial_m W^mn
