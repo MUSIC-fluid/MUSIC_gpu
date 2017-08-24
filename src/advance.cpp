@@ -24,7 +24,7 @@ void Advance::prepare_qi_array(
         double tau, Field *hydro_fields, int rk_flag, int ieta, int ix, int iy,
         double *qi_array, double qi_nbr_x[][5],
         double qi_nbr_y[][5], double qi_nbr_eta[][5],
-        double *qi_rk0, double *grid_array, double *grid_array_temp) {
+        double *grid_array, double *grid_array_temp) {
 
     double tau_rk = tau + rk_flag*DELTA_TAU;
 
@@ -33,10 +33,6 @@ void Advance::prepare_qi_array(
     field_idx = get_indx(ieta, ix, iy);
     update_grid_array_from_field(hydro_fields, field_idx, grid_array);
     get_qmu_from_grid_array(tau_rk, qi_array, grid_array);
-
-    update_grid_array_from_field_prev(hydro_fields, field_idx,
-                                      grid_array_temp);
-    get_qmu_from_grid_array(tau, qi_rk0, grid_array_temp);
 
     int idx = 0;
     // now build neighbouring cells
@@ -166,7 +162,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                        int rk_flag) {
     double tmp[1]={-1.1};
 
-    double grid_array[5], qi_array[5], qi_array_new[5], qi_rk0[5];
+    double grid_array[5], qi_array[5], qi_array_new[5];
     double qi_nbr_x[4][5], qi_nbr_y[4][5], qi_nbr_eta[4][5];
     double vis_array[19], vis_array_new[19], vis_nbr_tau[19];
     double vis_nbr_x[4][19], vis_nbr_y[4][19], vis_nbr_eta[4][19];
@@ -182,7 +178,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     // enter GPU parallel region, variable tmp is used to check whether the
     // code is running on GPU
     #pragma acc parallel loop gang worker vector collapse(3) independent copy(tmp[0:1]) present(hydro_fields)\
-                         private(this[0:1], grid_array[0:5], qi_array[0:5], qi_array_new[0:5], qi_rk0[0:5], \
+                         private(this[0:1], grid_array[0:5], qi_array[0:5], \
                          qi_nbr_x[0:4][0:5], qi_nbr_y[0:4][0:5], qi_nbr_eta[0:4][0:5], \
                          grid_array_temp[0:5], \
                          grid_array_hL[0:5], qimhL[0:5], grid_array_hR[0:5], qiphL[0:5], qimhR[0:5], \
@@ -195,11 +191,11 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
 
                 prepare_qi_array(tau, hydro_fields, rk_flag, ieta, ix, iy,
                                  qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
-                                 qi_rk0, grid_array, grid_array_temp);
+                                 grid_array, grid_array_temp);
                 
                 FirstRKStepT(tau, rk_flag, hydro_fields, ieta, ix, iy,
                              qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
-                             qi_rk0, qi_array_new, grid_array,
+                             grid_array,
                              rhs, qiphL, qiphR, qimhL, qimhR,
                              grid_array_hL, grid_array_hR);
 
@@ -298,8 +294,7 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
                           Field *hydro_fields, int ieta, int ix, int iy,
                           double *qi_array, double qi_nbr_x[][5],
                           double qi_nbr_y[][5], double qi_nbr_eta[][5],
-                          double *qi_rk0,
-                          double *qi_array_new, double *grid_array,
+                          double *grid_array,
                           double *rhs, double *qiphL, double *qiphR,
                           double *qimhL, double *qimhR,
                           double *grid_array_hL, double *grid_array_hR) {
@@ -307,6 +302,8 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
     // this advances the ideal part
     double tau_next = tau + (DELTA_TAU);
     double tau_rk = tau + rk_flag*DELTA_TAU;
+
+    int idx = get_indx(ieta, ix, iy);
     
     // Solve partial_a T^{a mu} = -partial_a W^{a mu}
     // Update T^{mu nu}
@@ -318,23 +315,38 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
     // It is the spatial derivative part of partial_a T^{a mu}
     // (including geometric terms)
     MakeDeltaQI(tau_rk, qi_array, qi_nbr_x, qi_nbr_y, qi_nbr_eta,
-                qi_array_new, grid_array,
+                grid_array,
                 rhs, qiphL, qiphR, qimhL, qimhR, grid_array_hL, grid_array_hR);
 
     // now MakeWSource returns partial_a W^{a mu}
     // (including geometric terms) 
-    MakeWSource(tau_rk, qi_array_new, hydro_fields, ieta, ix, iy);
+    MakeWSource(tau_rk, qi_array, hydro_fields, ieta, ix, iy);
 
     if (rk_flag == 1) {
         // if rk_flag == 1, we now have q0 + k1 + k2. 
         // So add q0 and multiply by 1/2
+        double pressure = get_pressure(hydro_fields->e_prev[idx],
+                                       hydro_fields->rhob_prev[idx]);
+        qi_array[0] += tau*((hydro_fields->e_prev[idx] + pressure)
+                             *hydro_fields->u_prev[0][idx]
+                             *hydro_fields->u_prev[0][idx] - pressure);
+        qi_array[1] += tau*((hydro_fields->e_prev[idx] + pressure)
+                             *hydro_fields->u_prev[0][idx]
+                             *hydro_fields->u_prev[1][idx]);
+        qi_array[2] += tau*((hydro_fields->e_prev[idx] + pressure)
+                             *hydro_fields->u_prev[0][idx]
+                             *hydro_fields->u_prev[2][idx]);
+        qi_array[3] += tau*((hydro_fields->e_prev[idx] + pressure)
+                             *hydro_fields->u_prev[0][idx]
+                             *hydro_fields->u_prev[3][idx]);
+        qi_array[4] += tau*(hydro_fields->rhob_prev[idx]
+                            *hydro_fields->u_prev[0][idx]);
         for (int alpha = 0; alpha < 5; alpha++) {
-            qi_array_new[alpha] += qi_rk0[alpha];
-            qi_array_new[alpha] *= 0.5;
+            qi_array[alpha] *= 0.5;
         }
     }
 
-    ReconstIt_velocity_Newton(grid_array, tau_next, qi_array_new,
+    ReconstIt_velocity_Newton(grid_array, tau_next, qi_array,
                               grid_array);
     return(0);
 }
@@ -809,7 +821,7 @@ int Advance::QuestRevert(double tau, double *vis_array, Field *hydro_fields,
 //! derivatives of T^\mu\nu using the KT algorithm
 void Advance::MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
                           double qi_nbr_y[][5], double qi_nbr_eta[][5],
-                          double *qi_array_new, double *grid_array,
+                          double *grid_array,
                           double *rhs, double *qiphL, double *qiphR,
                           double *qimhL, double *qimhR,
                           double *grid_array_hL, double *grid_array_hR) {
@@ -1132,7 +1144,7 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double qi_nbr_x[][5],
                *DELTA_TAU);
     
     for (int alpha = 0; alpha < 5; alpha++) {
-        qi_array_new[alpha] = qi_array[alpha] + rhs[alpha];
+        qi_array[alpha] = qi_array[alpha] + rhs[alpha];
     }
 }
 
@@ -1204,6 +1216,8 @@ double Advance::MaxSpeed(double tau, int direc, double *grid_array) {
 
     return(f);
 }
+
+
 
 double Advance::get_TJb_new(double *grid_array, int mu, int nu) {
     double rhob = grid_array[4];
@@ -1430,7 +1444,7 @@ double Advance::minmod_dx(double up1, double u, double um1) {
 }/* minmod_dx */
 
 
-void Advance::MakeWSource(double tau, double *qi_array_new,
+void Advance::MakeWSource(double tau, double *qi_array,
                           Field *hydro_fields, int ieta, int ix, int iy) {
 //! calculate d_m (tau W^{m,alpha}) + (geom source terms)
 //! partial_tau W^tau alpha
@@ -1611,7 +1625,8 @@ void Advance::MakeWSource(double tau, double *qi_array_new,
         } else if (alpha == 4) {
             result = sf;
         }
-        qi_array_new[alpha] -= result*DELTA_TAU;
+        //qi_array_new[alpha] -= result*DELTA_TAU;
+        qi_array[alpha] -= result*DELTA_TAU;
     }
 }
 
