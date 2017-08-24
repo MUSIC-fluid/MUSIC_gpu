@@ -116,7 +116,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     #pragma acc parallel loop gang worker vector collapse(3) independent copy(tmp[0:1]) present(hydro_fields)\
                          private(this[0:1], grid_array[0:5], qi_array[0:5], \
                          grid_array_hL[0:5], qimhL[0:5], grid_array_hR[0:5], qiphL[0:5], qimhR[0:5], \
-                         rhs[0:5], qiphR[0:5])
+                         qiphR[0:5])
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
         for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
             for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
@@ -124,7 +124,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
 
                 FirstRKStepT(tau, rk_flag, hydro_fields, ieta, ix, iy,
                              qi_array, grid_array,
-                             rhs, qiphL, qiphR, qimhL, qimhR,
+                             qiphL, qiphR, qimhL, qimhR,
                              grid_array_hL, grid_array_hR);
 
                 update_grid_cell(grid_array, hydro_fields, ieta, ix, iy);
@@ -241,7 +241,7 @@ void Advance::calculate_qi_array(double tau, Field *hydro_fields, int idx) {
 int Advance::FirstRKStepT(double tau, int rk_flag,
                           Field *hydro_fields, int ieta, int ix, int iy,
                           double *qi_array, double *grid_array,
-                          double *rhs, double *qiphL, double *qiphR,
+                          double *qiphL, double *qiphR,
                           double *qimhL, double *qimhR,
                           double *grid_array_hL, double *grid_array_hR) {
 
@@ -261,13 +261,13 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
     // rhs[alpha] is what MakeDeltaQI outputs. 
     // It is the spatial derivative part of partial_a T^{a mu}
     // (including geometric terms)
-    MakeDeltaQI(tau_rk, qi_array, grid_array,
-                rhs, qiphL, qiphR, qimhL, qimhR, grid_array_hL, grid_array_hR,
+    MakeDeltaQI(tau_rk, grid_array,
+                qiphL, qiphR, qimhL, qimhR, grid_array_hL, grid_array_hR,
                 hydro_fields, ieta, ix, iy);
 
     // now MakeWSource returns partial_a W^{a mu}
     // (including geometric terms) 
-    MakeWSource(tau_rk, qi_array, hydro_fields, ieta, ix, iy);
+    MakeWSource(tau_rk, hydro_fields, ieta, ix, iy);
 
     if (rk_flag == 1) {
         // if rk_flag == 1, we now have q0 + k1 + k2. 
@@ -773,10 +773,9 @@ int Advance::QuestRevert(double tau, double *vis_array, Field *hydro_fields,
 
 
 
-//! This function computes the rhs array. It computes the spatial
-//! derivatives of T^\mu\nu using the KT algorithm
-void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
-                          double *rhs, double *qiphL, double *qiphR,
+//! It computes the spatial derivatives of T^\mu\nu using the KT algorithm
+void Advance::MakeDeltaQI(double tau, double *grid_array,
+                          double *qiphL, double *qiphR,
                           double *qimhL, double *qimhR,
                           double *grid_array_hL, double *grid_array_hR,
                           Field *hydro_fields, int ieta, int ix, int iy) {
@@ -788,10 +787,6 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
             + \partial_y tau Tyx = 0 */
     
     // tau*Tmu0
-    //double rhs[5];
-    for (int alpha = 0; alpha < 5; alpha++) {
-        rhs[alpha] = 0.0;
-    }
 
     //double *qiphL = new double[5];
     //double *qiphR = new double[5];
@@ -852,7 +847,6 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
         double Fiph = 0.5*((FiphL + FiphR)
                             - aiph*(qiphR[alpha] - qiphL[alpha]));
-        //rhs[alpha] = -Fiph/DELTA_X*DELTA_TAU;
         hydro_fields->qi_array_new[alpha][idx] = -Fiph/DELTA_X*DELTA_TAU;
     }
 
@@ -874,7 +868,6 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
         double Fimh = 0.5*((FimhL + FimhR)
                             - aimh*(qimhR[alpha] - qimhL[alpha]));
-        //rhs[alpha] += Fimh/DELTA_X*DELTA_TAU;
         hydro_fields->qi_array_new[alpha][idx] += Fimh/DELTA_X*DELTA_TAU;
     }
     //cout << "x-direction" << endl;
@@ -926,7 +919,6 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
         double Fiph = 0.5*((FiphL + FiphR)
                             - aiph*(qiphR[alpha] - qiphL[alpha]));
 
-        //rhs[alpha] -= Fiph/DELTA_Y*DELTA_TAU;
         hydro_fields->qi_array_new[alpha][idx] -= Fiph/DELTA_Y*DELTA_TAU;
     }
 
@@ -948,7 +940,6 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
         double Fimh = 0.5*((FimhL + FimhR)
                             - aimh*(qimhR[alpha] - qimhL[alpha]));
-        //rhs[alpha] += Fimh/DELTA_Y*DELTA_TAU;
         hydro_fields->qi_array_new[alpha][idx] += Fimh/DELTA_Y*DELTA_TAU;
     }
     //cout << "y-direction" << endl;
@@ -1000,7 +991,6 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
         double Fiph = 0.5*((FiphL + FiphR)
                             - aiph*(qiphR[alpha] - qiphL[alpha]));
 
-        //rhs[alpha] -= Fiph/DELTA_ETA*DELTA_TAU;
         hydro_fields->qi_array_new[alpha][idx] -= Fiph/DELTA_ETA*DELTA_TAU;
     }
 
@@ -1022,7 +1012,6 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
         double Fimh = 0.5*((FimhL + FimhR)
                             - aimh*(qimhR[alpha] - qimhL[alpha]));
-        //rhs[alpha] += Fimh/DELTA_ETA*DELTA_TAU;
         hydro_fields->qi_array_new[alpha][idx] += Fimh/DELTA_ETA*DELTA_TAU;
     }
     //cout << "eta-direction" << endl;
@@ -1034,7 +1023,6 @@ void Advance::MakeDeltaQI(double tau, double *qi_array, double *grid_array,
                                            *DELTA_TAU);
     
     for (int alpha = 0; alpha < 5; alpha++) {
-        //qi_array[alpha] = hydro_fields->qi_array[alpha][idx] + rhs[alpha];
         hydro_fields->qi_array_new[alpha][idx] += (
                                     hydro_fields->qi_array[alpha][idx]);
     }
@@ -1336,8 +1324,8 @@ double Advance::minmod_dx(double up1, double u, double um1) {
 }/* minmod_dx */
 
 
-void Advance::MakeWSource(double tau, double *qi_array,
-                          Field *hydro_fields, int ieta, int ix, int iy) {
+void Advance::MakeWSource(double tau, Field *hydro_fields,
+                          int ieta, int ix, int iy) {
 //! calculate d_m (tau W^{m,alpha}) + (geom source terms)
 //! partial_tau W^tau alpha
 //! this is partial_tau evaluated at tau
@@ -1363,7 +1351,6 @@ void Advance::MakeWSource(double tau, double *qi_array,
     }
 
     int field_idx = get_indx(ieta, ix, iy);
-
     for (int alpha = 0; alpha < alpha_max; alpha++) {
         // dW/dtau
         // backward time derivative (first order is more stable)
@@ -1518,7 +1505,6 @@ void Advance::MakeWSource(double tau, double *qi_array,
             result = sf;
         }
         //qi_array_new[alpha] -= result*DELTA_TAU;
-        //qi_array[alpha] -= result*DELTA_TAU;
         hydro_fields->qi_array_new[alpha][field_idx] -= result*DELTA_TAU;
     }
 }

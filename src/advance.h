@@ -41,13 +41,13 @@ class Advance {
     int FirstRKStepT(double tau, int rk_flag,
                      Field *hydro_fields, int ieta, int ix, int iy,
                      double *qi_array, double *grid_array,
-                     double *rhs, double *qiphL, double *qiphR,
+                     double *qiphL, double *qiphR,
                      double *qimhL, double *qimhR,
                      double *grid_array_hL, double *grid_array_hR);
                          
 #pragma acc routine seq
-    void MakeDeltaQI(double tau, double *qi_array, double *grid_array,
-                     double *rhs, double *qiphL, double *qiphR,
+    void MakeDeltaQI(double tau, double *grid_array,
+                     double *qiphL, double *qiphR,
                      double *qimhL, double *qimhR,
                      double *grid_array_hL, double *grid_array_hR,
                      Field *hydro_fields, int ieta, int ix, int iy);
@@ -103,9 +103,8 @@ class Advance {
                      int ieta, int ix, int iy);
 
 #pragma acc routine seq
-    void MakeWSource(double tau, double *qi_array, Field *hydro_fields,
+    void MakeWSource(double tau, Field *hydro_fields,
                      int ieta, int ix, int iy);
-
 
 #pragma acc routine seq
     int Make_uWRHS(double tau,
