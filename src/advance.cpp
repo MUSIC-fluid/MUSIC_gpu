@@ -101,7 +101,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     // enter GPU parallel region, variable tmp is used to check whether the
     // code is running on GPU
     #pragma acc parallel loop gang worker vector collapse(3) independent \
-                                    present(hydro_fields) private(this[0:1])
+        present(hydro_fields) private(this[0:1])
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
         for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
             for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
@@ -112,14 +112,15 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
         }
     }
 
-    #pragma acc parallel loop gang worker vector collapse(3) independent copy(tmp[0:1]) present(hydro_fields)\
-                         private(this[0:1], grid_array[0:5], \
-                         grid_array_hL[0:5], qimhL[0:5], grid_array_hR[0:5], qiphL[0:5], qimhR[0:5], \
-                         qiphR[0:5])
+    #pragma acc parallel loop gang worker vector collapse(3) independent \
+        present(hydro_fields) \
+        private(this[0:1], grid_array[0:5], \
+                grid_array_hL[0:5], qimhL[0:5], grid_array_hR[0:5], \
+                qiphL[0:5], qimhR[0:5], qiphR[0:5])
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
         for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
             for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
-                tmp[0]=tau;  // check code is running on GPU
+                //tmp[0]=tau;  // check code is running on GPU
 
                 FirstRKStepT(tau, rk_flag, hydro_fields, ieta, ix, iy,
                              grid_array,
@@ -142,8 +143,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     }
 
     if (VISCOUS_FLAG == 1) {
-        #pragma acc parallel loop gang worker vector collapse(3) independent present(hydro_fields)\
-                         private(this[0:1])
+        #pragma acc parallel loop gang worker vector collapse(3) independent \
+            present(hydro_fields) private(this[0:1])
         for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
             for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
                 for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
@@ -155,8 +156,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
         }
         
         if (INCLUDE_DIFF == 1) {
-            #pragma acc parallel loop gang worker vector collapse(3) independent present(hydro_fields)\
-                         private(this[0:1])
+            #pragma acc parallel loop gang worker vector collapse(3) independent \
+                present(hydro_fields) private(this[0:1])
             for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
                 for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
                     for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
@@ -168,10 +169,11 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
             }
         }
 
-        #pragma acc parallel loop gang worker vector collapse(3) independent present(hydro_fields)\
-                             private(this[0:1], \
-                                     vis_array[0:19], vis_array_new[0:19], \
-                                     vis_nbr_tau[0:19], vis_nbr_x[0:4][0:19], vis_nbr_y[0:4][0:19], vis_nbr_eta[0:4][0:19])
+        #pragma acc parallel loop gang worker vector collapse(3) independent \
+            present(hydro_fields)\
+            private(this[0:1], vis_array[0:19], vis_array_new[0:19], \
+                    vis_nbr_tau[0:19], vis_nbr_x[0:4][0:19], \
+                    vis_nbr_y[0:4][0:19], vis_nbr_eta[0:4][0:19])
         for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
             for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
                 for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
@@ -194,8 +196,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
 
     // update the hydro fields
     if (rk_flag == 0) {
-        #pragma acc parallel loop gang worker vector collapse(3) independent present(hydro_fields)\
-                         private(this[0:1])
+        #pragma acc parallel loop gang worker vector collapse(3) independent \
+            present(hydro_fields) private(this[0:1])
         for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
             for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
                 for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
@@ -206,8 +208,8 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
             }
         }
     } else {
-        #pragma acc parallel loop gang worker vector collapse(3) independent present(hydro_fields)\
-                         private(this[0:1])
+        #pragma acc parallel loop gang worker vector collapse(3) independent \
+            present(hydro_fields) private(this[0:1])
         for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
             for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
                 for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
