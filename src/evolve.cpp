@@ -3,7 +3,6 @@
 #include "./evolve.h"
 #include "./util.h"
 #include "./data.h"
-#include "./eos.h"
 #include "./advance.h"
 #include "./cornelius.h"
 #include "./field.h"
@@ -11,11 +10,9 @@
 using namespace std;
 
 Evolve::Evolve(EOS *eosIn, InitData *DATA_in) {
-    eos = eosIn;
     grid_info = new Grid_info(DATA_in, eosIn);
     util = new Util;
-    u_derivative = new U_derivative(eosIn, DATA_in);
-    advance = new Advance(eosIn, DATA_in);
+    advance = new Advance(DATA_in);
    
     DATA_ptr = DATA_in;
     rk_order = DATA_in->rk_order;
@@ -33,7 +30,6 @@ Evolve::~Evolve() {
     delete grid_info;
     delete util;
     delete advance;
-    delete u_derivative;
 }
 
 void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
@@ -54,9 +50,6 @@ void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
     for (int i = 0; i < 10; i++) {
         delete[] hydro_fields->sigma_munu[i];
     }
-    for (int i = 0; i < 20; i++) {
-        delete[] hydro_fields->dUsup[i];
-    }
     for (int i = 0; i < 14; i++) {
         delete[] hydro_fields->Wmunu_rk0[i];
         delete[] hydro_fields->Wmunu_rk1[i];
@@ -68,7 +61,6 @@ void Evolve::clean_up_hydro_fields(Field *hydro_fields) {
     delete[] hydro_fields->Du_mu;
     delete[] hydro_fields->D_mu_mu_B_over_T;
     delete[] hydro_fields->sigma_munu;
-    delete[] hydro_fields->dUsup;
     delete[] hydro_fields->Wmunu_rk0;
     delete[] hydro_fields->Wmunu_rk1;
     delete[] hydro_fields->Wmunu_prev;
@@ -114,9 +106,6 @@ void Evolve::initial_field_with_ideal_Gubser(double tau, Field *hydro_fields) {
                 }
                 for (int ii = 0; ii < 10; ii++) {
                     hydro_fields->sigma_munu[ii][idx] = 0.0;
-                }
-                for (int ii = 0; ii < 20; ii++) {
-                    hydro_fields->dUsup[ii][idx] = 0.0;
                 }
                 for (int ii = 0; ii < 14; ii++) {
                     hydro_fields->Wmunu_rk0[ii][idx] = 0.0;
@@ -212,7 +201,6 @@ int Evolve::EvolveIt(InitData *DATA, Field *hydro_fields) {
                          hydro_fields->Du_mu[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->sigma_munu[0:10][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->D_mu_mu_B_over_T[0:4][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
-                         hydro_fields->dUsup[0:20][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->Wmunu_rk0[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->Wmunu_rk1[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
                          hydro_fields->Wmunu_prev[0:14][0:(GRID_SIZE_X + 1)*(GRID_SIZE_Y + 1)*GRID_SIZE_ETA], \
@@ -854,15 +842,15 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
                 delete [] Wmunu_regulated;
 
                 // 4-dimension interpolation done
-                TFO = eos->get_temperature(epsFO, rhob_center);
-                muB = eos->get_mu(epsFO, rhob_center);
+                TFO = advance->get_temperature(epsFO, rhob_center);
+                muB = advance->get_mu(epsFO, rhob_center);
                 if (TFO < 0) {
                     cout << "TFO=" << TFO 
                          << "<0. ERROR. exiting." << endl;
                     exit(1);
                 }
 
-                pressure = eos->get_pressure(epsFO, rhob_center);
+                pressure = advance->get_pressure(epsFO, rhob_center);
                 eps_plus_p_over_T_FO = (epsFO + pressure)/TFO;
 
                 // finally output results !!!!
@@ -1111,8 +1099,8 @@ void Evolve::FreezeOut_equal_tau_Surface_XY(double tau, InitData *DATA,
 
             // get other thermodynamical quantities
             double e_local = hydro_fields->e_rk0[idx];
-            double T_local = eos->get_temperature(e_local, rhob_center);
-            double muB_local = eos->get_mu(e_local, rhob_center);
+            double T_local = advance->get_temperature(e_local, rhob_center);
+            double muB_local = advance->get_mu(e_local, rhob_center);
             if (T_local < 0) {
                 cout << "Error:Evolve::FreezeOut_equal_tau_Surface: "
                      << "T_local = " << T_local
@@ -1120,7 +1108,7 @@ void Evolve::FreezeOut_equal_tau_Surface_XY(double tau, InitData *DATA,
                 exit(1);
             }
 
-            double pressure = eos->get_pressure(e_local, rhob_center);
+            double pressure = advance->get_pressure(e_local, rhob_center);
             double eps_plus_p_over_T = (e_local + pressure)/T_local;
 
             // finally output results !!!!
@@ -1576,15 +1564,15 @@ int Evolve::FindFreezeOutSurface_boostinvariant_Cornelius(
 
                     // 3-dimension interpolation done
                 
-                    TFO = eos->get_temperature(epsFO, rhob_center);
-                    muB = eos->get_mu(epsFO, rhob_center);
+                    TFO = advance->get_temperature(epsFO, rhob_center);
+                    muB = advance->get_mu(epsFO, rhob_center);
                     if (TFO < 0)
                     {
                         cout << "TFO=" << TFO << "<0. ERROR. exiting." << endl;
                         exit(1);
                     }
 
-                    pressure = eos->get_pressure(epsFO, rhob_center);
+                    pressure = advance->get_pressure(epsFO, rhob_center);
                     eps_plus_p_over_T_FO = (epsFO + pressure)/TFO;
 
                     // finally output results !!!!

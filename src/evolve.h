@@ -17,7 +17,6 @@
 #include "./grid_info.h"
 #include "./eos.h"
 #include "./advance.h"
-#include "./u_derivative.h"
 
 // this is a control class for the hydrodynamic evolution
 class Evolve {
@@ -26,7 +25,6 @@ class Evolve {
     Grid_info *grid_info;
     Util *util;
     Advance *advance;
-    U_derivative *u_derivative;
 
     InitData *DATA_ptr;
 

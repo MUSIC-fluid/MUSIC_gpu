@@ -4,12 +4,7 @@
 
 #include <iostream>
 #include "./data.h"
-#include "./grid.h"
 #include "./field.h"
-#include "./dissipative.h"
-#include "./minmod.h"
-#include "./u_derivative.h"
-#include "./reconst.h"
 
 //! advance routines separate for
 //! T^{0 nu} \del T^{i\nu} (T)
@@ -19,18 +14,12 @@
 class Advance {
  private:
     InitData* DATA_ptr;
-    Util *util;
-    Diss *diss;
-    Reconst *reconst_ptr;
-    EOS *eos;
-    Minmod *minmod;
-    U_derivative *u_derivative_ptr;
     
     int grid_nx, grid_ny, grid_neta;
     int rk_order;
 
  public:
-    Advance(EOS *eosIn, InitData* DATA_in);
+    Advance(InitData* DATA_in);
     ~Advance();
 
     int AdvanceIt(double tau_init, Field *hydro_fields,

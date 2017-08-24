@@ -13,7 +13,6 @@ struct Field {
      double **u_rk0;
      double **u_rk1;
      double **u_prev;
-     double **dUsup;
      double *expansion_rate;
      double **Du_mu;
      double **sigma_munu;

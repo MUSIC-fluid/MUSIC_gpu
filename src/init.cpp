@@ -33,7 +33,6 @@ void Init::initialize_hydro_fields(Field *hydro_fields, InitData *DATA) {
     hydro_fields->Du_mu = new double* [4];
     hydro_fields->sigma_munu = new double* [10];
     hydro_fields->D_mu_mu_B_over_T = new double* [4];
-    hydro_fields->dUsup = new double* [20];
     hydro_fields->Wmunu_rk0 = new double* [14];
     hydro_fields->Wmunu_rk1 = new double* [14];
     hydro_fields->Wmunu_prev = new double* [14];
@@ -46,9 +45,6 @@ void Init::initialize_hydro_fields(Field *hydro_fields, InitData *DATA) {
     }
     for (int i = 0; i < 10; i++) {
         hydro_fields->sigma_munu[i] = new double[n_cell];
-    }
-    for (int i = 0; i < 20; i++) {
-        hydro_fields->dUsup[i] = new double[n_cell];
     }
     for (int i = 0; i < 14; i++) {
         hydro_fields->Wmunu_rk0[i] = new double[n_cell];
