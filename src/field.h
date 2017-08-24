@@ -22,9 +22,6 @@ struct Field {
     double **Wmunu_rk0;
     double **Wmunu_rk1;
     double **Wmunu_prev;
-    double *pi_b_rk0;
-    double *pi_b_rk1;
-    double *pi_b_prev;
 };
 
 #endif  // SRC_FIELD_H_

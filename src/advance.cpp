@@ -592,7 +592,7 @@ int Advance::FirstRKStepW(double tau, int rk_flag,
             vis_array_new[alpha] /= u0;
         }
     } else {
-        for (int alpha = 0; alpha < 14; alpha++) {
+        for (int alpha = 0; alpha < 15; alpha++) {
             //double rk0 = vis_nbr_tau[alpha]*vis_nbr_tau[15];
             double rk0 = (hydro_fields->Wmunu_prev[alpha][idx]
                           *hydro_fields->u_prev[0][idx]);
@@ -600,11 +600,6 @@ int Advance::FirstRKStepW(double tau, int rk_flag,
             vis_array_new[alpha] *= 0.5;
             vis_array_new[alpha] /= u0;
         }
-        double rk0 = (hydro_fields->pi_b_prev[idx]
-                      *hydro_fields->u_prev[0][idx]);
-        vis_array_new[14] += rk0;
-        vis_array_new[14] *= 0.5;
-        vis_array_new[14] /= u0;
     }
 
     // reconstruct other components
@@ -674,10 +669,9 @@ void Advance::update_grid_array_from_field_prev(
 
 void Advance::update_vis_array_from_field(Field *hydro_fields, int idx,
                                           double *vis_array) {
-    for (int i = 0; i < 14; i++) {
+    for (int i = 0; i < 15; i++) {
         vis_array[i] = hydro_fields->Wmunu_rk0[i][idx];
     }
-    vis_array[14] = hydro_fields->pi_b_rk0[idx];
     for (int i = 0; i < 4; i++) {
         vis_array[15+i] = hydro_fields->u_rk0[i][idx];
     }
@@ -686,10 +680,9 @@ void Advance::update_vis_array_from_field(Field *hydro_fields, int idx,
 
 void Advance::update_vis_prev_tau_from_field(Field *hydro_fields, int idx,
                                              double *vis_array) {
-    for (int i = 0; i < 14; i++) {
+    for (int i = 0; i < 15; i++) {
         vis_array[i] = hydro_fields->Wmunu_prev[i][idx];
     }
-    vis_array[14] = hydro_fields->pi_b_prev[idx];
     for (int i = 0; i < 4; i++) {
         vis_array[15+i] = hydro_fields->u_prev[i][idx];
     }
@@ -1179,10 +1172,9 @@ void Advance::update_grid_cell(double *grid_array, Field *hydro_fields,
 void Advance::update_grid_cell_viscous(double *vis_array, Field *hydro_fields,
                                        int ieta, int ix, int iy) {
     int field_idx = get_indx(ieta, ix, iy);
-    for (int alpha = 0; alpha < 14; alpha++) {
+    for (int alpha = 0; alpha < 15; alpha++) {
         hydro_fields->Wmunu_rk1[alpha][field_idx] = vis_array[alpha];
     }
-    hydro_fields->pi_b_rk1[field_idx] = vis_array[14];
 }           
 
 //! This function reverts the grid information back its values
@@ -1377,7 +1369,7 @@ void Advance::MakeWSource(double tau, Field *hydro_fields,
             //Pi_alpha0 = (vis_array[14]
             //             *(gfac + vis_array[15+alpha]
             //                      *vis_array[15]));
-            Pi_alpha0 = (hydro_fields->pi_b_rk0[field_idx]
+            Pi_alpha0 = (hydro_fields->Wmunu_rk0[14][field_idx]
                          *(gfac + hydro_fields->u_rk0[alpha][field_idx]
                                   *hydro_fields->u_rk0[0][field_idx]));
 
@@ -1385,7 +1377,7 @@ void Advance::MakeWSource(double tau, Field *hydro_fields,
             //           - vis_nbr_tau[14]
             //             *(gfac + vis_nbr_tau[alpha+15]
             //                      *vis_nbr_tau[15]))/DELTA_TAU;
-            dPidtau = ((Pi_alpha0 - hydro_fields->pi_b_prev[field_idx]
+            dPidtau = ((Pi_alpha0 - hydro_fields->Wmunu_prev[14][field_idx]
                                     *(gfac + hydro_fields->u_prev[alpha][field_idx]
                                              *hydro_fields->u_prev[0][field_idx]))/DELTA_TAU);
         }
@@ -1411,13 +1403,13 @@ void Advance::MakeWSource(double tau, Field *hydro_fields,
 
         if (alpha < 4 && INCLUDE_BULK) {
             double gfac1 = (alpha == 1 ? 1.0 : 0.0);
-            bg = (hydro_fields->pi_b_rk0[field_idx]
+            bg = (hydro_fields->Wmunu_rk0[14][field_idx]
                   *(gfac1 + hydro_fields->u_rk0[alpha][field_idx]
                             *hydro_fields->u_rk0[1][field_idx]));
-            bgp1 = (hydro_fields->pi_b_rk0[field_idx_p_1]
+            bgp1 = (hydro_fields->Wmunu_rk0[14][field_idx_p_1]
                     *(gfac1 + hydro_fields->u_rk0[alpha][field_idx_p_1]
                               *hydro_fields->u_rk0[1][field_idx_p_1]));
-            bgm1 = (hydro_fields->pi_b_rk0[field_idx_m_1]
+            bgm1 = (hydro_fields->Wmunu_rk0[14][field_idx_m_1]
                     *(gfac1 + hydro_fields->u_rk0[alpha][field_idx_m_1]
                               *hydro_fields->u_rk0[1][field_idx_m_1]));
             //dPidx_perp += (bgp1 - bgm1)/(2.*DELTA_X);
@@ -1436,13 +1428,13 @@ void Advance::MakeWSource(double tau, Field *hydro_fields,
 
         if (alpha < 4 && INCLUDE_BULK) {
             double gfac1 = (alpha == 2 ? 1.0 : 0.0);
-            bg = (hydro_fields->pi_b_rk0[field_idx]
+            bg = (hydro_fields->Wmunu_rk0[14][field_idx]
                   *(gfac1 + hydro_fields->u_rk0[alpha][field_idx]
                             *hydro_fields->u_rk0[2][field_idx]));
-            bgp1 = (hydro_fields->pi_b_rk0[field_idx_p_1]
+            bgp1 = (hydro_fields->Wmunu_rk0[14][field_idx_p_1]
                     *(gfac1 + hydro_fields->u_rk0[alpha][field_idx_p_1]
                               *hydro_fields->u_rk0[2][field_idx_p_1]));
-            bgm1 = (hydro_fields->pi_b_rk0[field_idx_m_1]
+            bgm1 = (hydro_fields->Wmunu_rk0[14][field_idx_m_1]
                     *(gfac1 + hydro_fields->u_rk0[alpha][field_idx_m_1]
                               *hydro_fields->u_rk0[2][field_idx_m_1]));
             //dPidx_perp += (bgp1 - bgm1)/(2.*DELTA_Y);
@@ -1464,13 +1456,13 @@ void Advance::MakeWSource(double tau, Field *hydro_fields,
 
         if (alpha < 4 && INCLUDE_BULK) {
             double gfac3 = (alpha == 3 ? 1.0 : 0.0);
-            bg = (hydro_fields->pi_b_rk0[field_idx]
+            bg = (hydro_fields->Wmunu_rk0[14][field_idx]
                   *(gfac3 + hydro_fields->u_rk0[alpha][field_idx]
                             *hydro_fields->u_rk0[3][field_idx]));
-            bgp1 = (hydro_fields->pi_b_rk0[field_idx_p_1]
+            bgp1 = (hydro_fields->Wmunu_rk0[14][field_idx_p_1]
                     *(gfac3 + hydro_fields->u_rk0[alpha][field_idx_p_1]
                               *hydro_fields->u_rk0[3][field_idx_p_1]));
-            bgm1 = (hydro_fields->pi_b_rk0[field_idx_m_1]
+            bgm1 = (hydro_fields->Wmunu_rk0[14][field_idx_m_1]
                     *(gfac3 + hydro_fields->u_rk0[alpha][field_idx_m_1]
                               *hydro_fields->u_rk0[3][field_idx_m_1]));
             //dPideta = ((bgp1 - bgm1)
@@ -1491,7 +1483,7 @@ void Advance::MakeWSource(double tau, Field *hydro_fields,
             //bf += vis_array[14]*(1.0 + vis_array[18]
             //                                *vis_array[18]);
             sf += hydro_fields->Wmunu_rk0[9][field_idx];
-            bf += (hydro_fields->pi_b_rk0[field_idx]
+            bf += (hydro_fields->Wmunu_rk0[14][field_idx]
                    *(1.0 + hydro_fields->u_rk0[3][field_idx]
                            *hydro_fields->u_rk0[3][field_idx]));
         }
@@ -1500,7 +1492,7 @@ void Advance::MakeWSource(double tau, Field *hydro_fields,
             //bf += vis_array[14]*(vis_array[15]
             //                          *vis_array[18]);
             sf += hydro_fields->Wmunu_rk0[3][field_idx];
-            bf += (hydro_fields->pi_b_rk0[field_idx]
+            bf += (hydro_fields->Wmunu_rk0[14][field_idx]
                    *(hydro_fields->u_rk0[0][field_idx]
                      *hydro_fields->u_rk0[3][field_idx]));
         }
@@ -2696,10 +2688,9 @@ void Advance::update_field_rk1_to_rk0(Field *hydro_fields, int indx) {
     for (int ii = 0; ii < 4; ii++) {
         hydro_fields->u_rk0[ii][indx] = hydro_fields->u_rk1[ii][indx];
     }
-    for (int ii = 0; ii < 14; ii++) {
+    for (int ii = 0; ii < 15; ii++) {
         hydro_fields->Wmunu_rk0[ii][indx] = hydro_fields->Wmunu_rk1[ii][indx];
     }
-    hydro_fields->pi_b_rk0[indx] = hydro_fields->pi_b_rk1[indx];
 }
 
 
@@ -2709,8 +2700,7 @@ void Advance::update_field_rk0_to_prev(Field *hydro_fields, int indx) {
     for (int ii = 0; ii < 4; ii++) {
         hydro_fields->u_prev[ii][indx] = hydro_fields->u_rk0[ii][indx];
     }
-    for (int ii = 0; ii < 14; ii++) {
+    for (int ii = 0; ii < 15; ii++) {
         hydro_fields->Wmunu_prev[ii][indx] = hydro_fields->Wmunu_rk0[ii][indx];
     }
-    hydro_fields->pi_b_prev[indx] = hydro_fields->pi_b_rk0[indx];
 }

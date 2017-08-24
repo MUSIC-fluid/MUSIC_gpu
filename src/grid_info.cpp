@@ -458,7 +458,7 @@ void Grid_info::check_conservation_law(Field *hydro_fields, InitData *DATA,
                             *hydro_fields->u_rk0[0][idx]
                             + hydro_fields->Wmunu_prev[10][idx]);
                     double Pi00_rk_0 = (
-                        hydro_fields->pi_b_prev[idx]
+                        hydro_fields->Wmunu_prev[14][idx]
                         *(-1.0 + hydro_fields->u_prev[0][idx]
                                  *(hydro_fields->u_prev[0][idx])));
                     double e_local = hydro_fields->e_rk0[idx];
@@ -471,7 +471,7 @@ void Grid_info::check_conservation_law(Field *hydro_fields, InitData *DATA,
                     double T_tau_tau = (T00_local
                                         + hydro_fields->Wmunu_prev[0][idx]
                                         + Pi00_rk_0);
-                    double Pi03_rk_0 = (hydro_fields->pi_b_prev[idx]
+                    double Pi03_rk_0 = (hydro_fields->Wmunu_prev[14][idx]
                                         *hydro_fields->u_prev[0][idx]
                                         *hydro_fields->u_prev[3][idx]);
                     double T_tau_eta = (T03_local

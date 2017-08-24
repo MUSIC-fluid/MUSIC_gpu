@@ -35,9 +35,9 @@ void Init::initialize_hydro_fields(Field *hydro_fields, InitData *DATA) {
     hydro_fields->Du_mu = new double* [4];
     hydro_fields->sigma_munu = new double* [10];
     hydro_fields->D_mu_mu_B_over_T = new double* [4];
-    hydro_fields->Wmunu_rk0 = new double* [14];
-    hydro_fields->Wmunu_rk1 = new double* [14];
-    hydro_fields->Wmunu_prev = new double* [14];
+    hydro_fields->Wmunu_rk0 = new double* [15];
+    hydro_fields->Wmunu_rk1 = new double* [15];
+    hydro_fields->Wmunu_prev = new double* [15];
     for (int i = 0; i < 5; i++) {
         hydro_fields->qi_array[i] = new double[n_cell];
         hydro_fields->qi_array_new[i] = new double[n_cell];
@@ -52,14 +52,11 @@ void Init::initialize_hydro_fields(Field *hydro_fields, InitData *DATA) {
     for (int i = 0; i < 10; i++) {
         hydro_fields->sigma_munu[i] = new double[n_cell];
     }
-    for (int i = 0; i < 14; i++) {
+    for (int i = 0; i < 15; i++) {
         hydro_fields->Wmunu_rk0[i] = new double[n_cell];
         hydro_fields->Wmunu_rk1[i] = new double[n_cell];
         hydro_fields->Wmunu_prev[i] = new double[n_cell];
     }
-    hydro_fields->pi_b_rk0 = new double[n_cell];
-    hydro_fields->pi_b_rk1 = new double[n_cell];
-    hydro_fields->pi_b_prev = new double[n_cell];
 }
 
 void Init::InitArena(InitData *DATA, Field *hydro_fields) {
@@ -419,8 +416,6 @@ void Init::initial_Gubser_XY(InitData *DATA, int ieta, Field *hydro_fields) {
                 hydro_fields->u_prev[2][idx] = temp_profile_uy_prev[ix][iy];
                 hydro_fields->u_prev[3][idx] = 0.0;
             }
-            hydro_fields->pi_b_prev[idx] = 0.0;
-            hydro_fields->pi_b_rk0[idx] = 0.0;
 
             if (DATA->turn_on_shear == 1) {
                 hydro_fields->Wmunu_rk0[0][idx] = temp_profile_pi00[ix][iy];
@@ -433,16 +428,16 @@ void Init::initial_Gubser_XY(InitData *DATA, int ieta, Field *hydro_fields) {
                 hydro_fields->Wmunu_rk0[7][idx] = temp_profile_piyy[ix][iy];
                 hydro_fields->Wmunu_rk0[8][idx] = 0.0;
                 hydro_fields->Wmunu_rk0[9][idx] = temp_profile_pi33[ix][iy];
-                for (int mu = 10; mu < 14; mu++) {
+                for (int mu = 10; mu < 15; mu++) {
                         hydro_fields->Wmunu_rk0[mu][idx] = 0.0;
                 }
             } else {
-                for (int mu = 0; mu < 14; mu++) {
+                for (int mu = 0; mu < 15; mu++) {
                         hydro_fields->Wmunu_rk0[mu][idx] = 0.0;
                 }
             }
             for (int rkstep = 0; rkstep < 1; rkstep++) {
-                for (int ii = 0; ii < 14; ii++) {
+                for (int ii = 0; ii < 15; ii++) {
                     hydro_fields->Wmunu_prev[ii][idx] =
                                         hydro_fields->Wmunu_rk0[ii][idx];
                 }
@@ -609,8 +604,6 @@ void Init::initial_Bjorken_XY(InitData *DATA, int ieta, Field *hydro_fields) {
                 hydro_fields->u_prev[1][idx] = temp_profile_ux_prev[ix][iy];
                 hydro_fields->u_prev[2][idx] = temp_profile_uy_prev[ix][iy];
                 hydro_fields->u_prev[3][idx] = 0.0;
-            hydro_fields->pi_b_prev[idx] = 0.0;
-            hydro_fields->pi_b_rk0[idx] = 0.0;
 
                 hydro_fields->Wmunu_rk0[0][idx] = temp_profile_pi00[ix][iy];
                 hydro_fields->Wmunu_rk0[1][idx] = temp_profile_pi0x[ix][iy];
@@ -622,14 +615,14 @@ void Init::initial_Bjorken_XY(InitData *DATA, int ieta, Field *hydro_fields) {
                 hydro_fields->Wmunu_rk0[7][idx] = temp_profile_piyy[ix][iy];
                 hydro_fields->Wmunu_rk0[8][idx] = 0.0;
                 hydro_fields->Wmunu_rk0[9][idx] = temp_profile_pi33[ix][iy];
-                for (int mu = 10; mu < 14; mu++) {
+                for (int mu = 10; mu < 15; mu++) {
                         hydro_fields->Wmunu_rk0[mu][idx] = 0.0;
                 }
-                for (int mu = 0; mu < 14; mu++) {
+                for (int mu = 0; mu < 15; mu++) {
                         hydro_fields->Wmunu_rk0[mu][idx] = 0.0;
                 }
             for (int rkstep = 0; rkstep < 1; rkstep++) {
-                for (int ii = 0; ii < 14; ii++) {
+                for (int ii = 0; ii < 15; ii++) {
                     hydro_fields->Wmunu_prev[ii][idx] =
                                         hydro_fields->Wmunu_rk0[ii][idx];
                 }
@@ -769,11 +762,8 @@ void Init::initial_IPGlasma_XY(InitData *DATA, int ieta, Field *hydro_fields) {
             hydro_fields->u_prev[2][idx] = u[2];
             hydro_fields->u_prev[3][idx] = u[3];
 
-            hydro_fields->pi_b_prev[idx] = 0.0;
-            hydro_fields->pi_b_rk0[idx] = 0.0;
-            hydro_fields->pi_b_rk1[idx] = 0.0;
 
-            for (int ii = 0; ii < 14; ii++) {
+            for (int ii = 0; ii < 15; ii++) {
                 hydro_fields->Wmunu_prev[ii][idx] = 0.0;
                 hydro_fields->Wmunu_rk0[ii][idx] = 0.0;
                 hydro_fields->Wmunu_rk1[ii][idx] = 0.0;
