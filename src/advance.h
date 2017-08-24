@@ -89,47 +89,35 @@ class Advance {
 #pragma acc routine seq
     void prepare_vis_array(
         Field *hydro_fields, int ieta, int ix, int iy,
-        double *vis_array, double *vis_nbr_tau,
-        double vis_nbr_x[][19], double vis_nbr_y[][19],
-        double vis_nbr_eta[][19]);
+        double *vis_array);
 
 
 #pragma acc routine seq
-    int FirstRKStepW(double tau, int rk_flag,
-                     double *vis_array, double *vis_nbr_tau,
-                     double vis_nbr_x[][19],
-                     double vis_nbr_y[][19], double vis_nbr_eta[][19],
-                     double *vis_array_new, Field *hydro_fields,
-                     int ieta, int ix, int iy);
+    int FirstRKStepW(double tau, int rk_flag, double *vis_array,
+                     Field *hydro_fields, int ieta, int ix, int iy);
 
 #pragma acc routine seq
     void MakeWSource(double tau, Field *hydro_fields,
                      int ieta, int ix, int iy);
 
 #pragma acc routine seq
-    int Make_uWRHS(double tau,
-                   double *vis_array, double vis_nbr_x[][19],
-                   double vis_nbr_y[][19], double vis_nbr_eta[][19],
-                   double *vis_array_new, Field *hydro_fields,
-                   int ieta, int ix, int iy);
+    int Make_uWRHS(double tau, double *vis_array,
+                   Field *hydro_fields, int ieta, int ix, int iy);
 
 #pragma acc routine seq
     double Make_uWSource(double tau, double *vis_array,
-                         double *vis_array_new, Field *hydro_fields,
-                         int ieta, int ix, int iy);
+                         Field *hydro_fields, int ieta, int ix, int iy);
 
 #pragma acc routine seq
     double Make_uPiSource(double tau, double *vis_array,
-                          double *vis_array_new, Field *hydro_fields,
-                          int ieta, int ix, int iy);
+                          Field *hydro_fields, int ieta, int ix, int iy);
 
 #pragma acc routine seq
     double Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
                          int n_cell_y,
                          double vis_array[][19],
                          double velocity_array[][20],
-                         double grid_array[][5],
-                         double vis_array_new[][19]);
+                         double grid_array[][5]);
 
 #pragma acc routine seq
     double get_temperature_dependent_zeta_s(double temperature);
@@ -159,7 +147,7 @@ class Advance {
                                   int ieta, int ix, int iy);
 
 #pragma acc routine seq
-    int QuestRevert(double tau, double *vis_array, Field *hydro_fields,
+    int QuestRevert(double tau, Field *hydro_fields,
                     int ieta, int ix, int iy);
 
 #pragma acc routine seq
