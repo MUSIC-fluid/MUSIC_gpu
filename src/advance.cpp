@@ -133,6 +133,19 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                 }
             }
         }
+        
+        if (INITIAL_PROFILE > 2) {
+            #pragma acc parallel loop gang worker vector collapse(3) \
+                independent present(hydro_fields)
+            for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
+                for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
+                    for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
+                        int idx = get_indx(ieta, ix, iy);
+                        QuestRevert(tau, hydro_fields, idx);
+                    }
+                }
+            }
+        }
     }
     
 
@@ -567,16 +580,9 @@ int Advance::FirstRKStepW(double tau, int rk_flag, double *vis_array,
     hydro_fields->Wmunu_rk1[11][idx] = 0.0;
     hydro_fields->Wmunu_rk1[12][idx] = 0.0;
     hydro_fields->Wmunu_rk1[13][idx] = 0.0;
-
-    // If the energy density of the fluid element is smaller
-    // than 0.01GeV reduce Wmunu using the QuestRevert algorithm
-    if (INITIAL_PROFILE >2) {
-        QuestRevert(tau, hydro_fields, ieta, ix, iy);
-    }
-
+    
     return(1);
 }
-
 
 
 void Advance::update_grid_array_from_field(
@@ -625,16 +631,12 @@ void Advance::update_vis_prev_tau_from_field(Field *hydro_fields, int idx,
 
 //! this function reduce the size of shear stress tensor and bulk pressure
 //! in the dilute region to stablize numerical simulations
-int Advance::QuestRevert(double tau, Field *hydro_fields,
-                         int ieta, int ix, int iy) {
-    int revert_flag = 0;
-    int idx = get_indx(ieta, ix, iy);
+void Advance::QuestRevert(double tau, Field *hydro_fields, int idx) {
+    //double eps_scale = 1.0;  // 1/fm^4
+    //double factor = 300.*tanh(e_local/eps_scale);
+    double factor = 300.*tanh(hydro_fields->e_rk1[idx]/1.0);
 
-    double eps_scale = 1.0;  // 1/fm^4
-    double e_local = hydro_fields->e_rk0[idx];
-    double factor = 300.*tanh(e_local/eps_scale);
-
-    double pisize = (
+    double vis_size = (
         hydro_fields->Wmunu_rk1[0][idx]*hydro_fields->Wmunu_rk1[0][idx]
         + hydro_fields->Wmunu_rk1[4][idx]*hydro_fields->Wmunu_rk1[4][idx]
         + hydro_fields->Wmunu_rk1[7][idx]*hydro_fields->Wmunu_rk1[7][idx]
@@ -646,31 +648,29 @@ int Advance::QuestRevert(double tau, Field *hydro_fields,
               + hydro_fields->Wmunu_rk1[6][idx]*hydro_fields->Wmunu_rk1[6][idx]
               + hydro_fields->Wmunu_rk1[8][idx]*hydro_fields->Wmunu_rk1[8][idx]));
   
-    double bulksize = (3.*hydro_fields->Wmunu_rk1[14][idx]
-                       *hydro_fields->Wmunu_rk1[14][idx]);
 
-    double p_local = get_pressure(e_local, hydro_fields->rhob_rk0[idx]);
-    double eq_size = e_local*e_local + 3.*p_local*p_local;
+    double p_local = get_pressure(hydro_fields->e_rk1[idx],
+                                  hydro_fields->rhob_rk1[idx]);
+    double eq_size = (hydro_fields->e_rk1[idx]*hydro_fields->e_rk1[idx]
+                      + 3.*p_local*p_local);
        
-    double rho_shear = sqrt(pisize/eq_size)/factor; 
-    double rho_bulk  = sqrt(bulksize/eq_size)/factor;
- 
+    double rho_vis = sqrt(vis_size/eq_size)/factor; 
+    double rho_max = 0.1;
     // Reducing the shear stress tensor 
-    double rho_shear_max = 0.1;
-    if (rho_shear > rho_shear_max) {
+    if (rho_vis > rho_max) {
         for (int mu = 0; mu < 10; mu++) {
-            hydro_fields->Wmunu_rk1[mu][idx] *= (rho_shear_max/rho_shear);
+            hydro_fields->Wmunu_rk1[mu][idx] *= (rho_max/rho_vis);
         }
-        revert_flag = 1;
     }
    
+    // bulk viscous pressure
+    vis_size = (3.*hydro_fields->Wmunu_rk1[14][idx]
+                  *hydro_fields->Wmunu_rk1[14][idx]);
+    rho_vis  = sqrt(vis_size/eq_size)/factor;
     // Reducing bulk viscous pressure 
-    double rho_bulk_max = 0.1;
-    if (rho_bulk > rho_bulk_max) {
-        hydro_fields->Wmunu_rk1[14][idx] *= (rho_bulk_max/rho_bulk);
-        revert_flag = 1;
+    if (rho_vis > rho_max) {
+        hydro_fields->Wmunu_rk1[14][idx] *= (rho_max/rho_vis);
     }
-    return(revert_flag);
 }
 
 
