@@ -122,7 +122,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                 for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
                     for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
                         int idx = get_indx(ieta, ix, iy);
-                        QuestRevert(tau, hydro_fields, idx);
+                        QuestRevert(hydro_fields, idx);
                     }
                 }
             }
@@ -590,7 +590,7 @@ void Advance::update_grid_array_from_field_prev(
 
 //! this function reduce the size of shear stress tensor and bulk pressure
 //! in the dilute region to stablize numerical simulations
-void Advance::QuestRevert(double tau, Field *hydro_fields, int idx) {
+void Advance::QuestRevert(Field *hydro_fields, int idx) {
     //double eps_scale = 1.0;  // 1/fm^4
     //double factor = 300.*tanh(e_local/eps_scale);
     double factor = 300.*tanh(hydro_fields->e_rk1[idx]/1.0);

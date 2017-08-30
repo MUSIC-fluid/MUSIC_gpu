@@ -133,7 +133,7 @@ class Advance {
                                   int ieta, int ix, int iy);
 
 #pragma acc routine seq
-    void QuestRevert(double tau, Field *hydro_fields, int idx);
+    void QuestRevert(Field *hydro_fields, int idx);
 
 #pragma acc routine seq
     int QuestRevert_qmu(double tau, double *vis_array, double *grid_array);

@@ -4,24 +4,24 @@
 
 #define SMALL (1.0e-16)
 
-#define GRID_SIZE_X 200
-#define GRID_SIZE_Y 200
+#define GRID_SIZE_X 199
+#define GRID_SIZE_Y 199
 #define GRID_SIZE_ETA 1
 
 #define get_indx(IETA, IX, IY)  IY + IX*(GRID_SIZE_Y + 1) + IETA*(GRID_SIZE_Y + 1)*(GRID_SIZE_X + 1)
 
 #define DELTA_TAU 0.005
-#define DELTA_X 0.05
-#define DELTA_Y 0.05
+#define DELTA_X 0.17
+#define DELTA_Y 0.17
 #define DELTA_ETA 0.1
 
 #define VISCOUS_FLAG 1
 #define INCLUDE_SHEAR 1
 #define SHEAR_TO_S 0.20
-#define INCLUDE_BULK 0
+#define INCLUDE_BULK 1
 #define INCLUDE_DIFF 0
-#define INITIAL_PROFILE 0
-#define EOS_TYPE 0
+#define INITIAL_PROFILE 8
+#define EOS_TYPE 1
 
 
 #include <stdio.h>
