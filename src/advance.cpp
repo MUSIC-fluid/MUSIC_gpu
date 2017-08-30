@@ -20,27 +20,12 @@ Advance::~Advance() {
 }
 
 
-void Advance::prepare_vis_array(
-        Field *hydro_fields, int ieta, int ix, int iy,
-        double *vis_array) {
-
-    int field_idx;
-
-    // first build qi cube sub_grid_x*sub_grid_x*sub_grid_neta
-    int idx = 0;
-
-    field_idx = get_indx(ieta, ix, iy);
-    update_vis_array_from_field(hydro_fields, field_idx, vis_array);
-}
-
-                        
 // evolve Runge-Kutta step in tau
 int Advance::AdvanceIt(double tau, Field *hydro_fields,
                        int rk_flag) {
     double tmp[1]={-1.1};
 
     double grid_array[5], qi_array[5];
-    double vis_array[19];
     double qiphL[5];
     double qiphR[5];
     double qimhL[5];
@@ -121,15 +106,11 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
 
         #pragma acc parallel loop gang worker vector collapse(3) independent \
             present(hydro_fields)\
-            private(this[0:1], vis_array[0:19])
+            private(this[0:1])
         for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
             for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
                 for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
-                    prepare_vis_array(hydro_fields, ieta, ix, iy,
-                                      vis_array);
-
-                    FirstRKStepW(tau, rk_flag, vis_array,
-                                 hydro_fields, ieta, ix, iy);
+                    FirstRKStepW(tau, rk_flag, hydro_fields, ieta, ix, iy);
                 }
             }
         }
@@ -499,8 +480,8 @@ double Advance::reconst_u0_df(double u0, double T00, double K00, double M,
 }
 
 
-int Advance::FirstRKStepW(double tau, int rk_flag, double *vis_array,
-                          Field *hydro_fields, int ieta, int ix, int iy) {
+int Advance::FirstRKStepW(double tau, int rk_flag, Field *hydro_fields,
+                          int ieta, int ix, int iy) {
     double tau_rk = tau + rk_flag*DELTA_TAU;
 
     int idx = get_indx(ieta, ix, iy);
@@ -603,28 +584,6 @@ void Advance::update_grid_array_from_field_prev(
     for (int i = 1; i < 4; i++) {
         grid_array[i] = (hydro_fields->u_prev[i][idx]
                          /hydro_fields->u_prev[0][idx]);
-    }
-}
-
-
-void Advance::update_vis_array_from_field(Field *hydro_fields, int idx,
-                                          double *vis_array) {
-    for (int i = 0; i < 15; i++) {
-        vis_array[i] = hydro_fields->Wmunu_rk0[i][idx];
-    }
-    for (int i = 0; i < 4; i++) {
-        vis_array[15+i] = hydro_fields->u_rk0[i][idx];
-    }
-}
-
-
-void Advance::update_vis_prev_tau_from_field(Field *hydro_fields, int idx,
-                                             double *vis_array) {
-    for (int i = 0; i < 15; i++) {
-        vis_array[i] = hydro_fields->Wmunu_prev[i][idx];
-    }
-    for (int i = 0; i < 4; i++) {
-        vis_array[15+i] = hydro_fields->u_prev[i][idx];
     }
 }
 
@@ -1080,13 +1039,6 @@ void Advance::update_grid_cell(double *grid_array, Field *hydro_fields,
     }
 }           
 
-void Advance::update_grid_cell_viscous(double *vis_array, Field *hydro_fields,
-                                       int ieta, int ix, int iy) {
-    int field_idx = get_indx(ieta, ix, iy);
-    for (int alpha = 0; alpha < 15; alpha++) {
-        hydro_fields->Wmunu_rk1[alpha][field_idx] = vis_array[alpha];
-    }
-}           
 
 //! This function reverts the grid information back its values
 //! at the previous time step
