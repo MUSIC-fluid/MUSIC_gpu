@@ -524,11 +524,11 @@ int Advance::FirstRKStepW(double tau, int rk_flag, double *vis_array,
 
     // add source terms
     if (INCLUDE_SHEAR) {
-        Make_uWSource(tau_rk, vis_array, hydro_fields, ieta, ix, iy);
+        Make_uWSource(tau_rk, hydro_fields, ieta, ix, iy);
     }
 
     if (INCLUDE_BULK) {
-        Make_uPiSource(tau_rk, vis_array, hydro_fields, ieta, ix, iy);
+        Make_uPiSource(tau_rk, hydro_fields, ieta, ix, iy);
     }
     
     if (rk_flag == 0) {
@@ -1766,8 +1766,8 @@ int Advance::Make_uWRHS(double tau, Field* hydro_fields,
     return(1);
 }
 
-double Advance::Make_uWSource(double tau, double *vis_array,
-                              Field *hydro_fields, int ieta, int ix, int iy) {
+double Advance::Make_uWSource(double tau, Field *hydro_fields,
+                              int ieta, int ix, int iy) {
     int idx = get_indx(ieta, ix, iy);
 
     int include_WWterm = 1;
@@ -1843,7 +1843,7 @@ double Advance::Make_uWSource(double tau, double *vis_array,
         //- (1.0 + transport_coefficient2*theta_local)
         double tempf = (
             - (1.0 + transport_coefficient2*hydro_fields->expansion_rate[idx])
-              *(vis_array[idx_1d]));
+              *(hydro_fields->Wmunu_rk0[idx_1d][idx]));
 
         // Navier-Stokes Term -- -2.*shear*sigma^munu
         // full Navier-Stokes term is
@@ -1903,22 +1903,22 @@ double Advance::Make_uWSource(double tau, double *vis_array,
                  //+ Wmunu[1][1]*sigma[1][1]
                  //+ Wmunu[2][2]*sigma[2][2]
                  //+ Wmunu[3][3]*sigma[3][3]
-                   vis_array[0]*hydro_fields->sigma_munu[0][idx]
-                 + vis_array[4]*hydro_fields->sigma_munu[4][idx]
-                 + vis_array[7]*hydro_fields->sigma_munu[7][idx]
-                 + vis_array[9]*hydro_fields->sigma_munu[9][idx]
+                   hydro_fields->Wmunu_rk0[0][idx]*hydro_fields->sigma_munu[0][idx]
+                 + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->sigma_munu[4][idx]
+                 + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->sigma_munu[7][idx]
+                 + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->sigma_munu[9][idx]
                  //- 2.*(  Wmunu[0][1]*sigma[0][1]
                  //      + Wmunu[0][2]*sigma[0][2]
                  //      + Wmunu[0][3]*sigma[0][3])
-                 - 2.*(  vis_array[1]*hydro_fields->sigma_munu[1][idx]
-                       + vis_array[2]*hydro_fields->sigma_munu[2][idx]
-                       + vis_array[3]*hydro_fields->sigma_munu[3][idx])
+                 - 2.*(  hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->sigma_munu[1][idx]
+                       + hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->sigma_munu[2][idx]
+                       + hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->sigma_munu[3][idx])
                  //+2.*(  Wmunu[1][2]*sigma[1][2]
                  //     + Wmunu[1][3]*sigma[1][3]
                  //     + Wmunu[2][3]*sigma[2][3]));
-                 +2.*(  vis_array[5]*hydro_fields->sigma_munu[5][idx]
-                      + vis_array[6]*hydro_fields->sigma_munu[6][idx]
-                      + vis_array[8]*hydro_fields->sigma_munu[8][idx]));
+                 +2.*(  hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->sigma_munu[5][idx]
+                      + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->sigma_munu[6][idx]
+                      + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[8][idx]));
 
             //term1_Wsigma = ( - Wmunu[mu][0]*sigma[nu][0]
             //                 - Wmunu[nu][0]*sigma[mu][0]
@@ -1934,70 +1934,70 @@ double Advance::Make_uWSource(double tau, double *vis_array,
             //                         *Wsigma);
             if (idx_1d == 4) {  // pi^xx
                 term1_Wsigma = (
-                    - vis_array[1]*hydro_fields->sigma_munu[1][idx]
-                    + vis_array[4]*hydro_fields->sigma_munu[4][idx]
-                    + vis_array[5]*hydro_fields->sigma_munu[5][idx]
-                    + vis_array[6]*hydro_fields->sigma_munu[6][idx]);
+                    - hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->sigma_munu[1][idx]
+                    + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->sigma_munu[4][idx]
+                    + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->sigma_munu[5][idx]
+                    + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->sigma_munu[6][idx]);
                 term2_Wsigma = (-(1./3.)*(1.+ hydro_fields->u_rk0[1][idx]
                                               *hydro_fields->u_rk0[1][idx])
                                          *Wsigma);
             } else if (idx_1d == 5) {  // pi^xy
                 term1_Wsigma = 0.5*(
-                    - (vis_array[1]*hydro_fields->sigma_munu[2][idx]
-                        + vis_array[2]*hydro_fields->sigma_munu[1][idx])
-                    + (vis_array[4]*hydro_fields->sigma_munu[5][idx]
-                        + vis_array[5]*hydro_fields->sigma_munu[4][idx])
-                    + (vis_array[5]*hydro_fields->sigma_munu[7][idx]
-                        + vis_array[7]*hydro_fields->sigma_munu[5][idx])
-                    + (vis_array[6]*hydro_fields->sigma_munu[8][idx]
-                        + vis_array[8]*hydro_fields->sigma_munu[6][idx])
+                    - (hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->sigma_munu[2][idx]
+                        + hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->sigma_munu[1][idx])
+                    + (hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->sigma_munu[5][idx]
+                        + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->sigma_munu[4][idx])
+                    + (hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->sigma_munu[7][idx]
+                        + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->sigma_munu[5][idx])
+                    + (hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->sigma_munu[8][idx]
+                        + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[6][idx])
                 );
                 term2_Wsigma = (-(1./3.)*(hydro_fields->u_rk0[1][idx]
                                           *hydro_fields->u_rk0[2][idx])
                                          *Wsigma);
             } else if (idx_1d == 6) {  // pi^xeta
                 term1_Wsigma = 0.5*(
-                    - (vis_array[1]*hydro_fields->sigma_munu[3][idx]
-                        + vis_array[3]*hydro_fields->sigma_munu[1][idx])
-                    + (vis_array[4]*hydro_fields->sigma_munu[6][idx]
-                        + vis_array[6]*hydro_fields->sigma_munu[4][idx])
-                    + (vis_array[5]*hydro_fields->sigma_munu[8][idx]
-                        + vis_array[8]*hydro_fields->sigma_munu[5][idx])
-                    + (vis_array[6]*hydro_fields->sigma_munu[9][idx]
-                        + vis_array[9]*hydro_fields->sigma_munu[6][idx])
+                    - (   hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->sigma_munu[3][idx]
+                        + hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->sigma_munu[1][idx])
+                    + (   hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->sigma_munu[6][idx]
+                        + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->sigma_munu[4][idx])
+                    + (   hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->sigma_munu[8][idx]
+                        + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[5][idx])
+                    + (   hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->sigma_munu[9][idx]
+                        + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->sigma_munu[6][idx])
                 );
                 term2_Wsigma = (-(1./3.)*(hydro_fields->u_rk0[1][idx]
                                               *hydro_fields->u_rk0[3][idx])
                                          *Wsigma);
             } else if (idx_1d == 7) {  // pi^yy
                 term1_Wsigma = (
-                    - vis_array[2]*hydro_fields->sigma_munu[2][idx]
-                    + vis_array[5]*hydro_fields->sigma_munu[5][idx]
-                    + vis_array[7]*hydro_fields->sigma_munu[7][idx]
-                    + vis_array[8]*hydro_fields->sigma_munu[8][idx]);
+                    - hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->sigma_munu[2][idx]
+                    + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->sigma_munu[5][idx]
+                    + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->sigma_munu[7][idx]
+                    + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[8][idx]);
                 term2_Wsigma = (-(1./3.)*(1.+ hydro_fields->u_rk0[2][idx]
                                               *hydro_fields->u_rk0[2][idx])
                                          *Wsigma);
             } else if (idx_1d == 8) {  // pi^yeta
                 term1_Wsigma = 0.5*(
-                    - (vis_array[2]*hydro_fields->sigma_munu[3][idx]
-                        + vis_array[3]*hydro_fields->sigma_munu[2][idx])
-                    + (vis_array[5]*hydro_fields->sigma_munu[6][idx]
-                        + vis_array[6]*hydro_fields->sigma_munu[5][idx])
-                    + (vis_array[7]*hydro_fields->sigma_munu[8][idx]
-                        + vis_array[8]*hydro_fields->sigma_munu[7][idx])
-                    + (vis_array[8]*hydro_fields->sigma_munu[9][idx]
-                        + vis_array[9]*hydro_fields->sigma_munu[8][idx])
+                    - (   hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->sigma_munu[3][idx]
+                        + hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->sigma_munu[2][idx])
+                    + (   hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->sigma_munu[6][idx]
+                        + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->sigma_munu[5][idx])
+                    + (   hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->sigma_munu[8][idx]
+                        + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[7][idx])
+                    + (   hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[9][idx]
+                        + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->sigma_munu[8][idx])
                 );
                 term2_Wsigma = (-(1./3.)*(hydro_fields->u_rk0[2][idx]
                                           *hydro_fields->u_rk0[3][idx])
                                          *Wsigma);
             } else if (idx_1d == 9) {  // pi^etaeta
                 term1_Wsigma = (
-                    - vis_array[3]*hydro_fields->sigma_munu[3][idx]
-                    + vis_array[6]*hydro_fields->sigma_munu[6][idx]
-                    + vis_array[8]*hydro_fields->sigma_munu[8][idx]
-                    + vis_array[9]*hydro_fields->sigma_munu[9][idx]);
+                    - hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->sigma_munu[3][idx]
+                    + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->sigma_munu[6][idx]
+                    + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[8][idx]
+                    + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->sigma_munu[9][idx]);
                 term2_Wsigma = (-(1./3.)*(1.+ hydro_fields->u_rk0[3][idx]
                                               *hydro_fields->u_rk0[3][idx])
                                          *Wsigma);
@@ -2028,16 +2028,16 @@ double Advance::Make_uWSource(double tau, double *vis_array,
             //    + 2.*(  Wmunu[1][2]*Wmunu[1][2]
             //          + Wmunu[1][3]*Wmunu[1][3]
             //          + Wmunu[2][3]*Wmunu[2][3]));
-            Wsquare = (  vis_array[0]*vis_array[0]
-                       + vis_array[4]*vis_array[4]
-                       + vis_array[7]*vis_array[7]
-                       + vis_array[9]*vis_array[9]
-                - 2.*(  vis_array[1]*vis_array[1]
-                      + vis_array[2]*vis_array[2]
-                      + vis_array[3]*vis_array[3])
-                + 2.*(  vis_array[5]*vis_array[5]
-                      + vis_array[6]*vis_array[6]
-                      + vis_array[8]*vis_array[8]));
+            Wsquare = (  hydro_fields->Wmunu_rk0[0][idx]*hydro_fields->Wmunu_rk0[0][idx]
+                       + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->Wmunu_rk0[4][idx]
+                       + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->Wmunu_rk0[7][idx]
+                       + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->Wmunu_rk0[9][idx]
+                 - 2.*(  hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->Wmunu_rk0[1][idx]
+                       + hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->Wmunu_rk0[2][idx]
+                       + hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->Wmunu_rk0[3][idx])
+                 + 2.*(  hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[5][idx]
+                       + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->Wmunu_rk0[6][idx]
+                       + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->Wmunu_rk0[8][idx]));
 
             //term1_WW = ( - Wmunu[mu][0]*Wmunu[nu][0]
             //             + Wmunu[mu][1]*Wmunu[nu][1]
@@ -2050,57 +2050,57 @@ double Advance::Make_uWSource(double tau, double *vis_array,
             //    *Wsquare);
             if (idx_1d == 4) {  // pi^xx
                 term1_WW = (
-                    - vis_array[1]*vis_array[1]
-                    + vis_array[4]*vis_array[4]
-                    + vis_array[5]*vis_array[5]
-                    + vis_array[6]*vis_array[6]);
-                term2_WW = (- (1./3.)*(1.+ vis_array[16]
-                                           *vis_array[16])
+                    - hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->Wmunu_rk0[1][idx]
+                    + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->Wmunu_rk0[4][idx]
+                    + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[5][idx]
+                    + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->Wmunu_rk0[6][idx]);
+                term2_WW = (- (1./3.)*(1.+ hydro_fields->u_rk0[1][idx]
+                                           *hydro_fields->u_rk0[1][idx])
                                       *Wsquare);
             } else if (idx_1d == 5) {  // pi^xy
                 term1_WW = (
-                    - vis_array[1]*vis_array[2]
-                    + vis_array[4]*vis_array[5]
-                    + vis_array[5]*vis_array[7]
-                    + vis_array[6]*vis_array[8]);
-                term2_WW = (- (1./3.)*(vis_array[16]
-                                           *vis_array[17])
-                                      *Wsquare);
+                    - hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->Wmunu_rk0[2][idx]
+                    + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->Wmunu_rk0[5][idx]
+                    + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[7][idx]
+                    + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->Wmunu_rk0[8][idx]);
+                term2_WW = (- (1./3.)*(hydro_fields->u_rk0[1][idx]
+                                       *hydro_fields->u_rk0[2][idx])
+                                       *Wsquare);
             } else if (idx_1d == 6) {  // pi^xeta
                 term1_WW = (
-                    - vis_array[1]*vis_array[3]
-                    + vis_array[4]*vis_array[6]
-                    + vis_array[5]*vis_array[8]
-                    + vis_array[6]*vis_array[9]);
-                term2_WW = (- (1./3.)*(vis_array[16]
-                                           *vis_array[18])
+                    - hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->Wmunu_rk0[3][idx]
+                    + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->Wmunu_rk0[6][idx]
+                    + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[8][idx]
+                    + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->Wmunu_rk0[9][idx]);
+                term2_WW = (- (1./3.)*(hydro_fields->u_rk0[1][idx]
+                                           *hydro_fields->u_rk0[3][idx])
                                       *Wsquare);
             } else if (idx_1d == 7) {  // pi^yy
                 term1_WW = (
-                    - vis_array[2]*vis_array[2]
-                    + vis_array[5]*vis_array[5]
-                    + vis_array[7]*vis_array[7]
-                    + vis_array[8]*vis_array[8]);
-                term2_WW = (- (1./3.)*(1.+ vis_array[17]
-                                           *vis_array[17])
+                    - hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->Wmunu_rk0[2][idx]
+                    + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[5][idx]
+                    + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->Wmunu_rk0[7][idx]
+                    + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->Wmunu_rk0[8][idx]);
+                term2_WW = (- (1./3.)*(1.+ hydro_fields->u_rk0[2][idx]
+                                           *hydro_fields->u_rk0[2][idx])
                                       *Wsquare);
             } else if (idx_1d == 8) {  // pi^yeta
                 term1_WW = (
-                    - vis_array[2]*vis_array[3]
-                    + vis_array[5]*vis_array[6]
-                    + vis_array[7]*vis_array[8]
-                    + vis_array[8]*vis_array[9]);
-                term2_WW = (- (1./3.)*(vis_array[17]
-                                           *vis_array[18])
+                    - hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->Wmunu_rk0[3][idx]
+                    + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[6][idx]
+                    + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->Wmunu_rk0[8][idx]
+                    + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->Wmunu_rk0[9][idx]);
+                term2_WW = (- (1./3.)*(hydro_fields->u_rk0[2][idx]
+                                           *hydro_fields->u_rk0[3][idx])
                                       *Wsquare);
             } else if (idx_1d == 9) {  // pi^etaeta
                 term1_WW = (
-                    - vis_array[3]*vis_array[3]
-                    + vis_array[6]*vis_array[6]
-                    + vis_array[8]*vis_array[8]
-                    + vis_array[9]*vis_array[9]);
-                term2_WW = (- (1./3.)*(1.+ vis_array[18]
-                                           *vis_array[18])
+                    - hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->Wmunu_rk0[3][idx]
+                    + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->Wmunu_rk0[6][idx]
+                    + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->Wmunu_rk0[8][idx]
+                    + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->Wmunu_rk0[9][idx]);
+                term2_WW = (- (1./3.)*(1.+ hydro_fields->u_rk0[3][idx]
+                                           *hydro_fields->u_rk0[3][idx])
                                       *Wsquare);
             }
 
@@ -2125,9 +2125,9 @@ double Advance::Make_uWSource(double tau, double *vis_array,
 
         //Bulk_Sigma = grid_pt->pi_b[rk_flag]*sigma[mu][nu];
         //Bulk_W = grid_pt->pi_b[rk_flag]*Wmunu[mu][nu];
-        Bulk_Sigma = (vis_array[14]
+        Bulk_Sigma = (hydro_fields->Wmunu_rk0[14][idx]
                         *hydro_fields->sigma_munu[idx_1d][idx]);
-        Bulk_W = vis_array[14]*vis_array[idx_1d];
+        Bulk_W = hydro_fields->Wmunu_rk0[14][idx]*hydro_fields->Wmunu_rk0[idx_1d][idx];
 
         // multiply term by its respective transport coefficient
         Bulk_Sigma_term = Bulk_Sigma*transport_coefficient_b;
@@ -2149,8 +2149,8 @@ double Advance::Make_uWSource(double tau, double *vis_array,
 }
 
 
-double Advance::Make_uPiSource(double tau, double *vis_array,
-                               Field *hydro_fields, int ieta, int ix, int iy) {
+double Advance::Make_uPiSource(double tau, Field *hydro_fields,
+                               int ieta, int ix, int iy) {
     int idx = get_indx(ieta, ix, iy);
     // switch to include non-linear coupling terms in the bulk pi evolution
     int include_BBterm = 1;
@@ -2193,17 +2193,17 @@ double Advance::Make_uPiSource(double tau, double *vis_array,
     //double tempf = (-(grid_pt->pi_b[rk_flag])
     //         - transport_coeff1*theta_local
     //           *(grid_pt->pi_b[rk_flag]));
-    double tempf = (- vis_array[14]
+    double tempf = (- hydro_fields->Wmunu_rk0[14][idx]
                     - transport_coeff1*hydro_fields->expansion_rate[idx]
-                      *vis_array[14]);
+                      *hydro_fields->Wmunu_rk0[14][idx]);
 
     // Computing nonlinear term: + transport_coeff2*Bulk*Bulk
     double BB_term = 0.0;
     if (include_BBterm == 1) {
         //BB_term = (transport_coeff2*(grid_pt->pi_b[rk_flag])
         //           *(grid_pt->pi_b[rk_flag]));
-        BB_term = (transport_coeff2*vis_array[14]
-                   *vis_array[14]);
+        BB_term = (transport_coeff2*hydro_fields->Wmunu_rk0[14][idx]
+                   *hydro_fields->Wmunu_rk0[14][idx]);
     }
 
     // Computing terms that Couple with shear-stress tensor
@@ -2231,16 +2231,16 @@ double Advance::Make_uPiSource(double tau, double *vis_array,
         //          + 2.*(  Wmunu[1][2]*sigma[1][2]
         //                + Wmunu[1][3]*sigma[1][3]
         //                + Wmunu[2][3]*sigma[2][3]));
-        Wsigma = (  vis_array[0]*hydro_fields->sigma_munu[0][idx]
-                  + vis_array[4]*hydro_fields->sigma_munu[4][idx]
-                  + vis_array[7]*hydro_fields->sigma_munu[7][idx]
-                  + vis_array[9]*hydro_fields->sigma_munu[9][idx]
-                  - 2.*(  vis_array[1]*hydro_fields->sigma_munu[1][idx]
-                        + vis_array[2]*hydro_fields->sigma_munu[8][idx]
-                        + vis_array[3]*hydro_fields->sigma_munu[9][idx]) 
-                  + 2.*(  vis_array[5]*hydro_fields->sigma_munu[5][idx]
-                        + vis_array[6]*hydro_fields->sigma_munu[6][idx]
-                        + vis_array[8]*hydro_fields->sigma_munu[8][idx])
+        Wsigma = (  hydro_fields->Wmunu_rk0[0][idx]*hydro_fields->sigma_munu[0][idx]
+                  + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->sigma_munu[4][idx]
+                  + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->sigma_munu[7][idx]
+                  + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->sigma_munu[9][idx]
+                  - 2.*(  hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->sigma_munu[1][idx]
+                        + hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->sigma_munu[8][idx]
+                        + hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->sigma_munu[9][idx]) 
+                  + 2.*(  hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->sigma_munu[5][idx]
+                        + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->sigma_munu[6][idx]
+                        + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[8][idx])
                   );
 
         //WW = (   Wmunu[0][0]*Wmunu[0][0]
@@ -2253,16 +2253,16 @@ double Advance::Make_uPiSource(double tau, double *vis_array,
         //       + 2.*(  Wmunu[1][2]*Wmunu[1][2]
         //             + Wmunu[1][3]*Wmunu[1][3]
         //             + Wmunu[2][3]*Wmunu[2][3]));
-        WW = (  vis_array[0]*vis_array[0]
-              + vis_array[4]*vis_array[4]
-              + vis_array[8]*vis_array[8]
-              + vis_array[9]*vis_array[9]
-              - 2.*(  vis_array[1]*vis_array[1]
-                    + vis_array[2]*vis_array[2]
-                    + vis_array[3]*vis_array[3])
-              + 2.*(  vis_array[5]*vis_array[5]
-                    + vis_array[6]*vis_array[6]
-                    + vis_array[8]*vis_array[8]));
+        WW = (  hydro_fields->Wmunu_rk0[0][idx]*hydro_fields->Wmunu_rk0[0][idx]
+              + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->Wmunu_rk0[4][idx]
+              + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->Wmunu_rk0[8][idx]
+              + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->Wmunu_rk0[9][idx]
+              - 2.*(  hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->Wmunu_rk0[1][idx]
+                    + hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->Wmunu_rk0[2][idx]
+                    + hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->Wmunu_rk0[3][idx])
+              + 2.*(  hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[5][idx]
+                    + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->Wmunu_rk0[6][idx]
+                    + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->Wmunu_rk0[8][idx]));
         // multiply term by its transport coefficient
         Shear_Sigma_term = Wsigma*transport_coeff1_s;
         Shear_Shear_term = WW*transport_coeff2_s;
