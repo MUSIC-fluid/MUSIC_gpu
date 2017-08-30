@@ -101,8 +101,7 @@ class Advance {
                      int ieta, int ix, int iy);
 
 #pragma acc routine seq
-    int Make_uWRHS(double tau, double *vis_array,
-                   Field *hydro_fields, int ieta, int ix, int iy);
+    int Make_uWRHS(double tau, Field *hydro_fields, int ieta, int ix, int iy);
 
 #pragma acc routine seq
     double Make_uWSource(double tau, double *vis_array,

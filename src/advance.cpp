@@ -520,7 +520,7 @@ int Advance::FirstRKStepW(double tau, int rk_flag, double *vis_array,
  
     /* Advance uWmunu */
     // add partial_\mu uW^\mu\nu terms using KT
-    Make_uWRHS(tau_rk, vis_array, hydro_fields, ieta, ix, iy);
+    Make_uWRHS(tau_rk, hydro_fields, ieta, ix, iy);
 
     // add source terms
     if (INCLUDE_SHEAR) {
@@ -1413,8 +1413,8 @@ void Advance::MakeWSource(double tau, Field *hydro_fields,
     }
 }
 
-int Advance::Make_uWRHS(double tau, double *vis_array,
-                        Field* hydro_fields, int ieta, int ix, int iy) {
+int Advance::Make_uWRHS(double tau, Field* hydro_fields,
+                        int ieta, int ix, int iy) {
 
     int idx = get_indx(ieta, ix, iy);
 
@@ -1453,14 +1453,15 @@ int Advance::Make_uWRHS(double tau, double *vis_array,
 
         // the derivative part is the same for all viscous
         // components
-        hydro_fields->Wmunu_rk1[idx_1d][idx] = vis_array[idx_1d]*u0;
+        hydro_fields->Wmunu_rk1[idx_1d][idx] = (
+                                    hydro_fields->Wmunu_rk0[idx_1d][idx]*u0);
 
         sum = 0.0;
         // x-direction
         taufactor = 1.0;
         /* Get_uWmns */
-        g = vis_array[idx_1d]*u0;
-        f = vis_array[idx_1d]*u1;
+        g = hydro_fields->Wmunu_rk0[idx_1d][idx]*u0;
+        f = hydro_fields->Wmunu_rk0[idx_1d][idx]*u1;
         a = fabs(u1)/u0;
 
         idx_p_2 = get_indx(ieta, MIN(ix + 2, GRID_SIZE_X), iy);
@@ -1512,8 +1513,8 @@ int Advance::Make_uWRHS(double tau, double *vis_array,
         // y-direction
         taufactor = 1.0;
         /* Get_uWmns */
-        g = vis_array[idx_1d]*u0;
-        f = vis_array[idx_1d]*u2;
+        g = hydro_fields->Wmunu_rk0[idx_1d][idx]*u0;
+        f = hydro_fields->Wmunu_rk0[idx_1d][idx]*u2;
         a = fabs(u2)/u0;
 
         idx_p_2 = get_indx(ieta, ix, MIN(iy + 2, GRID_SIZE_Y));
@@ -1563,8 +1564,8 @@ int Advance::Make_uWRHS(double tau, double *vis_array,
         // eta-direction
         taufactor = tau;
         /* Get_uWmns */
-        g = vis_array[idx_1d]*u0;
-        f = vis_array[idx_1d]*u3;
+        g = hydro_fields->Wmunu_rk0[idx_1d][idx]*u0;
+        f = hydro_fields->Wmunu_rk0[idx_1d][idx]*u3;
         a = fabs(u3)/u0;
 
         idx_p_2 = get_indx(MIN(ieta + 2, GRID_SIZE_ETA - 1), ix, iy);
@@ -1655,79 +1656,103 @@ int Advance::Make_uWRHS(double tau, double *vis_array,
     //}
     double tempf = 0.0;
     // W^11
-    double sum = (- (u0*vis_array[4])/tau
-                  + (hydro_fields->expansion_rate[idx]*vis_array[4]));
-    tempf = ((u3/tau)*2.*u1*(vis_array[6]*u0
-                             - vis_array[1]*u3));
+    double sum = (- (u0*hydro_fields->Wmunu_rk0[4][idx])/tau
+                  + (hydro_fields->expansion_rate[idx]
+                      *hydro_fields->Wmunu_rk0[4][idx]));
+    tempf = ((u3/tau)*2.*u1*(hydro_fields->Wmunu_rk0[6][idx]*u0
+                             - hydro_fields->Wmunu_rk0[1][idx]*u3));
     tempf += 2.*(
-        - hydro_fields->Du_mu[0][idx]*(vis_array[1]*u1)
-        + hydro_fields->Du_mu[1][idx]*(vis_array[4]*u1)
-        + hydro_fields->Du_mu[2][idx]*(vis_array[5]*u1)
-        + hydro_fields->Du_mu[3][idx]*(vis_array[6]*u1));
+        - hydro_fields->Du_mu[0][idx]*(hydro_fields->Wmunu_rk0[1][idx]*u1)
+        + hydro_fields->Du_mu[1][idx]*(hydro_fields->Wmunu_rk0[4][idx]*u1)
+        + hydro_fields->Du_mu[2][idx]*(hydro_fields->Wmunu_rk0[5][idx]*u1)
+        + hydro_fields->Du_mu[3][idx]*(hydro_fields->Wmunu_rk0[6][idx]*u1));
     hydro_fields->Wmunu_rk1[4][idx] += (sum + tempf)*DELTA_TAU;
 
     // W^12
-    sum = (- (u0*vis_array[5])/tau
-           + (hydro_fields->expansion_rate[idx]*vis_array[5]));
-    tempf = ((u3/tau)*((vis_array[8]*u1
-                        + vis_array[6]*u2)*u0
-                       - (vis_array[1]*u2
-                          + vis_array[2]*u1)*u3));
+    sum = (- (u0*hydro_fields->Wmunu_rk0[5][idx])/tau
+           + (hydro_fields->expansion_rate[idx]
+               *hydro_fields->Wmunu_rk0[5][idx]));
+    tempf = ((u3/tau)*((hydro_fields->Wmunu_rk0[8][idx]*u1
+                        + hydro_fields->Wmunu_rk0[6][idx]*u2)*u0
+                       - (hydro_fields->Wmunu_rk0[1][idx]*u2
+                          + hydro_fields->Wmunu_rk0[2][idx]*u1)*u3));
     tempf += (
-        - hydro_fields->Du_mu[0][idx]*(vis_array[2]*u1 + vis_array[1]*u2)
-        + hydro_fields->Du_mu[1][idx]*(vis_array[5]*u1 + vis_array[4]*u2)
-        + hydro_fields->Du_mu[2][idx]*(vis_array[7]*u1 + vis_array[5]*u2)
-        + hydro_fields->Du_mu[3][idx]*(vis_array[8]*u1 + vis_array[6]*u2));
+        - hydro_fields->Du_mu[0][idx]*(hydro_fields->Wmunu_rk0[2][idx]*u1
+                                       + hydro_fields->Wmunu_rk0[1][idx]*u2)
+        + hydro_fields->Du_mu[1][idx]*(hydro_fields->Wmunu_rk0[5][idx]*u1
+                                       + hydro_fields->Wmunu_rk0[4][idx]*u2)
+        + hydro_fields->Du_mu[2][idx]*(hydro_fields->Wmunu_rk0[7][idx]*u1
+                                       + hydro_fields->Wmunu_rk0[5][idx]*u2)
+        + hydro_fields->Du_mu[3][idx]*(hydro_fields->Wmunu_rk0[8][idx]*u1
+                                       + hydro_fields->Wmunu_rk0[6][idx]*u2));
     hydro_fields->Wmunu_rk1[5][idx] += (sum + tempf)*DELTA_TAU;
 
     
     // W^13
-    sum = (- (u0*vis_array[6])/tau
-           + (hydro_fields->expansion_rate[idx]*vis_array[6]));
-    tempf = ((u3/tau)*(- vis_array[1]
-                       + (vis_array[9]*u1 + vis_array[6]*u3)*u0
-                       - (vis_array[1]*u3 + vis_array[3]*u1)*u3));
+    sum = (- (u0*hydro_fields->Wmunu_rk0[6][idx])/tau
+           + (hydro_fields->expansion_rate[idx]
+               *hydro_fields->Wmunu_rk0[6][idx]));
+    tempf = ((u3/tau)*(- hydro_fields->Wmunu_rk0[1][idx]
+                       + (hydro_fields->Wmunu_rk0[9][idx]*u1
+                           + hydro_fields->Wmunu_rk0[6][idx]*u3)*u0
+                       - (hydro_fields->Wmunu_rk0[1][idx]*u3
+                           + hydro_fields->Wmunu_rk0[3][idx]*u1)*u3));
     tempf += (
-        - hydro_fields->Du_mu[0][idx]*(vis_array[3]*u1 + vis_array[1]*u3)
-        + hydro_fields->Du_mu[1][idx]*(vis_array[6]*u1 + vis_array[4]*u3)
-        + hydro_fields->Du_mu[2][idx]*(vis_array[8]*u1 + vis_array[5]*u3)
-        + hydro_fields->Du_mu[3][idx]*(vis_array[9]*u1 + vis_array[6]*u3));
+        - hydro_fields->Du_mu[0][idx]*(hydro_fields->Wmunu_rk0[3][idx]*u1
+                                       + hydro_fields->Wmunu_rk0[1][idx]*u3)
+        + hydro_fields->Du_mu[1][idx]*(hydro_fields->Wmunu_rk0[6][idx]*u1
+                                       + hydro_fields->Wmunu_rk0[4][idx]*u3)
+        + hydro_fields->Du_mu[2][idx]*(hydro_fields->Wmunu_rk0[8][idx]*u1
+                                       + hydro_fields->Wmunu_rk0[5][idx]*u3)
+        + hydro_fields->Du_mu[3][idx]*(hydro_fields->Wmunu_rk0[9][idx]*u1
+                                       + hydro_fields->Wmunu_rk0[6][idx]*u3));
     hydro_fields->Wmunu_rk1[6][idx] += (sum + tempf)*DELTA_TAU;
     
     // W^22
-    sum = (- (u0*vis_array[7])/tau
-           + (hydro_fields->expansion_rate[idx]*vis_array[7]));
-    tempf = ((u3/tau)*2.*u2*(vis_array[8]*u0 - vis_array[2]*u3));
+    sum = (- (u0*hydro_fields->Wmunu_rk0[7][idx])/tau
+           + (hydro_fields->expansion_rate[idx]
+               *hydro_fields->Wmunu_rk0[7][idx]));
+    tempf = ((u3/tau)*2.*u2*(hydro_fields->Wmunu_rk0[8][idx]*u0
+                             - hydro_fields->Wmunu_rk0[2][idx]*u3));
     tempf += 2.*(
-        - hydro_fields->Du_mu[0][idx]*(vis_array[2]*u2)
-        + hydro_fields->Du_mu[1][idx]*(vis_array[5]*u2)
-        + hydro_fields->Du_mu[2][idx]*(vis_array[7]*u2)
-        + hydro_fields->Du_mu[3][idx]*(vis_array[8]*u2));
+        - hydro_fields->Du_mu[0][idx]*(hydro_fields->Wmunu_rk0[2][idx]*u2)
+        + hydro_fields->Du_mu[1][idx]*(hydro_fields->Wmunu_rk0[5][idx]*u2)
+        + hydro_fields->Du_mu[2][idx]*(hydro_fields->Wmunu_rk0[7][idx]*u2)
+        + hydro_fields->Du_mu[3][idx]*(hydro_fields->Wmunu_rk0[8][idx]*u2));
     hydro_fields->Wmunu_rk1[7][idx] += (sum + tempf)*DELTA_TAU;
     
     // W^23
-    sum = (- (u0*vis_array[8])/tau
-           + (hydro_fields->expansion_rate[idx]*vis_array[8]));
-    tempf = ((u3/tau)*(- vis_array[2]
-                       + (vis_array[9]*u2 + vis_array[8]*u3)*u0
-                       - (vis_array[2]*u3 + vis_array[3]*u2)*u3));
+    sum = (- (u0*hydro_fields->Wmunu_rk0[8][idx])/tau
+           + (hydro_fields->expansion_rate[idx]
+               *hydro_fields->Wmunu_rk0[8][idx]));
+    tempf = ((u3/tau)*(- hydro_fields->Wmunu_rk0[2][idx]
+                       + (hydro_fields->Wmunu_rk0[9][idx]*u2
+                           + hydro_fields->Wmunu_rk0[8][idx]*u3)*u0
+                       - (hydro_fields->Wmunu_rk0[2][idx]*u3
+                           + hydro_fields->Wmunu_rk0[3][idx]*u2)*u3));
     tempf += (
-        - hydro_fields->Du_mu[0][idx]*(vis_array[2]*u3 + vis_array[3]*u2)
-        + hydro_fields->Du_mu[1][idx]*(vis_array[5]*u3 + vis_array[6]*u2)
-        + hydro_fields->Du_mu[2][idx]*(vis_array[7]*u3 + vis_array[8]*u2)
-        + hydro_fields->Du_mu[3][idx]*(vis_array[8]*u3 + vis_array[9]*u2));
+        - hydro_fields->Du_mu[0][idx]*(hydro_fields->Wmunu_rk0[2][idx]*u3
+                                       + hydro_fields->Wmunu_rk0[3][idx]*u2)
+        + hydro_fields->Du_mu[1][idx]*(hydro_fields->Wmunu_rk0[5][idx]*u3
+                                       + hydro_fields->Wmunu_rk0[6][idx]*u2)
+        + hydro_fields->Du_mu[2][idx]*(hydro_fields->Wmunu_rk0[7][idx]*u3
+                                       + hydro_fields->Wmunu_rk0[8][idx]*u2)
+        + hydro_fields->Du_mu[3][idx]*(hydro_fields->Wmunu_rk0[8][idx]*u3
+                                       + hydro_fields->Wmunu_rk0[9][idx]*u2));
     hydro_fields->Wmunu_rk1[8][idx] += (sum + tempf)*DELTA_TAU;
 
     // W^33
-    sum = (- (u0*vis_array[9])/tau
-           + (hydro_fields->expansion_rate[idx]*vis_array[9]));
-    tempf = ((u3/tau)*2.*(u3*(vis_array[9]*u0 - vis_array[3]*u3)
-                          - vis_array[3]));
+    sum = (- (u0*hydro_fields->Wmunu_rk0[9][idx])/tau
+           + (hydro_fields->expansion_rate[idx]
+               *hydro_fields->Wmunu_rk0[9][idx]));
+    tempf = ((u3/tau)*2.*(u3*(hydro_fields->Wmunu_rk0[9][idx]*u0
+                              - hydro_fields->Wmunu_rk0[3][idx]*u3)
+                          - hydro_fields->Wmunu_rk0[3][idx]));
     tempf += 2.*(
-        - hydro_fields->Du_mu[0][idx]*(vis_array[3]*u3)
-        + hydro_fields->Du_mu[1][idx]*(vis_array[6]*u3)
-        + hydro_fields->Du_mu[2][idx]*(vis_array[8]*u3)
-        + hydro_fields->Du_mu[3][idx]*(vis_array[9]*u3));
+        - hydro_fields->Du_mu[0][idx]*(hydro_fields->Wmunu_rk0[3][idx]*u3)
+        + hydro_fields->Du_mu[1][idx]*(hydro_fields->Wmunu_rk0[6][idx]*u3)
+        + hydro_fields->Du_mu[2][idx]*(hydro_fields->Wmunu_rk0[8][idx]*u3)
+        + hydro_fields->Du_mu[3][idx]*(hydro_fields->Wmunu_rk0[9][idx]*u3));
     hydro_fields->Wmunu_rk1[9][idx] += (sum + tempf)*DELTA_TAU;
 
     // bulk pressure (idx_1d == 14)
@@ -1735,8 +1760,8 @@ int Advance::Make_uWRHS(double tau, double *vis_array,
     //sum -= (pi_b[rk_flag])*(u[rk_flag][0])/tau;
     //sum += (pi_b[rk_flag])*theta_local;
     hydro_fields->Wmunu_rk1[14][idx] += (
-        (- vis_array[14]*vis_array[15]/tau
-         + vis_array[14]*hydro_fields->expansion_rate[idx])
+        (- hydro_fields->Wmunu_rk0[14][idx]*hydro_fields->u_rk0[0][idx]/tau
+         + hydro_fields->Wmunu_rk0[14][idx]*hydro_fields->expansion_rate[idx])
         *(DELTA_TAU));
     return(1);
 }
