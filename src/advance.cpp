@@ -1079,6 +1079,9 @@ double Advance::get_pressure(double e_local, double rhob) {
            + 1.7851642641834426e6*e4 + 1.3512402226067686e7*e3
            + 2.0931169138134286e7*e2 + 4.0574329080826794e6*e1
            + 45829.44617893836));
+    if (p < 1e-16) {
+        p = 1e-16;
+    }
 #endif
     return(p);
 }
