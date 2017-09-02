@@ -1273,36 +1273,60 @@ double Advance::minmod_dx(double up1, double u, double um1) {
 //!         to use Wmunu[rk_flag][4][mu] as the dissipative baryon current
 void Advance::MakeWSource(double tau, Field *hydro_fields,
                           int ieta, int ix, int iy) {
-    double shear_on, bulk_on;
-    if (INCLUDE_SHEAR)
-        shear_on = 1.0;
-    else
-        shear_on = 0.0;
-
-    if (INCLUDE_BULK)
-        bulk_on = 1.0;
-    else
-        bulk_on = 0.0;
-
-    int alpha_max = 4;
-    if (INCLUDE_DIFF) {
-        alpha_max = 5;
-    }
-
     int field_idx = get_indx(ieta, ix, iy);
-    for (int alpha = 0; alpha < alpha_max; alpha++) {
+    for (int alpha = 0; alpha < 4 + INCLUDE_DIFF; alpha++) {
+        int idx_1d;
+        double sg, sgp1, sgm1;
+
+        // shear part
         // dW/dtau
         // backward time derivative (first order is more stable)
-        int idx_1d_alpha0 = map_2d_idx_to_1d(alpha, 0);
-        double dWdtau;
-        dWdtau = ((hydro_fields->Wmunu_rk0[idx_1d_alpha0][field_idx]
-                    - hydro_fields->Wmunu_prev[idx_1d_alpha0][field_idx])
+        double dWdxmu = 0.0;
+        dWdxmu = ((hydro_fields->Wmunu_rk0[alpha][field_idx]
+                    - hydro_fields->Wmunu_prev[alpha][field_idx])
                   /DELTA_TAU);
 
+        // x-direction
+        idx_1d = map_2d_idx_to_1d(alpha, 1);
+        int field_idx_p_1 = get_indx(ieta, MIN(ix + 1, GRID_SIZE_X), iy);
+        int field_idx_m_1 = get_indx(ieta, MAX(ix - 1, 0), iy);
+        sg = hydro_fields->Wmunu_rk0[idx_1d][field_idx];
+        sgp1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_p_1];
+        sgm1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_m_1];
+        //dWdxmu += (sgp1 - sgm1)/(2.*DELTA_X);
+        dWdxmu += minmod_dx(sgp1, sg, sgm1)/DELTA_X;
+
+        // y-direction
+        idx_1d = map_2d_idx_to_1d(alpha, 2);
+        field_idx_p_1 = get_indx(ieta, ix, MIN(iy + 1, GRID_SIZE_Y));
+        field_idx_m_1 = get_indx(ieta, ix, MAX(iy - 1, 0));
+        sg = hydro_fields->Wmunu_rk0[idx_1d][field_idx];
+        sgp1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_p_1];
+        sgm1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_m_1];
+        //dWdxmu += (sgp1 - sgm1)/(2.*DELTA_Y);
+        dWdxmu += minmod_dx(sgp1, sg, sgm1)/DELTA_Y;
+
+        // eta-direction
+        idx_1d = map_2d_idx_to_1d(alpha, 3);
+        field_idx_p_1 = get_indx(MIN(ieta + 1, GRID_SIZE_ETA - 1), ix, iy);
+        field_idx_m_1 = get_indx(MAX(ieta - 1, 0), ix, iy);
+        sg = hydro_fields->Wmunu_rk0[idx_1d][field_idx];
+        sgp1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_p_1];
+        sgm1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_m_1];
+        //dWdeta = (sgp1 - sgm1)/(2.*DELTA_ETA*tau);
+        dWdxmu += minmod_dx(sgp1, sg, sgm1)/(DELTA_ETA*tau);
+        
+        // partial_m (tau W^mn) = W^0n + tau partial_m W^mn
+        //double sf = (tau*(dWdtau + dWdx_perp + dWdeta)
+        //             + hydro_fields->Wmunu_rk0[alpha][field_idx]);
+        dWdxmu = tau*dWdxmu + hydro_fields->Wmunu_rk0[alpha][field_idx];
+
         // bulk pressure term
-        double dPidtau = 0.0;
-        double Pi_alpha0 = 0.0;
+        double dPidxmu = 0.0;
         if (alpha < 4 && INCLUDE_BULK) {
+            double Pi_alpha0 = 0.0;
+            // dPi/dtau
+            // backward time derivative (first order is more stable)
             double gfac = (alpha == 0 ? -1.0 : 0.0);
             //Pi_alpha0 = (vis_array[14]
             //             *(gfac + vis_array[15+alpha]
@@ -1311,104 +1335,61 @@ void Advance::MakeWSource(double tau, Field *hydro_fields,
                          *(gfac + hydro_fields->u_rk0[alpha][field_idx]
                                   *hydro_fields->u_rk0[0][field_idx]));
 
-            dPidtau = ((Pi_alpha0 - hydro_fields->Wmunu_prev[14][field_idx]
-                                    *(gfac + hydro_fields->u_prev[alpha][field_idx]
-                                             *hydro_fields->u_prev[0][field_idx]))/DELTA_TAU);
-        }
-
-        // use central difference to preserve
-        // the conservation law exactly
-        int idx_1d;
-        double dWdx_perp = 0.0;
-        double dPidx_perp = 0.0;
-
-        double sg, sgp1, sgm1, bg, bgp1, bgm1;
-        // x-direction
-        idx_1d = map_2d_idx_to_1d(alpha, 1);
-
-        sg = hydro_fields->Wmunu_rk0[idx_1d][field_idx];
-        int field_idx_p_1 = get_indx(ieta, MIN(ix + 1, GRID_SIZE_X), iy);
-        sgp1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_p_1];
-        int field_idx_m_1 = get_indx(ieta, MAX(ix - 1, 0), iy);
-        sgm1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_m_1];
-
-        //dWdx_perp += (sgp1 - sgm1)/(2.*DELTA_X);
-        dWdx_perp += minmod_dx(sgp1, sg, sgm1)/DELTA_X;
-
-        if (alpha < 4 && INCLUDE_BULK) {
-            double gfac1 = (alpha == 1 ? 1.0 : 0.0);
-            bg = (hydro_fields->Wmunu_rk0[14][field_idx]
-                  *(gfac1 + hydro_fields->u_rk0[alpha][field_idx]
+            dPidxmu = (
+                (Pi_alpha0 - hydro_fields->Wmunu_prev[14][field_idx]
+                             *(gfac + hydro_fields->u_prev[alpha][field_idx]
+                               *hydro_fields->u_prev[0][field_idx]))/DELTA_TAU);
+            // x-direction
+            gfac = (alpha == 1 ? 1.0 : 0.0);
+            field_idx_p_1 = get_indx(ieta, MIN(ix + 1, GRID_SIZE_X), iy);
+            field_idx_m_1 = get_indx(ieta, MAX(ix - 1, 0), iy);
+            sg = (hydro_fields->Wmunu_rk0[14][field_idx]
+                  *(gfac + hydro_fields->u_rk0[alpha][field_idx]
                             *hydro_fields->u_rk0[1][field_idx]));
-            bgp1 = (hydro_fields->Wmunu_rk0[14][field_idx_p_1]
-                    *(gfac1 + hydro_fields->u_rk0[alpha][field_idx_p_1]
+            sgp1 = (hydro_fields->Wmunu_rk0[14][field_idx_p_1]
+                    *(gfac + hydro_fields->u_rk0[alpha][field_idx_p_1]
                               *hydro_fields->u_rk0[1][field_idx_p_1]));
-            bgm1 = (hydro_fields->Wmunu_rk0[14][field_idx_m_1]
-                    *(gfac1 + hydro_fields->u_rk0[alpha][field_idx_m_1]
+            sgm1 = (hydro_fields->Wmunu_rk0[14][field_idx_m_1]
+                    *(gfac + hydro_fields->u_rk0[alpha][field_idx_m_1]
                               *hydro_fields->u_rk0[1][field_idx_m_1]));
-            //dPidx_perp += (bgp1 - bgm1)/(2.*DELTA_X);
-            dPidx_perp += minmod_dx(bgp1, bg, bgm1)/DELTA_X;
-        }
-
-        // y-direction
-        idx_1d = map_2d_idx_to_1d(alpha, 2);
-        sg = hydro_fields->Wmunu_rk0[idx_1d][field_idx];
-        field_idx_p_1 = get_indx(ieta, ix, MIN(iy + 1, GRID_SIZE_Y));
-        sgp1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_p_1];
-        field_idx_m_1 = get_indx(ieta, ix, MAX(iy - 1, 0));
-        sgm1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_m_1];
-        //dWdx_perp += (sgp1 - sgm1)/(2.*DELTA_Y);
-        dWdx_perp += minmod_dx(sgp1, sg, sgm1)/DELTA_Y;
-
-        if (alpha < 4 && INCLUDE_BULK) {
-            double gfac1 = (alpha == 2 ? 1.0 : 0.0);
-            bg = (hydro_fields->Wmunu_rk0[14][field_idx]
-                  *(gfac1 + hydro_fields->u_rk0[alpha][field_idx]
+            //dPidxmu += (sgp1 - sgm1)/(2.*DELTA_X);
+            dPidxmu += minmod_dx(sgp1, sg, sgm1)/DELTA_X;
+            
+            // y-direction
+            gfac = (alpha == 2 ? 1.0 : 0.0);
+            field_idx_p_1 = get_indx(ieta, ix, MIN(iy + 1, GRID_SIZE_Y));
+            field_idx_m_1 = get_indx(ieta, ix, MAX(iy - 1, 0));
+            sg = (hydro_fields->Wmunu_rk0[14][field_idx]
+                  *(gfac + hydro_fields->u_rk0[alpha][field_idx]
                             *hydro_fields->u_rk0[2][field_idx]));
-            bgp1 = (hydro_fields->Wmunu_rk0[14][field_idx_p_1]
-                    *(gfac1 + hydro_fields->u_rk0[alpha][field_idx_p_1]
+            sgp1 = (hydro_fields->Wmunu_rk0[14][field_idx_p_1]
+                    *(gfac + hydro_fields->u_rk0[alpha][field_idx_p_1]
                               *hydro_fields->u_rk0[2][field_idx_p_1]));
-            bgm1 = (hydro_fields->Wmunu_rk0[14][field_idx_m_1]
-                    *(gfac1 + hydro_fields->u_rk0[alpha][field_idx_m_1]
+            sgm1 = (hydro_fields->Wmunu_rk0[14][field_idx_m_1]
+                    *(gfac + hydro_fields->u_rk0[alpha][field_idx_m_1]
                               *hydro_fields->u_rk0[2][field_idx_m_1]));
-            //dPidx_perp += (bgp1 - bgm1)/(2.*DELTA_Y);
-            dPidx_perp += minmod_dx(bgp1, bg, bgm1)/DELTA_Y;
-        }
+            //dPidxmu += (sgp1 - sgm1)/(2.*DELTA_Y);
+            dPidxmu += minmod_dx(sgp1, sg, sgm1)/DELTA_Y;
 
-        // eta-direction
-        double taufactor = tau;
-        double dWdeta = 0.0;
-        double dPideta = 0.0;
-        idx_1d = map_2d_idx_to_1d(alpha, 3);
-        sg = hydro_fields->Wmunu_rk0[idx_1d][field_idx];
-        field_idx_p_1 = get_indx(MIN(ieta + 1, GRID_SIZE_ETA - 1), ix, iy);
-        sgp1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_p_1];
-        field_idx_m_1 = get_indx(MAX(ieta - 1, 0), ix, iy);
-        sgm1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_m_1];
-        //dWdeta = (sgp1 - sgm1)/(2.*DELTA_ETA*taufactor);
-        dWdeta = minmod_dx(sgp1, sg, sgm1)/(DELTA_ETA*taufactor);
-
-        if (alpha < 4 && INCLUDE_BULK) {
-            double gfac3 = (alpha == 3 ? 1.0 : 0.0);
-            bg = (hydro_fields->Wmunu_rk0[14][field_idx]
-                  *(gfac3 + hydro_fields->u_rk0[alpha][field_idx]
+            // eta-direction
+            gfac = (alpha == 3 ? 1.0 : 0.0);
+            field_idx_p_1 = get_indx(MIN(ieta + 1, GRID_SIZE_ETA - 1), ix, iy);
+            field_idx_m_1 = get_indx(MAX(ieta - 1, 0), ix, iy);
+            sg = (hydro_fields->Wmunu_rk0[14][field_idx]
+                  *(gfac + hydro_fields->u_rk0[alpha][field_idx]
                             *hydro_fields->u_rk0[3][field_idx]));
-            bgp1 = (hydro_fields->Wmunu_rk0[14][field_idx_p_1]
-                    *(gfac3 + hydro_fields->u_rk0[alpha][field_idx_p_1]
+            sgp1 = (hydro_fields->Wmunu_rk0[14][field_idx_p_1]
+                    *(gfac + hydro_fields->u_rk0[alpha][field_idx_p_1]
                               *hydro_fields->u_rk0[3][field_idx_p_1]));
-            bgm1 = (hydro_fields->Wmunu_rk0[14][field_idx_m_1]
-                    *(gfac3 + hydro_fields->u_rk0[alpha][field_idx_m_1]
+            sgm1 = (hydro_fields->Wmunu_rk0[14][field_idx_m_1]
+                    *(gfac + hydro_fields->u_rk0[alpha][field_idx_m_1]
                               *hydro_fields->u_rk0[3][field_idx_m_1]));
-            //dPideta = ((bgp1 - bgm1)
-            //           /(2.*DELTA_ETA*taufactor));
-            dPideta = minmod_dx(bgp1, bg, bgm1)/(DELTA_ETA*taufactor);
+            //dPidxmu = ((sgp1 - sgm1)/(2.*DELTA_ETA*tau));
+            dPidxmu += minmod_dx(sgp1, sg, sgm1)/(DELTA_ETA*tau);
+            
+            // partial_m (tau W^mn) = W^0n + tau partial_m W^mn
+            dPidxmu = tau*dPidxmu + Pi_alpha0;
         }
-
-        // partial_m (tau W^mn) = W^0n + tau partial_m W^mn
-        double sf = (tau*(dWdtau + dWdx_perp + dWdeta)
-                     + hydro_fields->Wmunu_rk0[idx_1d_alpha0][field_idx]);
-        double bf = (tau*(dPidtau + dPidx_perp + dPideta)
-                     + Pi_alpha0);
 
         // sources due to coordinate transform
         // this is added to partial_m W^mn
@@ -1416,26 +1397,26 @@ void Advance::MakeWSource(double tau, Field *hydro_fields,
             //sf += vis_array[9];
             //bf += vis_array[14]*(1.0 + vis_array[18]
             //                                *vis_array[18]);
-            sf += hydro_fields->Wmunu_rk0[9][field_idx];
-            bf += (hydro_fields->Wmunu_rk0[14][field_idx]
-                   *(1.0 + hydro_fields->u_rk0[3][field_idx]
-                           *hydro_fields->u_rk0[3][field_idx]));
+            dWdxmu  += hydro_fields->Wmunu_rk0[9][field_idx];
+            dPidxmu += (hydro_fields->Wmunu_rk0[14][field_idx]
+                        *(1.0 + hydro_fields->u_rk0[3][field_idx]
+                                *hydro_fields->u_rk0[3][field_idx]));
         }
         if (alpha == 3) {
             //sf += vis_array[3];
             //bf += vis_array[14]*(vis_array[15]
             //                          *vis_array[18]);
-            sf += hydro_fields->Wmunu_rk0[3][field_idx];
-            bf += (hydro_fields->Wmunu_rk0[14][field_idx]
-                   *(hydro_fields->u_rk0[0][field_idx]
-                     *hydro_fields->u_rk0[3][field_idx]));
+            dWdxmu += hydro_fields->Wmunu_rk0[3][field_idx];
+            dPidxmu += (hydro_fields->Wmunu_rk0[14][field_idx]
+                        *(hydro_fields->u_rk0[0][field_idx]
+                          *hydro_fields->u_rk0[3][field_idx]));
         }
 
         double result = 0.0;
         if (alpha < 4) {
-            result = (sf*shear_on + bf*bulk_on);
+            result = (dWdxmu*INCLUDE_SHEAR + dPidxmu*INCLUDE_BULK);
         } else if (alpha == 4) {
-            result = sf;
+            result = dWdxmu;
         }
         //qi_array_new[alpha] -= result*DELTA_TAU;
         hydro_fields->qi_array_new[alpha][field_idx] -= result*DELTA_TAU;
