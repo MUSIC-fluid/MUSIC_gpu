@@ -64,7 +64,50 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
             }
         }
     }
+    
+    #pragma acc parallel loop gang worker vector collapse(3) independent \
+        present(hydro_fields) private(this[0:1])
+    for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
+        for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
+            for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
+                int idx = get_indx(ieta, ix, iy);
+                double tau_rk = tau + rk_flag*DELTA_TAU;
+                // now MakeWSource returns partial_a W^{a mu}
+                // (including geometric terms) 
+                MakeWSource(tau_rk, hydro_fields, ieta, ix, iy);
 
+                if (rk_flag == 1) {
+                    // if rk_flag == 1, we now have q0 + k1 + k2. 
+                    // So add q0 and multiply by 1/2
+                    double pressure = get_pressure(
+                                                hydro_fields->e_prev[idx],
+                                                hydro_fields->rhob_prev[idx]);
+                    hydro_fields->qi_array_new[0][idx] += (
+                        tau*((hydro_fields->e_prev[idx] + pressure)
+                              *hydro_fields->u_prev[0][idx]
+                              *hydro_fields->u_prev[0][idx] - pressure));
+                    hydro_fields->qi_array_new[1][idx] += (
+                        tau*((hydro_fields->e_prev[idx] + pressure)
+                              *hydro_fields->u_prev[0][idx]
+                              *hydro_fields->u_prev[1][idx]));
+                    hydro_fields->qi_array_new[2][idx] += (
+                        tau*((hydro_fields->e_prev[idx] + pressure)
+                              *hydro_fields->u_prev[0][idx]
+                              *hydro_fields->u_prev[2][idx]));
+                    hydro_fields->qi_array_new[3][idx] += (
+                        tau*((hydro_fields->e_prev[idx] + pressure)
+                              *hydro_fields->u_prev[0][idx]
+                              *hydro_fields->u_prev[3][idx]));
+                    hydro_fields->qi_array_new[4][idx] += (
+                        tau*(hydro_fields->rhob_prev[idx]
+                             *hydro_fields->u_prev[0][idx]));
+                    for (int alpha = 0; alpha < 5; alpha++) {
+                        hydro_fields->qi_array_new[alpha][idx] *= 0.5;
+                    }
+                }
+            }
+        }
+    }
     #pragma acc parallel loop gang worker vector collapse(3) independent \
         present(hydro_fields) \
         private(this[0:1], grid_array[0:5], qi_array[0:5])
@@ -193,7 +236,6 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
                           double *grid_array_hL, double *grid_array_hR) {
 
     // this advances the ideal part
-    double tau_next = tau + (DELTA_TAU);
     double tau_rk = tau + rk_flag*DELTA_TAU;
 
     int idx = get_indx(ieta, ix, iy);
@@ -211,40 +253,6 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
     MakeDeltaQI(tau_rk, grid_array,
                 qiphL, qiphR, qimhL, qimhR, grid_array_hL, grid_array_hR,
                 hydro_fields, ieta, ix, iy);
-
-    // now MakeWSource returns partial_a W^{a mu}
-    // (including geometric terms) 
-    MakeWSource(tau_rk, hydro_fields, ieta, ix, iy);
-
-    if (rk_flag == 1) {
-        // if rk_flag == 1, we now have q0 + k1 + k2. 
-        // So add q0 and multiply by 1/2
-        double pressure = get_pressure(hydro_fields->e_prev[idx],
-                                       hydro_fields->rhob_prev[idx]);
-        hydro_fields->qi_array_new[0][idx] += (
-            tau*((hydro_fields->e_prev[idx] + pressure)
-                  *hydro_fields->u_prev[0][idx]
-                  *hydro_fields->u_prev[0][idx] - pressure));
-        hydro_fields->qi_array_new[1][idx] += (
-            tau*((hydro_fields->e_prev[idx] + pressure)
-                  *hydro_fields->u_prev[0][idx]
-                  *hydro_fields->u_prev[1][idx]));
-        hydro_fields->qi_array_new[2][idx] += (
-            tau*((hydro_fields->e_prev[idx] + pressure)
-                  *hydro_fields->u_prev[0][idx]
-                  *hydro_fields->u_prev[2][idx]));
-        hydro_fields->qi_array_new[3][idx] += (
-            tau*((hydro_fields->e_prev[idx] + pressure)
-                  *hydro_fields->u_prev[0][idx]
-                  *hydro_fields->u_prev[3][idx]));
-        hydro_fields->qi_array_new[4][idx] += (
-            tau*(hydro_fields->rhob_prev[idx]
-                 *hydro_fields->u_prev[0][idx]));
-        for (int alpha = 0; alpha < 5; alpha++) {
-            hydro_fields->qi_array_new[alpha][idx] *= 0.5;
-        }
-    }
-    
     return(0);
 }
 
@@ -1256,8 +1264,6 @@ double Advance::minmod_dx(double up1, double u, double um1) {
 }/* minmod_dx */
 
 
-void Advance::MakeWSource(double tau, Field *hydro_fields,
-                          int ieta, int ix, int iy) {
 //! calculate d_m (tau W^{m,alpha}) + (geom source terms)
 //! partial_tau W^tau alpha
 //! this is partial_tau evaluated at tau
@@ -1265,7 +1271,8 @@ void Advance::MakeWSource(double tau, Field *hydro_fields,
 //! change: alpha first which is the case
 //!         for everywhere else. also, this change is necessary
 //!         to use Wmunu[rk_flag][4][mu] as the dissipative baryon current
-
+void Advance::MakeWSource(double tau, Field *hydro_fields,
+                          int ieta, int ix, int iy) {
     double shear_on, bulk_on;
     if (INCLUDE_SHEAR)
         shear_on = 1.0;
