@@ -4,6 +4,9 @@
 #include "./evolve.h"
 #include "./advance.h"
 
+#define THETA_FLUX 1.8
+#define RHO_MAX 0.1
+
 using namespace std;
 
 Advance::Advance(InitData *DATA_in) {
@@ -622,11 +625,10 @@ void Advance::QuestRevert(Field *hydro_fields, int idx) {
                       + 3.*p_local*p_local);
        
     double rho_vis = sqrt(vis_size/eq_size)/factor; 
-    double rho_max = 0.1;
     // Reducing the shear stress tensor 
-    if (rho_vis > rho_max) {
+    if (rho_vis > RHO_MAX) {
         for (int mu = 0; mu < 10; mu++) {
-            hydro_fields->Wmunu_rk1[mu][idx] *= (rho_max/rho_vis);
+            hydro_fields->Wmunu_rk1[mu][idx] *= (RHO_MAX/rho_vis);
         }
     }
    
@@ -635,8 +637,8 @@ void Advance::QuestRevert(Field *hydro_fields, int idx) {
                   *hydro_fields->Wmunu_rk1[14][idx]);
     rho_vis  = sqrt(vis_size/eq_size)/factor;
     // Reducing bulk viscous pressure 
-    if (rho_vis > rho_max) {
-        hydro_fields->Wmunu_rk1[14][idx] *= (rho_max/rho_vis);
+    if (rho_vis > RHO_MAX) {
+        hydro_fields->Wmunu_rk1[14][idx] *= (RHO_MAX/rho_vis);
     }
 }
 
@@ -1246,18 +1248,12 @@ double Advance::get_temperature(double e_local, double rhob) {
 }
 
 double Advance::minmod_dx(double up1, double u, double um1) {
-    double theta_flux = 1.8;
-    double diffup = (up1 - u)*theta_flux;
-    double diffdown = (u - um1)*theta_flux;
-    double diffmid = (up1 - um1)*0.5;
-
-    double tempf;
-    if ( (diffup > 0.0) && (diffdown > 0.0) && (diffmid > 0.0) ) {
-        tempf = mini(diffdown, diffmid);
-        return mini(diffup, tempf);
-    } else if ( (diffup < 0.0) && (diffdown < 0.0) && (diffmid < 0.0) ) {
-        tempf = maxi(diffdown, diffmid);
-        return maxi(diffup, tempf);
+    if ((up1 > u) && (u > um1)) {
+        return MIN((up1 - u)*THETA_FLUX,
+                   MIN((u - um1)*THETA_FLUX, (up1 - um1)*0.5));
+    } else if ((up1 < u) && (u < um1)) {
+        return MAX((up1 - u)*THETA_FLUX,
+                   MAX((u - um1)*THETA_FLUX, (up1 - um1)*0.5));
     } else {
       return 0.0;
     }
@@ -1275,21 +1271,21 @@ void Advance::MakeWSource(double tau, Field *hydro_fields,
                           int ieta, int ix, int iy) {
     int field_idx = get_indx(ieta, ix, iy);
     for (int alpha = 0; alpha < 4 + INCLUDE_DIFF; alpha++) {
-        int idx_1d;
+        int idx_1d, field_idx_p_1, field_idx_m_1;
         double sg, sgp1, sgm1;
-
+        double dWdxmu = 0.0;
+        double dPidxmu = 0.0;
         // shear part
         // dW/dtau
         // backward time derivative (first order is more stable)
-        double dWdxmu = 0.0;
         dWdxmu = ((hydro_fields->Wmunu_rk0[alpha][field_idx]
                     - hydro_fields->Wmunu_prev[alpha][field_idx])
                   /DELTA_TAU);
 
         // x-direction
         idx_1d = map_2d_idx_to_1d(alpha, 1);
-        int field_idx_p_1 = get_indx(ieta, MIN(ix + 1, GRID_SIZE_X), iy);
-        int field_idx_m_1 = get_indx(ieta, MAX(ix - 1, 0), iy);
+        field_idx_p_1 = get_indx(ieta, MIN(ix + 1, GRID_SIZE_X), iy);
+        field_idx_m_1 = get_indx(ieta, MAX(ix - 1, 0), iy);
         sg = hydro_fields->Wmunu_rk0[idx_1d][field_idx];
         sgp1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_p_1];
         sgm1 = hydro_fields->Wmunu_rk0[idx_1d][field_idx_m_1];
@@ -1322,7 +1318,6 @@ void Advance::MakeWSource(double tau, Field *hydro_fields,
         dWdxmu = tau*dWdxmu + hydro_fields->Wmunu_rk0[alpha][field_idx];
 
         // bulk pressure term
-        double dPidxmu = 0.0;
         if (alpha < 4 && INCLUDE_BULK) {
             double Pi_alpha0 = 0.0;
             // dPi/dtau
@@ -1391,36 +1386,28 @@ void Advance::MakeWSource(double tau, Field *hydro_fields,
             dPidxmu = tau*dPidxmu + Pi_alpha0;
         }
 
-        // sources due to coordinate transform
-        // this is added to partial_m W^mn
-        if (alpha == 0) {
-            //sf += vis_array[9];
-            //bf += vis_array[14]*(1.0 + vis_array[18]
-            //                                *vis_array[18]);
-            dWdxmu  += hydro_fields->Wmunu_rk0[9][field_idx];
-            dPidxmu += (hydro_fields->Wmunu_rk0[14][field_idx]
-                        *(1.0 + hydro_fields->u_rk0[3][field_idx]
-                                *hydro_fields->u_rk0[3][field_idx]));
-        }
-        if (alpha == 3) {
-            //sf += vis_array[3];
-            //bf += vis_array[14]*(vis_array[15]
-            //                          *vis_array[18]);
-            dWdxmu += hydro_fields->Wmunu_rk0[3][field_idx];
-            dPidxmu += (hydro_fields->Wmunu_rk0[14][field_idx]
-                        *(hydro_fields->u_rk0[0][field_idx]
-                          *hydro_fields->u_rk0[3][field_idx]));
-        }
-
-        double result = 0.0;
         if (alpha < 4) {
-            result = (dWdxmu*INCLUDE_SHEAR + dPidxmu*INCLUDE_BULK);
+            hydro_fields->qi_array_new[alpha][field_idx] -= (
+                (dWdxmu*INCLUDE_SHEAR + dPidxmu*INCLUDE_BULK)*DELTA_TAU);
         } else if (alpha == 4) {
-            result = dWdxmu;
+            hydro_fields->qi_array_new[alpha][field_idx] -= (
+                (dWdxmu*INCLUDE_DIFF)*DELTA_TAU);
         }
-        //qi_array_new[alpha] -= result*DELTA_TAU;
-        hydro_fields->qi_array_new[alpha][field_idx] -= result*DELTA_TAU;
     }
+    
+    // sources due to coordinate transform
+    // for tau*T^tautau
+    hydro_fields->qi_array_new[0][field_idx] -= (
+        hydro_fields->Wmunu_rk0[9][field_idx]*INCLUDE_SHEAR
+        + (hydro_fields->Wmunu_rk0[14][field_idx]
+           *(1.0 + hydro_fields->u_rk0[3][field_idx]
+                   *hydro_fields->u_rk0[3][field_idx]))*INCLUDE_BULK)*DELTA_TAU;
+    // for tau*T^taueta
+    hydro_fields->qi_array_new[3][field_idx] -= (
+        hydro_fields->Wmunu_rk0[3][field_idx]*INCLUDE_SHEAR
+        + (hydro_fields->Wmunu_rk0[14][field_idx]
+           *(hydro_fields->u_rk0[0][field_idx]
+             *hydro_fields->u_rk0[3][field_idx]))*INCLUDE_BULK)*DELTA_TAU;
 }
 
 int Advance::Make_uWRHS(double tau, Field* hydro_fields,
