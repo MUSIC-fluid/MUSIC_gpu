@@ -1181,16 +1181,18 @@ double Advance::get_temperature(double e_local, double rhob) {
 }
 
 double Advance::minmod_dx(double up1, double u, double um1) {
-    if ((up1 > u) && (u > um1)) {
-        return MIN((up1 - u)*THETA_FLUX,
-                   MIN((u - um1)*THETA_FLUX, (up1 - um1)*0.5));
-    } else if ((up1 < u) && (u < um1)) {
-        return MAX((up1 - u)*THETA_FLUX,
-                   MAX((u - um1)*THETA_FLUX, (up1 - um1)*0.5));
+    if ((up1 - u)*(u - um1) > 0.) {
+        if (up1 > u) {
+            return(MIN((up1 - u)*THETA_FLUX,
+                       MIN((u - um1)*THETA_FLUX, (up1 - um1)*0.5)));
+        } else {
+            return(MAX((up1 - u)*THETA_FLUX,
+                       MAX((u - um1)*THETA_FLUX, (up1 - um1)*0.5)));
+        }
     } else {
-      return 0.0;
+      return(0.0);
     }
-}/* minmod_dx */
+}
 
 
 //! calculate d_m (tau W^{m,alpha}) + (geom source terms)
