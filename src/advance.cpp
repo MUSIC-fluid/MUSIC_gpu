@@ -670,6 +670,8 @@ void Advance::MakeDeltaQI(double tau, double *grid_array,
     
     int idx = get_indx(ieta, ix, iy);
     double FihL, FihR, Fih, aih;
+    double gp, ghR, ghL;
+    double minmod_temp;
 
     // implement Kurganov-Tadmor scheme
     // here computes the half way T^\tau\mu currents
@@ -679,16 +681,16 @@ void Advance::MakeDeltaQI(double tau, double *grid_array,
     int idx_p_2 = get_indx(ieta, MIN(ix + 2, GRID_SIZE_X), iy);
     int idx_m_2 = get_indx(ieta, MAX(ix - 2, 0), iy);
     for (int alpha = 0; alpha < 5; alpha++) {
-        double gp = hydro_fields->qi_array[alpha][idx];
-        double gphR = hydro_fields->qi_array[alpha][idx_p_1];
-        double gmhL = hydro_fields->qi_array[alpha][idx_m_1];
-        double gphR2 = hydro_fields->qi_array[alpha][idx_p_2];
-        double gmhL2 = hydro_fields->qi_array[alpha][idx_m_2];
+        gp = hydro_fields->qi_array[alpha][idx];
+        ghR = hydro_fields->qi_array[alpha][idx_p_1];
+        ghL = hydro_fields->qi_array[alpha][idx_m_1];
+        minmod_temp = 0.5*minmod_dx(ghR, gp, ghL);
 
-        double minmod_temp = 0.5*minmod_dx(gphR, gp, gmhL);
         qiphL[alpha] = gp + minmod_temp;
-        qiphR[alpha] = gphR - 0.5*minmod_dx(gphR2, gphR, gp);
-        qimhL[alpha] = gmhL + 0.5*minmod_dx(gp, gmhL, gmhL2);
+        qiphR[alpha] = ghR - 0.5*minmod_dx(
+                            hydro_fields->qi_array[alpha][idx_p_2], ghR, gp);
+        qimhL[alpha] = ghL + 0.5*minmod_dx(
+                            gp, ghL, hydro_fields->qi_array[alpha][idx_m_2]);
         qimhR[alpha] = gp - minmod_temp;
     }
     // for each direction, reconstruct half-way cells
@@ -734,16 +736,16 @@ void Advance::MakeDeltaQI(double tau, double *grid_array,
     idx_p_2 = get_indx(ieta, ix, MIN(iy + 2, GRID_SIZE_Y));
     idx_m_2 = get_indx(ieta, ix, MAX(iy - 2, 0));
     for (int alpha = 0; alpha < 5; alpha++) {
-        double gp =   hydro_fields->qi_array[alpha][idx];
-        double gphR = hydro_fields->qi_array[alpha][idx_p_1];
-        double gmhL = hydro_fields->qi_array[alpha][idx_m_1];
-        double gphR2 = hydro_fields->qi_array[alpha][idx_p_2];
-        double gmhL2 = hydro_fields->qi_array[alpha][idx_m_2];
+        gp =  hydro_fields->qi_array[alpha][idx];
+        ghR = hydro_fields->qi_array[alpha][idx_p_1];
+        ghL = hydro_fields->qi_array[alpha][idx_m_1];
 
-        double minmod_temp = 0.5*minmod_dx(gphR, gp, gmhL);
+        minmod_temp = 0.5*minmod_dx(ghR, gp, ghL);
         qiphL[alpha] = gp + minmod_temp;
-        qiphR[alpha] = gphR - 0.5*minmod_dx(gphR2, gphR, gp);
-        qimhL[alpha] = gmhL + 0.5*minmod_dx(gp, gmhL, gmhL2);
+        qiphR[alpha] = ghR - 0.5*minmod_dx(
+                            hydro_fields->qi_array[alpha][idx_p_2], ghR, gp);
+        qimhL[alpha] = ghL + 0.5*minmod_dx(
+                            gp, ghL, hydro_fields->qi_array[alpha][idx_m_2]);
         qimhR[alpha] = gp - minmod_temp;
     }
     // for each direction, reconstruct half-way cells
@@ -788,16 +790,16 @@ void Advance::MakeDeltaQI(double tau, double *grid_array,
     idx_p_2 = get_indx(MIN(ieta + 2, GRID_SIZE_ETA - 1), ix, iy);
     idx_m_2 = get_indx(MAX(ieta - 2, 0), ix, iy);
     for (int alpha = 0; alpha < 5; alpha++) {
-        double gp =   hydro_fields->qi_array[alpha][idx];
-        double gphR = hydro_fields->qi_array[alpha][idx_p_1];
-        double gmhL = hydro_fields->qi_array[alpha][idx_m_1];
-        double gphR2 = hydro_fields->qi_array[alpha][idx_p_2];
-        double gmhL2 = hydro_fields->qi_array[alpha][idx_m_2];
+        gp =  hydro_fields->qi_array[alpha][idx];
+        ghR = hydro_fields->qi_array[alpha][idx_p_1];
+        ghL = hydro_fields->qi_array[alpha][idx_m_1];
 
-        double minmod_temp = 0.5*minmod_dx(gphR, gp, gmhL);
+        minmod_temp = 0.5*minmod_dx(ghR, gp, ghL);
         qiphL[alpha] = gp + minmod_temp;
-        qiphR[alpha] = gphR - 0.5*minmod_dx(gphR2, gphR, gp);
-        qimhL[alpha] = gmhL + 0.5*minmod_dx(gp, gmhL, gmhL2);
+        qiphR[alpha] = ghR - 0.5*minmod_dx(
+                            hydro_fields->qi_array[alpha][idx_p_2], ghR, gp);
+        qimhL[alpha] = ghL + 0.5*minmod_dx(
+                            gp, ghL, hydro_fields->qi_array[alpha][idx_m_2]);
         qimhR[alpha] = gp - minmod_temp;
     }
     // for each direction, reconstruct half-way cells
