@@ -153,7 +153,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
         
         if (INITIAL_PROFILE > 2) {
             #pragma acc parallel loop gang worker vector collapse(3) \
-                independent present(hydro_fields)
+                independent present(hydro_fields) private(this[0:1])
             for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
                 for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
                     for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
