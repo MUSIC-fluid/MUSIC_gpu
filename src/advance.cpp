@@ -669,222 +669,171 @@ void Advance::MakeDeltaQI(double tau, double *grid_array,
     //double *grid_array_hR = new double[5];
     
     int idx = get_indx(ieta, ix, iy);
+    double FihL, FihR, Fih, aih;
 
     // implement Kurganov-Tadmor scheme
     // here computes the half way T^\tau\mu currents
     // x-direction
-    int direc = 1;
-    double tau_fac = tau;
+    int idx_p_1 = get_indx(ieta, MIN(ix + 1, GRID_SIZE_X), iy);
+    int idx_m_1 = get_indx(ieta, MAX(ix - 1, 0), iy);
+    int idx_p_2 = get_indx(ieta, MIN(ix + 2, GRID_SIZE_X), iy);
+    int idx_m_2 = get_indx(ieta, MAX(ix - 2, 0), iy);
     for (int alpha = 0; alpha < 5; alpha++) {
-        double gp =   hydro_fields->qi_array[alpha][idx];
-        double gphL = hydro_fields->qi_array[alpha][idx];
-        double gmhR = hydro_fields->qi_array[alpha][idx];
-        
-        double gphR, gmhL, gphR2, gmhL2;
-        int idx_p_1 = get_indx(ieta, MIN(ix + 1, GRID_SIZE_X), iy);
-        gphR = hydro_fields->qi_array[alpha][idx_p_1];
-        int idx_m_1 = get_indx(ieta, MAX(ix - 1, 0), iy);
-        gmhL = hydro_fields->qi_array[alpha][idx_m_1];
-        int idx_p_2 = get_indx(ieta, MIN(ix + 2, GRID_SIZE_X), iy);
-        gphR2 = hydro_fields->qi_array[alpha][idx_p_2];
-        int idx_m_2 = get_indx(ieta, MAX(ix - 2, 0), iy);
-        gmhL2 = hydro_fields->qi_array[alpha][idx_m_2];
+        double gp = hydro_fields->qi_array[alpha][idx];
+        double gphR = hydro_fields->qi_array[alpha][idx_p_1];
+        double gmhL = hydro_fields->qi_array[alpha][idx_m_1];
+        double gphR2 = hydro_fields->qi_array[alpha][idx_p_2];
+        double gmhL2 = hydro_fields->qi_array[alpha][idx_m_2];
 
-        double fphL = 0.5*minmod_dx(gphR, gp, gmhL);
-        double fphR = -0.5*minmod_dx(gphR2, gphR, gp);
-        double fmhL = 0.5*minmod_dx(gp, gmhL, gmhL2);
-        double fmhR = -0.5*minmod_dx(gphR, gp, gmhL);
-        qiphL[alpha] = gphL + fphL;
-        qiphR[alpha] = gphR + fphR;
-        qimhL[alpha] = gmhL + fmhL;
-        qimhR[alpha] = gmhR + fmhR;
+        double minmod_temp = 0.5*minmod_dx(gphR, gp, gmhL);
+        qiphL[alpha] = gp + minmod_temp;
+        qiphR[alpha] = gphR - 0.5*minmod_dx(gphR2, gphR, gp);
+        qimhL[alpha] = gmhL + 0.5*minmod_dx(gp, gmhL, gmhL2);
+        qimhR[alpha] = gp - minmod_temp;
     }
     // for each direction, reconstruct half-way cells
     // reconstruct e, rhob, and u[4] for half way cells
-    int flag = ReconstIt_velocity_Newton(
+    ReconstIt_velocity_Newton(
                     grid_array_hL, tau, qiphL, grid_array);
-
-    double aiphL = MaxSpeed(tau, direc, grid_array_hL);
-
-    flag *= ReconstIt_velocity_Newton(
+    ReconstIt_velocity_Newton(
                     grid_array_hR, tau, qiphR, grid_array);
-    double aiphR = MaxSpeed(tau, direc, grid_array_hR);
-    double aiph = maxi(aiphL, aiphR);
+
+    aih = MAX(MaxSpeed(tau, 1, grid_array_hL),
+              MaxSpeed(tau, 1, grid_array_hR));
     for (int alpha = 0; alpha < 5; alpha++) {
-        double FiphL = tau_fac*get_TJb_new(grid_array_hL,
-                                           alpha, direc);
-        double FiphR = tau_fac*get_TJb_new(grid_array_hR,
-                                            alpha, direc);
+        FihL = tau*get_TJb_new(grid_array_hL, alpha, 1);
+        FihR = tau*get_TJb_new(grid_array_hR, alpha, 1);
         // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
-        double Fiph = 0.5*((FiphL + FiphR)
-                            - aiph*(qiphR[alpha] - qiphL[alpha]));
-        hydro_fields->qi_array_new[alpha][idx] = -Fiph/DELTA_X*DELTA_TAU;
+        Fih = 0.5*((FihL + FihR)
+                            - aih*(qiphR[alpha] - qiphL[alpha]));
+        hydro_fields->qi_array_new[alpha][idx] = -Fih/DELTA_X*DELTA_TAU;
     }
-
-    flag *= ReconstIt_velocity_Newton(grid_array_hL, tau,
+    
+    ReconstIt_velocity_Newton(grid_array_hL, tau,
                                          qimhL, grid_array);
-    double aimhL = MaxSpeed(tau, direc, grid_array_hL);
-
-    flag *= ReconstIt_velocity_Newton(grid_array_hR, tau,
+    ReconstIt_velocity_Newton(grid_array_hR, tau,
                                          qimhR, grid_array);
-    double aimhR = MaxSpeed(tau, direc, grid_array_hR);
-    double aimh = maxi(aimhL, aimhR);
+    aih = MAX(MaxSpeed(tau, 1, grid_array_hL),
+              MaxSpeed(tau, 1, grid_array_hR));
 
     for (int alpha = 0; alpha < 5; alpha++) {
-        double FimhL = tau_fac*get_TJb_new(grid_array_hL,
-                                           alpha, direc);
-        double FimhR = tau_fac*get_TJb_new(grid_array_hR,
-                                           alpha, direc);
+        FihL = tau*get_TJb_new(grid_array_hL, alpha, 1);
+        FihR = tau*get_TJb_new(grid_array_hR, alpha, 1);
         // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
-        double Fimh = 0.5*((FimhL + FimhR)
-                            - aimh*(qimhR[alpha] - qimhL[alpha]));
-        hydro_fields->qi_array_new[alpha][idx] += Fimh/DELTA_X*DELTA_TAU;
+        Fih = 0.5*((FihL + FihR)
+                            - aih*(qimhR[alpha] - qimhL[alpha]));
+        hydro_fields->qi_array_new[alpha][idx] += Fih/DELTA_X*DELTA_TAU;
     }
     //cout << "x-direction" << endl;
     
     // y-direction
-    direc = 2;
-    tau_fac = tau;
+    idx_p_1 = get_indx(ieta, ix, MIN(iy + 1, GRID_SIZE_Y));
+    idx_m_1 = get_indx(ieta, ix, MAX(iy - 1, 0));
+    idx_p_2 = get_indx(ieta, ix, MIN(iy + 2, GRID_SIZE_Y));
+    idx_m_2 = get_indx(ieta, ix, MAX(iy - 2, 0));
     for (int alpha = 0; alpha < 5; alpha++) {
         double gp =   hydro_fields->qi_array[alpha][idx];
-        double gphL = hydro_fields->qi_array[alpha][idx];
-        double gmhR = hydro_fields->qi_array[alpha][idx];
+        double gphR = hydro_fields->qi_array[alpha][idx_p_1];
+        double gmhL = hydro_fields->qi_array[alpha][idx_m_1];
+        double gphR2 = hydro_fields->qi_array[alpha][idx_p_2];
+        double gmhL2 = hydro_fields->qi_array[alpha][idx_m_2];
 
-        double gphR, gmhL, gphR2, gmhL2;
-        int idx_p_1 = get_indx(ieta, ix, MIN(iy + 1, GRID_SIZE_Y));
-        gphR = hydro_fields->qi_array[alpha][idx_p_1];
-        int idx_m_1 = get_indx(ieta, ix, MAX(iy - 1, 0));
-        gmhL = hydro_fields->qi_array[alpha][idx_m_1];
-        int idx_p_2 = get_indx(ieta, ix, MIN(iy + 2, GRID_SIZE_Y));
-        gphR2 = hydro_fields->qi_array[alpha][idx_p_2];
-        int idx_m_2 = get_indx(ieta, ix, MAX(iy - 2, 0));
-        gmhL2 = hydro_fields->qi_array[alpha][idx_m_2];
-
-        double fphL = 0.5*minmod_dx(gphR, gp, gmhL);
-        double fphR = -0.5*minmod_dx(gphR2, gphR, gp);
-        double fmhL = 0.5*minmod_dx(gp, gmhL, gmhL2);
-        double fmhR = -0.5*minmod_dx(gphR, gp, gmhL);
-        qiphL[alpha] = gphL + fphL;
-        qiphR[alpha] = gphR + fphR;
-        qimhL[alpha] = gmhL + fmhL;
-        qimhR[alpha] = gmhR + fmhR;
+        double minmod_temp = 0.5*minmod_dx(gphR, gp, gmhL);
+        qiphL[alpha] = gp + minmod_temp;
+        qiphR[alpha] = gphR - 0.5*minmod_dx(gphR2, gphR, gp);
+        qimhL[alpha] = gmhL + 0.5*minmod_dx(gp, gmhL, gmhL2);
+        qimhR[alpha] = gp - minmod_temp;
     }
     // for each direction, reconstruct half-way cells
     // reconstruct e, rhob, and u[4] for half way cells
-    flag = ReconstIt_velocity_Newton(
+    ReconstIt_velocity_Newton(
                     grid_array_hL, tau, qiphL, grid_array);
-    aiphL = MaxSpeed(tau, direc, grid_array_hL);
-
-    flag *= ReconstIt_velocity_Newton(
+    ReconstIt_velocity_Newton(
                     grid_array_hR, tau, qiphR, grid_array);
-    aiphR = MaxSpeed(tau, direc, grid_array_hR);
-    aiph = maxi(aiphL, aiphR);
+    aih = MAX(MaxSpeed(tau, 2, grid_array_hL),
+              MaxSpeed(tau, 2, grid_array_hR));
     for (int alpha = 0; alpha < 5; alpha++) {
-        double FiphL = tau_fac*get_TJb_new(grid_array_hL,
-                                           alpha, direc);
-        double FiphR = tau_fac*get_TJb_new(grid_array_hR,
-                                            alpha, direc);
+        FihL = tau*get_TJb_new(grid_array_hL, alpha, 2);
+        FihR = tau*get_TJb_new(grid_array_hR, alpha, 2);
         // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
-        double Fiph = 0.5*((FiphL + FiphR)
-                            - aiph*(qiphR[alpha] - qiphL[alpha]));
-
-        hydro_fields->qi_array_new[alpha][idx] -= Fiph/DELTA_Y*DELTA_TAU;
+        Fih = 0.5*((FihL + FihR)
+                            - aih*(qiphR[alpha] - qiphL[alpha]));
+        hydro_fields->qi_array_new[alpha][idx] -= Fih/DELTA_Y*DELTA_TAU;
     }
 
-    flag *= ReconstIt_velocity_Newton(grid_array_hL, tau,
+    ReconstIt_velocity_Newton(grid_array_hL, tau,
                                          qimhL, grid_array);
-    aimhL = MaxSpeed(tau, direc, grid_array_hL);
-
-    flag *= ReconstIt_velocity_Newton(grid_array_hR, tau,
+    ReconstIt_velocity_Newton(grid_array_hR, tau,
                                          qimhR, grid_array);
-    aimhR = MaxSpeed(tau, direc, grid_array_hR);
-    aimh = maxi(aimhL, aimhR);
+    aih = MAX(MaxSpeed(tau, 2, grid_array_hL),
+              MaxSpeed(tau, 2, grid_array_hR));
 
     for (int alpha = 0; alpha < 5; alpha++) {
-        double FimhL = tau_fac*get_TJb_new(grid_array_hL,
-                                           alpha, direc);
-        double FimhR = tau_fac*get_TJb_new(grid_array_hR,
-                                           alpha, direc);
+        FihL = tau*get_TJb_new(grid_array_hL, alpha, 2);
+        FihR = tau*get_TJb_new(grid_array_hR, alpha, 2);
         // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
-        double Fimh = 0.5*((FimhL + FimhR)
-                            - aimh*(qimhR[alpha] - qimhL[alpha]));
-        hydro_fields->qi_array_new[alpha][idx] += Fimh/DELTA_Y*DELTA_TAU;
+        Fih = 0.5*((FihL + FihR)
+                            - aih*(qimhR[alpha] - qimhL[alpha]));
+        hydro_fields->qi_array_new[alpha][idx] += Fih/DELTA_Y*DELTA_TAU;
     }
     //cout << "y-direction" << endl;
     
     // eta-direction
-    direc = 3;
-    tau_fac = 1.0;
+    idx_p_1 = get_indx(MIN(ieta + 1, GRID_SIZE_ETA - 1), ix, iy);
+    idx_m_1 = get_indx(MAX(ieta - 1, 0), ix, iy);
+    idx_p_2 = get_indx(MIN(ieta + 2, GRID_SIZE_ETA - 1), ix, iy);
+    idx_m_2 = get_indx(MAX(ieta - 2, 0), ix, iy);
     for (int alpha = 0; alpha < 5; alpha++) {
         double gp =   hydro_fields->qi_array[alpha][idx];
-        double gphL = hydro_fields->qi_array[alpha][idx];
-        double gmhR = hydro_fields->qi_array[alpha][idx];
+        double gphR = hydro_fields->qi_array[alpha][idx_p_1];
+        double gmhL = hydro_fields->qi_array[alpha][idx_m_1];
+        double gphR2 = hydro_fields->qi_array[alpha][idx_p_2];
+        double gmhL2 = hydro_fields->qi_array[alpha][idx_m_2];
 
-        double gphR, gmhL, gphR2, gmhL2;
-        int idx_p_1 = get_indx(MIN(ieta + 1, GRID_SIZE_ETA - 1), ix, iy);
-        gphR = hydro_fields->qi_array[alpha][idx_p_1];
-        int idx_m_1 = get_indx(MAX(ieta - 1, 0), ix, iy);
-        gmhL = hydro_fields->qi_array[alpha][idx_m_1];
-        int idx_p_2 = get_indx(MIN(ieta + 2, GRID_SIZE_ETA - 1), ix, iy);
-        gphR2 = hydro_fields->qi_array[alpha][idx_p_2];
-        int idx_m_2 = get_indx(MAX(ieta - 2, 0), ix, iy);
-        gmhL2 = hydro_fields->qi_array[alpha][idx_m_2];
-
-        double fphL = 0.5*minmod_dx(gphR, gp, gmhL);
-        double fphR = -0.5*minmod_dx(gphR2, gphR, gp);
-        double fmhL = 0.5*minmod_dx(gp, gmhL, gmhL2);
-        double fmhR = -0.5*minmod_dx(gphR, gp, gmhL);
-        qiphL[alpha] = gphL + fphL;
-        qiphR[alpha] = gphR + fphR;
-        qimhL[alpha] = gmhL + fmhL;
-        qimhR[alpha] = gmhR + fmhR;
+        double minmod_temp = 0.5*minmod_dx(gphR, gp, gmhL);
+        qiphL[alpha] = gp + minmod_temp;
+        qiphR[alpha] = gphR - 0.5*minmod_dx(gphR2, gphR, gp);
+        qimhL[alpha] = gmhL + 0.5*minmod_dx(gp, gmhL, gmhL2);
+        qimhR[alpha] = gp - minmod_temp;
     }
     // for each direction, reconstruct half-way cells
     // reconstruct e, rhob, and u[4] for half way cells
-    flag = ReconstIt_velocity_Newton(
+    ReconstIt_velocity_Newton(
                     grid_array_hL, tau, qiphL, grid_array);
-    aiphL = MaxSpeed(tau, direc, grid_array_hL);
-
-    flag *= ReconstIt_velocity_Newton(
+    ReconstIt_velocity_Newton(
                     grid_array_hR, tau, qiphR, grid_array);
-    aiphR = MaxSpeed(tau, direc, grid_array_hR);
-    aiph = maxi(aiphL, aiphR);
+    aih = MAX(MaxSpeed(tau, 3, grid_array_hL),
+              MaxSpeed(tau, 3, grid_array_hR));
     for (int alpha = 0; alpha < 5; alpha++) {
-        double FiphL = tau_fac*get_TJb_new(grid_array_hL,
-                                           alpha, direc);
-        double FiphR = tau_fac*get_TJb_new(grid_array_hR,
-                                            alpha, direc);
+        FihL = 1.0*get_TJb_new(grid_array_hL, alpha, 3);
+        FihR = 1.0*get_TJb_new(grid_array_hR, alpha, 3);
         // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
-        double Fiph = 0.5*((FiphL + FiphR)
-                            - aiph*(qiphR[alpha] - qiphL[alpha]));
+        Fih = 0.5*((FihL + FihR)
+                            - aih*(qiphR[alpha] - qiphL[alpha]));
 
-        hydro_fields->qi_array_new[alpha][idx] -= Fiph/DELTA_ETA*DELTA_TAU;
+        hydro_fields->qi_array_new[alpha][idx] -= Fih/DELTA_ETA*DELTA_TAU;
     }
 
-    flag *= ReconstIt_velocity_Newton(grid_array_hL, tau,
+    ReconstIt_velocity_Newton(grid_array_hL, tau,
                                          qimhL, grid_array);
-    aimhL = MaxSpeed(tau, direc, grid_array_hL);
-
-    flag *= ReconstIt_velocity_Newton(grid_array_hR, tau,
+    ReconstIt_velocity_Newton(grid_array_hR, tau,
                                          qimhR, grid_array);
-    aimhR = MaxSpeed(tau, direc, grid_array_hR);
-    aimh = maxi(aimhL, aimhR);
+    aih = MAX(MaxSpeed(tau, 3, grid_array_hL),
+              MaxSpeed(tau, 3, grid_array_hR));
 
     for (int alpha = 0; alpha < 5; alpha++) {
-        double FimhL = tau_fac*get_TJb_new(grid_array_hL,
-                                           alpha, direc);
-        double FimhR = tau_fac*get_TJb_new(grid_array_hR,
-                                           alpha, direc);
+        FihL = 1.0*get_TJb_new(grid_array_hL, alpha, 3);
+        FihR = 1.0*get_TJb_new(grid_array_hR, alpha, 3);
         // KT: H_{j+1/2} = (f(u^+_{j+1/2}) + f(u^-_{j+1/2})/2
         //              - a_{j+1/2}(u_{j+1/2}^+ - u^-_{j+1/2})/2
-        double Fimh = 0.5*((FimhL + FimhR)
-                            - aimh*(qimhR[alpha] - qimhL[alpha]));
-        hydro_fields->qi_array_new[alpha][idx] += Fimh/DELTA_ETA*DELTA_TAU;
+        Fih = 0.5*((FihL + FihR)
+                            - aih*(qimhR[alpha] - qimhL[alpha]));
+        hydro_fields->qi_array_new[alpha][idx] += Fih/DELTA_ETA*DELTA_TAU;
     }
     //cout << "eta-direction" << endl;
 
