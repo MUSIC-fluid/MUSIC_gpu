@@ -28,13 +28,7 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
                        int rk_flag) {
     double tmp[1]={-1.1};
 
-    double grid_array[5], qi_array[5];
-    double qiphL[5];
-    double qiphR[5];
-    double qimhL[5];
-    double qimhR[5];
-    double grid_array_hL[5];
-    double grid_array_hR[5];
+    double grid_array[5];
     
     // enter GPU parallel region, variable tmp is used to check whether the
     // code is running on GPU
@@ -52,18 +46,14 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
 
     #pragma acc parallel loop gang worker vector collapse(3) independent \
         present(hydro_fields) \
-        private(this[0:1], grid_array[0:5], \
-                grid_array_hL[0:5], qimhL[0:5], grid_array_hR[0:5], \
-                qiphL[0:5], qimhR[0:5], qiphR[0:5])
+        private(this[0:1], grid_array[0:5])
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
         for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
             for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
                 //tmp[0]=tau;  // check code is running on GPU
 
                 FirstRKStepT(tau, rk_flag, hydro_fields, ieta, ix, iy,
-                             grid_array,
-                             qiphL, qiphR, qimhL, qimhR,
-                             grid_array_hL, grid_array_hR);
+                             grid_array);
             }
         }
     }
@@ -113,12 +103,12 @@ int Advance::AdvanceIt(double tau, Field *hydro_fields,
     }
     #pragma acc parallel loop gang worker vector collapse(3) independent \
         present(hydro_fields) \
-        private(this[0:1], grid_array[0:5], qi_array[0:5])
+        private(this[0:1], grid_array[0:5])
     for (int ieta = 0; ieta < GRID_SIZE_ETA; ieta++) {
         for (int ix = 0; ix <= GRID_SIZE_X; ix++) {
             for (int iy = 0; iy <= GRID_SIZE_Y; iy++) {
                 update_grid_cell(grid_array, hydro_fields, ieta, ix, iy,
-                                 qi_array, tau + DELTA_TAU);
+                                 tau + DELTA_TAU);
             }
         }
     }
@@ -233,10 +223,7 @@ void Advance::calculate_qi_array(double tau, Field *hydro_fields, int idx) {
 /* %%%%%%%%%%%%%%%%%%%%%% First steps begins here %%%%%%%%%%%%%%%%%% */
 int Advance::FirstRKStepT(double tau, int rk_flag,
                           Field *hydro_fields, int ieta, int ix, int iy,
-                          double *grid_array,
-                          double *qiphL, double *qiphR,
-                          double *qimhL, double *qimhR,
-                          double *grid_array_hL, double *grid_array_hR) {
+                          double *grid_array) {
 
     // this advances the ideal part
     double tau_rk = tau + rk_flag*DELTA_TAU;
@@ -253,9 +240,7 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
     // rhs[alpha] is what MakeDeltaQI outputs. 
     // It is the spatial derivative part of partial_a T^{a mu}
     // (including geometric terms)
-    MakeDeltaQI(tau_rk, grid_array,
-                qiphL, qiphR, qimhL, qimhR, grid_array_hL, grid_array_hR,
-                hydro_fields, ieta, ix, iy);
+    MakeDeltaQI(tau_rk, grid_array, hydro_fields, ieta, ix, iy);
     return(0);
 }
 
@@ -647,9 +632,6 @@ void Advance::QuestRevert(Field *hydro_fields, int idx) {
 
 //! It computes the spatial derivatives of T^\mu\nu using the KT algorithm
 void Advance::MakeDeltaQI(double tau, double *grid_array,
-                          double *qiphL, double *qiphR,
-                          double *qimhL, double *qimhR,
-                          double *grid_array_hL, double *grid_array_hR,
                           Field *hydro_fields, int ieta, int ix, int iy) {
     /* \partial_tau (tau Ttautau) + \partial_eta Tetatau 
             + \partial_x (tau Txtau) + \partial_y (tau Tytau) + Tetaeta = 0 */
@@ -660,13 +642,13 @@ void Advance::MakeDeltaQI(double tau, double *grid_array,
     
     // tau*Tmu0
 
-    //double *qiphL = new double[5];
-    //double *qiphR = new double[5];
-    //double *qimhL = new double[5];
-    //double *qimhR = new double[5];
-    //
-    //double *grid_array_hL = new double[5];
-    //double *grid_array_hR = new double[5];
+    double qiphL[5];
+    double qiphR[5];
+    double qimhL[5];
+    double qimhR[5];
+    
+    double grid_array_hL[5];
+    double grid_array_hR[5];
     
     int idx = get_indx(ieta, ix, iy);
     double FihL, FihR, Fih, aih;
@@ -979,10 +961,10 @@ void Advance::get_qmu_from_grid_array(double tau, double qi[5],
 }
 
 void Advance::update_grid_cell(double *grid_array, Field *hydro_fields,
-                               int ieta, int ix, int iy, double *qi_array,
-                               double tau_next) {
+                               int ieta, int ix, int iy, double tau_next) {
     int field_idx = get_indx(ieta, ix, iy);
     update_grid_array_from_field(hydro_fields, field_idx, grid_array);
+    double qi_array[5];
     for (int alpha = 0; alpha < 5; alpha++) {
         qi_array[alpha] = hydro_fields->qi_array_new[alpha][field_idx];
     }
