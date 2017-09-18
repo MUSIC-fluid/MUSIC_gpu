@@ -1587,10 +1587,8 @@ int Advance::Make_uWRHS(double tau, Field* hydro_fields,
     //           *(velocity_array[idx][1+ic])*ic_fac);
     //}
     double tempf = 0.0;
+    double temp_factor = hydro_fields->expansion_rate[idx] - u0/tau;
     // W^11
-    double sum = (- (u0*hydro_fields->Wmunu_rk0[4][idx])/tau
-                  + (hydro_fields->expansion_rate[idx]
-                      *hydro_fields->Wmunu_rk0[4][idx]));
     tempf = ((u3/tau)*2.*u1*(hydro_fields->Wmunu_rk0[6][idx]*u0
                              - hydro_fields->Wmunu_rk0[1][idx]*u3));
     tempf += 2.*(
@@ -1598,12 +1596,10 @@ int Advance::Make_uWRHS(double tau, Field* hydro_fields,
         + hydro_fields->Du_mu[1][idx]*(hydro_fields->Wmunu_rk0[4][idx]*u1)
         + hydro_fields->Du_mu[2][idx]*(hydro_fields->Wmunu_rk0[5][idx]*u1)
         + hydro_fields->Du_mu[3][idx]*(hydro_fields->Wmunu_rk0[6][idx]*u1));
-    hydro_fields->Wmunu_rk1[4][idx] += (sum + tempf)*DELTA_TAU;
+    hydro_fields->Wmunu_rk1[4][idx] += (
+        temp_factor*hydro_fields->Wmunu_rk0[4][idx] + tempf)*DELTA_TAU;
 
     // W^12
-    sum = (- (u0*hydro_fields->Wmunu_rk0[5][idx])/tau
-           + (hydro_fields->expansion_rate[idx]
-               *hydro_fields->Wmunu_rk0[5][idx]));
     tempf = ((u3/tau)*((hydro_fields->Wmunu_rk0[8][idx]*u1
                         + hydro_fields->Wmunu_rk0[6][idx]*u2)*u0
                        - (hydro_fields->Wmunu_rk0[1][idx]*u2
@@ -1617,13 +1613,11 @@ int Advance::Make_uWRHS(double tau, Field* hydro_fields,
                                        + hydro_fields->Wmunu_rk0[5][idx]*u2)
         + hydro_fields->Du_mu[3][idx]*(hydro_fields->Wmunu_rk0[8][idx]*u1
                                        + hydro_fields->Wmunu_rk0[6][idx]*u2));
-    hydro_fields->Wmunu_rk1[5][idx] += (sum + tempf)*DELTA_TAU;
+    hydro_fields->Wmunu_rk1[5][idx] += (
+        temp_factor*hydro_fields->Wmunu_rk0[5][idx] + tempf)*DELTA_TAU;
 
     
     // W^13
-    sum = (- (u0*hydro_fields->Wmunu_rk0[6][idx])/tau
-           + (hydro_fields->expansion_rate[idx]
-               *hydro_fields->Wmunu_rk0[6][idx]));
     tempf = ((u3/tau)*(- hydro_fields->Wmunu_rk0[1][idx]
                        + (hydro_fields->Wmunu_rk0[9][idx]*u1
                            + hydro_fields->Wmunu_rk0[6][idx]*u3)*u0
@@ -1638,12 +1632,10 @@ int Advance::Make_uWRHS(double tau, Field* hydro_fields,
                                        + hydro_fields->Wmunu_rk0[5][idx]*u3)
         + hydro_fields->Du_mu[3][idx]*(hydro_fields->Wmunu_rk0[9][idx]*u1
                                        + hydro_fields->Wmunu_rk0[6][idx]*u3));
-    hydro_fields->Wmunu_rk1[6][idx] += (sum + tempf)*DELTA_TAU;
+    hydro_fields->Wmunu_rk1[6][idx] += (
+        temp_factor*hydro_fields->Wmunu_rk0[6][idx] + tempf)*DELTA_TAU;
     
     // W^22
-    sum = (- (u0*hydro_fields->Wmunu_rk0[7][idx])/tau
-           + (hydro_fields->expansion_rate[idx]
-               *hydro_fields->Wmunu_rk0[7][idx]));
     tempf = ((u3/tau)*2.*u2*(hydro_fields->Wmunu_rk0[8][idx]*u0
                              - hydro_fields->Wmunu_rk0[2][idx]*u3));
     tempf += 2.*(
@@ -1651,12 +1643,10 @@ int Advance::Make_uWRHS(double tau, Field* hydro_fields,
         + hydro_fields->Du_mu[1][idx]*(hydro_fields->Wmunu_rk0[5][idx]*u2)
         + hydro_fields->Du_mu[2][idx]*(hydro_fields->Wmunu_rk0[7][idx]*u2)
         + hydro_fields->Du_mu[3][idx]*(hydro_fields->Wmunu_rk0[8][idx]*u2));
-    hydro_fields->Wmunu_rk1[7][idx] += (sum + tempf)*DELTA_TAU;
+    hydro_fields->Wmunu_rk1[7][idx] += (
+        temp_factor*hydro_fields->Wmunu_rk0[7][idx] + tempf)*DELTA_TAU;
     
     // W^23
-    sum = (- (u0*hydro_fields->Wmunu_rk0[8][idx])/tau
-           + (hydro_fields->expansion_rate[idx]
-               *hydro_fields->Wmunu_rk0[8][idx]));
     tempf = ((u3/tau)*(- hydro_fields->Wmunu_rk0[2][idx]
                        + (hydro_fields->Wmunu_rk0[9][idx]*u2
                            + hydro_fields->Wmunu_rk0[8][idx]*u3)*u0
@@ -1671,12 +1661,10 @@ int Advance::Make_uWRHS(double tau, Field* hydro_fields,
                                        + hydro_fields->Wmunu_rk0[8][idx]*u2)
         + hydro_fields->Du_mu[3][idx]*(hydro_fields->Wmunu_rk0[8][idx]*u3
                                        + hydro_fields->Wmunu_rk0[9][idx]*u2));
-    hydro_fields->Wmunu_rk1[8][idx] += (sum + tempf)*DELTA_TAU;
+    hydro_fields->Wmunu_rk1[8][idx] += (
+        temp_factor*hydro_fields->Wmunu_rk0[8][idx] + tempf)*DELTA_TAU;
 
     // W^33
-    sum = (- (u0*hydro_fields->Wmunu_rk0[9][idx])/tau
-           + (hydro_fields->expansion_rate[idx]
-               *hydro_fields->Wmunu_rk0[9][idx]));
     tempf = ((u3/tau)*2.*(u3*(hydro_fields->Wmunu_rk0[9][idx]*u0
                               - hydro_fields->Wmunu_rk0[3][idx]*u3)
                           - hydro_fields->Wmunu_rk0[3][idx]));
@@ -1685,16 +1673,48 @@ int Advance::Make_uWRHS(double tau, Field* hydro_fields,
         + hydro_fields->Du_mu[1][idx]*(hydro_fields->Wmunu_rk0[6][idx]*u3)
         + hydro_fields->Du_mu[2][idx]*(hydro_fields->Wmunu_rk0[8][idx]*u3)
         + hydro_fields->Du_mu[3][idx]*(hydro_fields->Wmunu_rk0[9][idx]*u3));
-    hydro_fields->Wmunu_rk1[9][idx] += (sum + tempf)*DELTA_TAU;
+    hydro_fields->Wmunu_rk1[9][idx] += (
+        temp_factor*hydro_fields->Wmunu_rk0[9][idx] + tempf)*DELTA_TAU;
+
+    // diffusion part
+    double qmu_dot_Du_mu = (
+        - hydro_fields->Du_mu[0][idx]*hydro_fields->Wmunu_rk0[10][idx]
+        + hydro_fields->Du_mu[1][idx]*hydro_fields->Wmunu_rk0[11][idx]
+        + hydro_fields->Du_mu[2][idx]*hydro_fields->Wmunu_rk0[12][idx]
+        + hydro_fields->Du_mu[3][idx]*hydro_fields->Wmunu_rk0[13][idx]);
+    // q^0
+    tempf = u3/tau*(  hydro_fields->Wmunu_rk0[13][idx]*(-1. + u0*u0)
+                    + hydro_fields->Wmunu_rk0[10][idx]*(u0*u3));
+    tempf += qmu_dot_Du_mu*u0;
+    hydro_fields->Wmunu_rk1[10][idx] += (
+        temp_factor*hydro_fields->Wmunu_rk0[10][idx] + tempf)*DELTA_TAU;
+    
+    // q^1
+    tempf = u3/tau*(  hydro_fields->Wmunu_rk0[13][idx]*(u1*u0)
+                    + hydro_fields->Wmunu_rk0[10][idx]*(u1*u3));
+    tempf += qmu_dot_Du_mu*u1;
+    hydro_fields->Wmunu_rk1[11][idx] += (
+        temp_factor*hydro_fields->Wmunu_rk0[11][idx] + tempf)*DELTA_TAU;
+    
+    // q^2
+    tempf = u3/tau*(  hydro_fields->Wmunu_rk0[13][idx]*(u2*u0)
+                    + hydro_fields->Wmunu_rk0[10][idx]*(u2*u3));
+    tempf += qmu_dot_Du_mu*u2;
+    hydro_fields->Wmunu_rk1[12][idx] += (
+        temp_factor*hydro_fields->Wmunu_rk0[12][idx] + tempf)*DELTA_TAU;
+    
+    // q^3
+    tempf = u3/tau*(  hydro_fields->Wmunu_rk0[13][idx]*(u3*u0)
+                    + hydro_fields->Wmunu_rk0[10][idx]*(1. + u3*u3));
+    tempf += qmu_dot_Du_mu*u3;
+    hydro_fields->Wmunu_rk1[13][idx] += (
+        temp_factor*hydro_fields->Wmunu_rk0[13][idx] + tempf)*DELTA_TAU;
 
     // bulk pressure (idx_1d == 14)
     // geometric terms for bulk Pi
-    //sum -= (pi_b[rk_flag])*(u[rk_flag][0])/tau;
-    //sum += (pi_b[rk_flag])*theta_local;
     hydro_fields->Wmunu_rk1[14][idx] += (
-        (- hydro_fields->Wmunu_rk0[14][idx]*hydro_fields->u_rk0[0][idx]/tau
-         + hydro_fields->Wmunu_rk0[14][idx]*hydro_fields->expansion_rate[idx])
-        *(DELTA_TAU));
+        temp_factor*hydro_fields->Wmunu_rk0[14][idx]*DELTA_TAU);
+
     return(1);
 }
 
@@ -2213,7 +2233,7 @@ double Advance::Make_uPiSource(double tau, Field *hydro_fields,
 }
 
 
-/* baryon current parts */
+/* baryon diffusion current parts */
 /* this contains the source terms
    that is, all the terms that are not part of the current */
 /* for the q part, we don't do tau*u*q we just do u*q 
@@ -2224,6 +2244,73 @@ double Advance::Make_uPiSource(double tau, Field *hydro_fields,
     -Delta[a][eta] u[eta] q[tau]/tau
     -u[a]u[b]g[b][e] Dq[e]
 */
+double Advance::Make_uqSource(double tau, Field *hydro_fields,
+                              int ieta, int ix, int iy) {
+    int idx = get_indx(ieta, ix, iy);
+    
+    // Useful variables to define
+    double epsilon = hydro_fields->e_rk0[idx];
+    double rhob = hydro_fields->rhob_rk0[idx];
+    double T = get_temperature(epsilon, rhob);
+
+    double tau_rho = DIFF_KAPPA/(T + 1e-15);
+    double kappa = DIFF_KAPPA*(
+            rhob/(3.*T*tanh(get_mu(epsilon, rhob)/T) + 1e-15)
+            - rhob*rhob/(epsilon + get_pressure(epsilon, rhob)));
+
+    // copy the value of \tilde{q^\mu}
+    //for (int i = 0; i < 4; i++) {
+    //    int idx_1d = util->map_2d_idx_to_1d(4, i);
+    //    q[i] = (grid_pt->Wmunu[rk_flag][idx_1d]);
+    //}
+
+    /* -(1/tau_rho)(q[a] + kappa g[a][b]Dtildemu[b] 
+     *              + kappa u[a] u[b]g[b][c]Dtildemu[c])
+     * + theta q[a] - q[a] u^\tau/tau
+     * + Delta[a][tau] u[eta] q[eta]/tau
+     * - Delta[a][eta] u[eta] q[tau]/tau
+     * - u[a] u[b]g[b][e] Dq[e] -> u[a] q[e] g[e][b] Du[b]
+    */    
+ 
+    // first: (1/tau_rho) part
+    // recall that dUsup[4][i] = partial_i (muB/T) 
+    // and dUsup[4][0] = -partial_tau (muB/T) = partial^tau (muB/T)
+    // and a[4] = u^a partial_a (muB/T) = DmuB/T
+    // -(1/tau_rho)(q[a] + kappa g[a][b]DmuB/T[b] 
+    // + kappa u[a] u[b]g[b][c]DmuB/T[c])
+    // a = nu 
+    double DmuB_over_T = (
+        - hydro_fields->u_rk0[0][idx]*hydro_fields->D_mu_mu_B_over_T[0][idx]
+        + hydro_fields->u_rk0[1][idx]*hydro_fields->D_mu_mu_B_over_T[1][idx]
+        + hydro_fields->u_rk0[2][idx]*hydro_fields->D_mu_mu_B_over_T[2][idx]
+        + hydro_fields->u_rk0[3][idx]*hydro_fields->D_mu_mu_B_over_T[3][idx]);
+    for (int nu = 0; nu < 4; nu++) {
+        double NS = kappa*(hydro_fields->D_mu_mu_B_over_T[nu][idx]
+                           + hydro_fields->u_rk0[nu][idx]*DmuB_over_T);
+        // add a new non-linear term (- q \theta)
+        double transport_coeff = 1.0*tau_rho;  // from conformal kinetic theory
+        double Nonlinear1 = (
+            - transport_coeff*hydro_fields->Wmunu_rk0[10+nu][idx]
+              *hydro_fields->expansion_rate[idx]);
+        double SW = (( - hydro_fields->Wmunu_rk0[10+nu][idx] - NS + Nonlinear1)
+                     /(tau_rho + 1e-15));
+    }
+
+//    // add a new non-linear term (-q^\mu \sigma_\mu\nu)
+//    double transport_coeff_2 = 3./5.*tau_rho;  // from 14-momentum massless
+//    double temptemp = 0.0;
+//    for (int i = 0 ; i < 4; i++) {
+//        temptemp += q[i]*sigma[i][nu]*DATA->gmunu[i][i]; 
+//    }
+//    double Nonlinear2 = - transport_coeff_2*temptemp;
+//
+//    double SW = (-q[nu] - NS + Nonlinear1 + Nonlinear2)/(tau_rho + 1e-15);
+//    if (DATA->Initial_profile == 1) {
+//        // for 1+1D numerical test
+//        SW = (-q[nu] - NS)/(tau_rho + 1e-15);
+//    }
+    return(0);
+}
 
 int Advance::map_2d_idx_to_1d(int a, int b) {
     // this function maps the 2d indeices of a symmetric matrix to the index
@@ -2402,7 +2489,7 @@ void Advance::calculate_D_mu_muB_over_T(double tau, Field *hydro_fields,
     rhob = hydro_fields->rhob_prev[idx];
     eps = hydro_fields->e_prev[idx];
     fm1 = get_mu(eps, rhob)/get_temperature(eps, rhob);
-    hydro_fields->D_mu_mu_B_over_T[1][idx] = - (f - fm1)/(DELTA_TAU);
+    hydro_fields->D_mu_mu_B_over_T[0][idx] = - (f - fm1)/(DELTA_TAU);
 
     // the x-direction
     int idx_p_1 = get_indx(ieta, MIN(ix + 1, GRID_SIZE_X), iy);

@@ -869,13 +869,13 @@ int Evolve::FindFreezeOutSurface_Cornelius_XY(double tau, InitData *DATA,
                        << Wxeta_center << " " 
                        << Wyy_center << " " << Wyeta_center << " " 
                        << Wetaeta_center << " " ;
-                if (DATA->turn_on_bulk) {
+                if (INCLUDE_BULK) {
                     s_file << pi_b_center << " " ;
                 }
                 if (DATA->turn_on_rhob) {
                     s_file << rhob_center << " " ;
                 }
-                if (DATA->turn_on_diff) {
+                if (INCLUDE_DIFF) {
                     s_file << qtau_center << " " << qx_center << " " 
                            << qy_center << " " << qeta_center << " " ;
                 }
@@ -1592,13 +1592,16 @@ int Evolve::FindFreezeOutSurface_boostinvariant_Cornelius(
                            << Wxeta_center << " " 
                            << Wyy_center << " " << Wyeta_center << " " 
                            << Wetaeta_center << " " ;
-                    if(DATA->turn_on_bulk)   // 27th column
+                    if (INCLUDE_BULK) {   // 27th column
                         s_file << pi_b_center << " " ;
-                    if(DATA->turn_on_rhob)   // 28th column
+                    }
+                    if (DATA->turn_on_rhob) {   // 28th column
                         s_file << rhob_center << " " ;
-                    if(DATA->turn_on_diff)   // 29-32th column
+                    }
+                    if (INCLUDE_DIFF) {   // 29-32th column
                         s_file << qtau_center << " " << qx_center << " " 
                                << qy_center << " " << qeta_center << " " ;
+                    }
                     s_file << endl;
                 }
             }

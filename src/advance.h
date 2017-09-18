@@ -101,6 +101,10 @@ class Advance {
                           int ieta, int ix, int iy);
 
 #pragma acc routine seq
+    double Make_uqSource(double tau, Field *hydro_fields,
+                         int ieta, int ix, int iy);
+
+#pragma acc routine seq
     double Make_uqSource(double tau, int n_cell_eta, int n_cell_x,
                          int n_cell_y,
                          double vis_array[][19],
