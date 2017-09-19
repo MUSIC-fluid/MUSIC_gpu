@@ -6,6 +6,10 @@
 
 #define THETA_FLUX 1.8
 #define RHO_MAX 0.1
+#define ABS_ERR 1e-9
+#define REL_ERR 1e-8
+#define MAX_ITER 100
+#define V_CRITICAL 0.53
 
 using namespace std;
 
@@ -246,10 +250,6 @@ int Advance::FirstRKStepT(double tau, int rk_flag,
 
 int Advance::ReconstIt_velocity_Newton(
     double *grid_array, double tau, double *uq, double *grid_array_p) {
-    double abs_err = 1e-9;
-    double rel_err = 1e-8;
-    int max_iter = 100;
-    double v_critical = 0.53;
     /* prepare for the iteration */
     /* uq = qiphL, qiphR, etc 
        qiphL[alpha] means, for instance, TJ[alpha][0] 
@@ -270,7 +270,7 @@ int Advance::ReconstIt_velocity_Newton(
     double T00 = uq[0]/tau;
     double J0 = uq[4]/tau;
 
-    if ((T00 < abs_err) || ((T00 - K00/T00) < 0.0)) {
+    if ((T00 < ABS_ERR) || ((T00 - K00/T00) < 0.0)) {
         revert_grid(grid_array, grid_array_p);
         return(-1);
     }/* if t00-k00/t00 < 0.0 */
@@ -297,11 +297,11 @@ int Advance::ReconstIt_velocity_Newton(
         abs_error_v = reconst_velocity_f_Newton(v_next, T00, M, J0);
         rel_error_v = 2.*abs_error_v/(v_next + v_prev + 1e-15);
         v_prev = v_next;
-        if (iter > max_iter) {
+        if (iter > MAX_ITER) {
             v_status = 0;
             break;
         }
-    } while (fabs(abs_error_v) > abs_err && fabs(rel_error_v) > rel_err);
+    } while (fabs(abs_error_v) > ABS_ERR && fabs(rel_error_v) > REL_ERR);
 
     double v_solution;
     if (v_status == 1 && v_next >= 0. && v_next <= 1.0) {
@@ -314,7 +314,7 @@ int Advance::ReconstIt_velocity_Newton(
     // for large velocity, solve u0
     double u0_solution = 1.0;
     double abs_error_u0, rel_error_u0;
-    if (v_solution > v_critical) {
+    if (v_solution > V_CRITICAL) {
         double u0_prev = 1./sqrt(1. - v_solution*v_solution);
         int u0_status = 1;
         iter = 0;
@@ -328,11 +328,11 @@ int Advance::ReconstIt_velocity_Newton(
             abs_error_u0 = reconst_u0_f_Newton(u0_next, T00, K00, M, J0);
             rel_error_u0 = 2.*abs_error_u0/(u0_next + u0_prev + 1e-15);
             u0_prev = u0_next;
-            if (iter > max_iter) {
+            if (iter > MAX_ITER) {
                 u0_status = 0;
                 break;
             }
-        } while (fabs(abs_error_u0) > abs_err && fabs(rel_error_u0) > rel_err);
+        } while (fabs(abs_error_u0) > ABS_ERR && fabs(rel_error_u0) > REL_ERR);
 
         if (u0_status == 1 && u0_next >= 1.0) {
             u0_solution = u0_next;
@@ -343,8 +343,8 @@ int Advance::ReconstIt_velocity_Newton(
     }
 
     // successfully found velocity, now update everything else
-    if (v_solution < v_critical) {
-        u0 = 1./(sqrt(1. - v_solution*v_solution) + v_solution*abs_err);
+    if (v_solution < V_CRITICAL) {
+        u0 = 1./(sqrt(1. - v_solution*v_solution) + v_solution*ABS_ERR);
         epsilon = T00 - v_solution*sqrt(K00);
         rhob = J0/u0;
     } else {
@@ -381,7 +381,7 @@ int Advance::ReconstIt_velocity_Newton(
     // Correcting normalization of 4-velocity
     double temp_usq = u0*u0 - u1*u1 - u2*u2 - u3*u3;
     // Correct velocity when unitarity is not satisfied to numerical accuracy
-    if (fabs(temp_usq - 1.0) > abs_err) {
+    if (fabs(temp_usq - 1.0) > ABS_ERR) {
         // If the deviation is too large, exit MUSIC
         if (fabs(temp_usq - 1.0) > 0.1*u0) {
             revert_grid(grid_array, grid_array_p);
@@ -390,7 +390,7 @@ int Advance::ReconstIt_velocity_Newton(
         // Rescaling spatial components of velocity so that unitarity 
         // is exactly satisfied (u[0] is not modified)
         double scalef = sqrt((u0*u0 - 1.0)
-                             /(u1*u1 + u2*u2 + u3*u3 + abs_err));
+                             /(u1*u1 + u2*u2 + u3*u3 + ABS_ERR));
         u1 *= scalef;
         u2 *= scalef;
         u3 *= scalef;
