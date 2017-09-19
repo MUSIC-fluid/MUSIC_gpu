@@ -93,6 +93,10 @@ class Advance {
     int Make_uWRHS(double tau, Field *hydro_fields, int ieta, int ix, int iy);
 
 #pragma acc routine seq
+    int Make_uW_Geometic_terms(double tau, Field* hydro_fields,
+                               int ieta, int ix, int iy);
+
+#pragma acc routine seq
     double Make_uWSource(double tau, Field *hydro_fields,
                          int ieta, int ix, int iy);
 
