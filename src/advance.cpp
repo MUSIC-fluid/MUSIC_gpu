@@ -1778,15 +1778,10 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
     double epsilon = hydro_fields->e_rk0[idx];
     double rhob = hydro_fields->rhob_rk0[idx];
 
-    double T = get_temperature(epsilon, rhob);
-
-    double shear_to_s = 0.0;
-    shear_to_s = SHEAR_TO_S;
-
-
     //  Defining transport coefficients  
     double pressure = get_pressure(epsilon, rhob);
-    double shear = (shear_to_s)*(epsilon + pressure)/(T + 1e-15);
+    double shear = (SHEAR_TO_S*(epsilon + pressure)
+                    /(get_temperature(epsilon, rhob) + 1e-15));
     double tau_pi = 5.0*shear/(epsilon + pressure + 1e-15);
     if (tau_pi < 0.01) {
         tau_pi = 0.01;
@@ -1827,7 +1822,7 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
         double NS_term = - 2.*shear*hydro_fields->sigma_munu[idx_1d][idx];
 
         // Vorticity Term
-        double Vorticity_term = 0.0;
+        //double Vorticity_term = 0.0;
         // for future
         // remember: dUsup[m][n] = partial^n u^m  ///
         // remember:  a[n]  =  u^m*partial_m u^n  ///
@@ -1869,19 +1864,19 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
         //}
 
         // Add coupling to bulk viscous pressure
+        double Coupling_to_Bulk = 0.0;
         // transport_coefficient_b*Bulk*sigma^mu nu
-        // transport_coefficient2_b*Bulk*W^mu nu
-        double Bulk_Sigma_term = (transport_coefficient_b
-                                  *hydro_fields->Wmunu_rk0[14][idx]
-                                  *hydro_fields->sigma_munu[idx_1d][idx]);
-        double Bulk_W_term = (transport_coefficient2_b
+        // sign changes according to metric sign convention
+        Coupling_to_Bulk += -(transport_coefficient_b
                               *hydro_fields->Wmunu_rk0[14][idx]
-                              *hydro_fields->Wmunu_rk0[idx_1d][idx]);
-        // full term is
-        // first term: sign changes according to metric sign convention
-        double Coupling_to_Bulk = (
-            include_bulk_coupling_term*(-Bulk_Sigma_term + Bulk_W_term));
-        
+                              *hydro_fields->sigma_munu[idx_1d][idx]);
+        // transport_coefficient2_b*Bulk*W^mu nu
+        Coupling_to_Bulk += (transport_coefficient2_b
+                             *hydro_fields->Wmunu_rk0[14][idx]
+                             *hydro_fields->Wmunu_rk0[idx_1d][idx]);
+
+        Coupling_to_Bulk *= include_bulk_coupling_term;
+
         hydro_fields->Wmunu_rk1[idx_1d][idx] += DELTA_TAU*(
             (NS_term + tempf + Coupling_to_Bulk)/(tau_pi + 1e-15));
     }
@@ -1889,10 +1884,11 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
     // Add nonlinear term in shear-stress tensor
     //  transport_coefficient3*Delta(mu nu)(alpha beta)*Wmu
     //  gamma sigma nu gamma
-    double Wsigma, Wsigma_term;
-    double term1_Wsigma, term2_Wsigma;
+    double W_term;
+    double term1_W, term2_W;
+    double term_WW;
     if (include_Wsigma_term == 1) {
-        Wsigma = (
+        term_WW = (
             //  Wmunu[0][0]*sigma[0][0]
             //+ Wmunu[1][1]*sigma[1][1]
             //+ Wmunu[2][2]*sigma[2][2]
@@ -1915,7 +1911,7 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
                  + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[8][idx])
         );
 
-        //term1_Wsigma = ( - Wmunu[mu][0]*sigma[nu][0]
+        //term1_W = ( - Wmunu[mu][0]*sigma[nu][0]
         //                 - Wmunu[nu][0]*sigma[mu][0]
         //                 + Wmunu[mu][1]*sigma[nu][1]
         //                 + Wmunu[nu][1]*sigma[mu][1]
@@ -1923,26 +1919,26 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
         //                 + Wmunu[nu][2]*sigma[mu][2]
         //                 + Wmunu[mu][3]*sigma[nu][3]
         //                 + Wmunu[nu][3]*sigma[mu][3])/2.;
-        //term2_Wsigma = (-(1./3.)*(DATA_ptr->gmunu[mu][nu]
+        //term2_W = (-(1./3.)*(DATA_ptr->gmunu[mu][nu]
         //                          + vis_array[15+mu]
         //                            *vis_array[15+nu])
-        //                         *Wsigma);
+        //                         *term_WW);
         
         // pi^xx
-        term1_Wsigma = (
+        term1_W = (
             - hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->sigma_munu[1][idx]
             + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->sigma_munu[4][idx]
             + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->sigma_munu[5][idx]
             + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->sigma_munu[6][idx]);
-        term2_Wsigma = (-(1./3.)*(1.+ hydro_fields->u_rk0[1][idx]
+        term2_W = (-(1./3.)*(1.+ hydro_fields->u_rk0[1][idx]
                                       *hydro_fields->u_rk0[1][idx])
-                                 *Wsigma);
+                                 *term_WW);
         // full term is
-        Wsigma_term = (-term1_Wsigma - term2_Wsigma)*transport_coefficient3;
-        hydro_fields->Wmunu_rk1[4][idx] += Wsigma_term/tau_pi*DELTA_TAU;
+        W_term = (-term1_W - term2_W)*transport_coefficient3;
+        hydro_fields->Wmunu_rk1[4][idx] += W_term/tau_pi*DELTA_TAU;
 
         // pi^xy
-        term1_Wsigma = 0.5*(
+        term1_W = 0.5*(
             - (hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->sigma_munu[2][idx]
                 + hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->sigma_munu[1][idx])
             + (hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->sigma_munu[5][idx]
@@ -1952,14 +1948,14 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
             + (hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->sigma_munu[8][idx]
                 + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[6][idx])
         );
-        term2_Wsigma = (-(1./3.)*(hydro_fields->u_rk0[1][idx]
+        term2_W = (-(1./3.)*(hydro_fields->u_rk0[1][idx]
                                   *hydro_fields->u_rk0[2][idx])
-                                 *Wsigma);
-        Wsigma_term = (-term1_Wsigma - term2_Wsigma)*transport_coefficient3;
-        hydro_fields->Wmunu_rk1[5][idx] += Wsigma_term/tau_pi*DELTA_TAU;
+                                 *term_WW);
+        W_term = (-term1_W - term2_W)*transport_coefficient3;
+        hydro_fields->Wmunu_rk1[5][idx] += W_term/tau_pi*DELTA_TAU;
 
         // pi^xeta
-        term1_Wsigma = 0.5*(
+        term1_W = 0.5*(
             - (   hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->sigma_munu[3][idx]
                 + hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->sigma_munu[1][idx])
             + (   hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->sigma_munu[6][idx]
@@ -1969,26 +1965,26 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
             + (   hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->sigma_munu[9][idx]
                 + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->sigma_munu[6][idx])
         );
-        term2_Wsigma = (-(1./3.)*(hydro_fields->u_rk0[1][idx]
+        term2_W = (-(1./3.)*(hydro_fields->u_rk0[1][idx]
                                       *hydro_fields->u_rk0[3][idx])
-                                 *Wsigma);
-        Wsigma_term = (-term1_Wsigma - term2_Wsigma)*transport_coefficient3;
-        hydro_fields->Wmunu_rk1[6][idx] += Wsigma_term/tau_pi*DELTA_TAU;
+                                 *term_WW);
+        W_term = (-term1_W - term2_W)*transport_coefficient3;
+        hydro_fields->Wmunu_rk1[6][idx] += W_term/tau_pi*DELTA_TAU;
 
         // pi^yy
-        term1_Wsigma = (
+        term1_W = (
             - hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->sigma_munu[2][idx]
             + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->sigma_munu[5][idx]
             + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->sigma_munu[7][idx]
             + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[8][idx]);
-        term2_Wsigma = (-(1./3.)*(1.+ hydro_fields->u_rk0[2][idx]
+        term2_W = (-(1./3.)*(1.+ hydro_fields->u_rk0[2][idx]
                                       *hydro_fields->u_rk0[2][idx])
-                                 *Wsigma);
-        Wsigma_term = (-term1_Wsigma - term2_Wsigma)*transport_coefficient3;
-        hydro_fields->Wmunu_rk1[7][idx] += Wsigma_term/tau_pi*DELTA_TAU;
+                                 *term_WW);
+        W_term = (-term1_W - term2_W)*transport_coefficient3;
+        hydro_fields->Wmunu_rk1[7][idx] += W_term/tau_pi*DELTA_TAU;
         
         // pi^yeta
-        term1_Wsigma = 0.5*(
+        term1_W = 0.5*(
             - (   hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->sigma_munu[3][idx]
                 + hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->sigma_munu[2][idx])
             + (   hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->sigma_munu[6][idx]
@@ -1998,32 +1994,30 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
             + (   hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[9][idx]
                 + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->sigma_munu[8][idx])
         );
-        term2_Wsigma = (-(1./3.)*(hydro_fields->u_rk0[2][idx]
+        term2_W = (-(1./3.)*(hydro_fields->u_rk0[2][idx]
                                   *hydro_fields->u_rk0[3][idx])
-                                 *Wsigma);
-        Wsigma_term = (-term1_Wsigma - term2_Wsigma)*transport_coefficient3;
-        hydro_fields->Wmunu_rk1[8][idx] += Wsigma_term/tau_pi*DELTA_TAU;
+                                 *term_WW);
+        W_term = (-term1_W - term2_W)*transport_coefficient3;
+        hydro_fields->Wmunu_rk1[8][idx] += W_term/tau_pi*DELTA_TAU;
 
         // pi^etaeta
-        term1_Wsigma = (
+        term1_W = (
             - hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->sigma_munu[3][idx]
             + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->sigma_munu[6][idx]
             + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[8][idx]
             + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->sigma_munu[9][idx]);
-        term2_Wsigma = (-(1./3.)*(1.+ hydro_fields->u_rk0[3][idx]
+        term2_W = (-(1./3.)*(1.+ hydro_fields->u_rk0[3][idx]
                                       *hydro_fields->u_rk0[3][idx])
-                                 *Wsigma);
-        Wsigma_term = (-term1_Wsigma - term2_Wsigma)*transport_coefficient3;
-        hydro_fields->Wmunu_rk1[9][idx] += Wsigma_term/tau_pi*DELTA_TAU;
+                                 *term_WW);
+        W_term = (-term1_W - term2_W)*transport_coefficient3;
+        hydro_fields->Wmunu_rk1[9][idx] += W_term/tau_pi*DELTA_TAU;
     }
 
     // Add nonlinear term in shear-stress tensor
     // transport_coefficient*Delta(mu nu)(alpha beta)*Wmu
     // gamma Wnu gamma
-    double Wsquare, WW_term;
-    double term1_WW, term2_WW;
     if (include_WWterm == 1) {
-        //Wsquare = (  Wmunu[0][0]*Wmunu[0][0]
+        //term_WW = (  Wmunu[0][0]*Wmunu[0][0]
         //           + Wmunu[1][1]*Wmunu[1][1]
         //           + Wmunu[2][2]*Wmunu[2][2]
         //           + Wmunu[3][3]*Wmunu[3][3]
@@ -2033,98 +2027,99 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
         //    + 2.*(  Wmunu[1][2]*Wmunu[1][2]
         //          + Wmunu[1][3]*Wmunu[1][3]
         //          + Wmunu[2][3]*Wmunu[2][3]));
-        Wsquare = (  hydro_fields->Wmunu_rk0[0][idx]*hydro_fields->Wmunu_rk0[0][idx]
-                   + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->Wmunu_rk0[4][idx]
-                   + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->Wmunu_rk0[7][idx]
-                   + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->Wmunu_rk0[9][idx]
-             - 2.*(  hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->Wmunu_rk0[1][idx]
-                   + hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->Wmunu_rk0[2][idx]
-                   + hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->Wmunu_rk0[3][idx])
-             + 2.*(  hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[5][idx]
-                   + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->Wmunu_rk0[6][idx]
-                   + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->Wmunu_rk0[8][idx]));
+        term_WW = (
+              hydro_fields->Wmunu_rk0[0][idx]*hydro_fields->Wmunu_rk0[0][idx]
+            + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->Wmunu_rk0[4][idx]
+            + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->Wmunu_rk0[7][idx]
+            + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->Wmunu_rk0[9][idx]
+            - 2.*(  hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->Wmunu_rk0[1][idx]
+                  + hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->Wmunu_rk0[2][idx]
+                  + hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->Wmunu_rk0[3][idx])
+            + 2.*(  hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[5][idx]
+                  + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->Wmunu_rk0[6][idx]
+                  + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->Wmunu_rk0[8][idx]));
 
-        //term1_WW = ( - Wmunu[mu][0]*Wmunu[nu][0]
+        //term1_W = ( - Wmunu[mu][0]*Wmunu[nu][0]
         //             + Wmunu[mu][1]*Wmunu[nu][1]
         //             + Wmunu[mu][2]*Wmunu[nu][2]
         //             + Wmunu[mu][3]*Wmunu[nu][3]);
-        //term2_WW = (
+        //term2_W = (
         //    -(1./3.)*(DATA_ptr->gmunu[mu][nu]
         //              + vis_array[15+mu]
         //                *vis_array[15+nu])
-        //    *Wsquare);
+        //    *term_WW);
         
         // pi^xx
-        term1_WW = (
+        term1_W = (
             - hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->Wmunu_rk0[1][idx]
             + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->Wmunu_rk0[4][idx]
             + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[5][idx]
             + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->Wmunu_rk0[6][idx]);
-        term2_WW = (- (1./3.)*(1.+ hydro_fields->u_rk0[1][idx]
+        term2_W = (- (1./3.)*(1.+ hydro_fields->u_rk0[1][idx]
                                    *hydro_fields->u_rk0[1][idx])
-                              *Wsquare);
-        WW_term = (-term1_WW - term2_WW)*transport_coefficient;
-        hydro_fields->Wmunu_rk1[4][idx] += WW_term/tau_pi*DELTA_TAU;
+                              *term_WW);
+        W_term = (-term1_W - term2_W)*transport_coefficient;
+        hydro_fields->Wmunu_rk1[4][idx] += W_term/tau_pi*DELTA_TAU;
 
         // pi^xy
-        term1_WW = (
+        term1_W = (
             - hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->Wmunu_rk0[2][idx]
             + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->Wmunu_rk0[5][idx]
             + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[7][idx]
             + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->Wmunu_rk0[8][idx]);
-        term2_WW = (- (1./3.)*(hydro_fields->u_rk0[1][idx]
+        term2_W = (- (1./3.)*(hydro_fields->u_rk0[1][idx]
                                *hydro_fields->u_rk0[2][idx])
-                               *Wsquare);
-        WW_term = (-term1_WW - term2_WW)*transport_coefficient;
-        hydro_fields->Wmunu_rk1[5][idx] += WW_term/tau_pi*DELTA_TAU;
+                               *term_WW);
+        W_term = (-term1_W - term2_W)*transport_coefficient;
+        hydro_fields->Wmunu_rk1[5][idx] += W_term/tau_pi*DELTA_TAU;
         
         // pi^xeta
-        term1_WW = (
+        term1_W = (
             - hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->Wmunu_rk0[3][idx]
             + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->Wmunu_rk0[6][idx]
             + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[8][idx]
             + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->Wmunu_rk0[9][idx]);
-        term2_WW = (- (1./3.)*(hydro_fields->u_rk0[1][idx]
+        term2_W = (- (1./3.)*(hydro_fields->u_rk0[1][idx]
                                    *hydro_fields->u_rk0[3][idx])
-                              *Wsquare);
-        WW_term = (-term1_WW - term2_WW)*transport_coefficient;
-        hydro_fields->Wmunu_rk1[6][idx] += WW_term/tau_pi*DELTA_TAU;
+                              *term_WW);
+        W_term = (-term1_W - term2_W)*transport_coefficient;
+        hydro_fields->Wmunu_rk1[6][idx] += W_term/tau_pi*DELTA_TAU;
         
         // pi^yy
-        term1_WW = (
+        term1_W = (
             - hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->Wmunu_rk0[2][idx]
             + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[5][idx]
             + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->Wmunu_rk0[7][idx]
             + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->Wmunu_rk0[8][idx]);
-        term2_WW = (- (1./3.)*(1.+ hydro_fields->u_rk0[2][idx]
+        term2_W = (- (1./3.)*(1.+ hydro_fields->u_rk0[2][idx]
                                    *hydro_fields->u_rk0[2][idx])
-                              *Wsquare);
-        WW_term = (-term1_WW - term2_WW)*transport_coefficient;
-        hydro_fields->Wmunu_rk1[7][idx] += WW_term/tau_pi*DELTA_TAU;
+                              *term_WW);
+        W_term = (-term1_W - term2_W)*transport_coefficient;
+        hydro_fields->Wmunu_rk1[7][idx] += W_term/tau_pi*DELTA_TAU;
         
         // pi^yeta
-        term1_WW = (
+        term1_W = (
             - hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->Wmunu_rk0[3][idx]
             + hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[6][idx]
             + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->Wmunu_rk0[8][idx]
             + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->Wmunu_rk0[9][idx]);
-        term2_WW = (- (1./3.)*(hydro_fields->u_rk0[2][idx]
+        term2_W = (- (1./3.)*(hydro_fields->u_rk0[2][idx]
                                    *hydro_fields->u_rk0[3][idx])
-                              *Wsquare);
-        WW_term = (-term1_WW - term2_WW)*transport_coefficient;
-        hydro_fields->Wmunu_rk1[8][idx] += WW_term/tau_pi*DELTA_TAU;
+                              *term_WW);
+        W_term = (-term1_W - term2_W)*transport_coefficient;
+        hydro_fields->Wmunu_rk1[8][idx] += W_term/tau_pi*DELTA_TAU;
         
         // pi^etaeta
-        term1_WW = (
+        term1_W = (
             - hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->Wmunu_rk0[3][idx]
             + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->Wmunu_rk0[6][idx]
             + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->Wmunu_rk0[8][idx]
             + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->Wmunu_rk0[9][idx]);
-        term2_WW = (- (1./3.)*(1.+ hydro_fields->u_rk0[3][idx]
+        term2_W = (- (1./3.)*(1.+ hydro_fields->u_rk0[3][idx]
                                    *hydro_fields->u_rk0[3][idx])
-                              *Wsquare);
-        WW_term = (-term1_WW - term2_WW)*transport_coefficient;
-        hydro_fields->Wmunu_rk1[9][idx] += WW_term/tau_pi*DELTA_TAU;
+                              *term_WW);
+        W_term = (-term1_W - term2_W)*transport_coefficient;
+        hydro_fields->Wmunu_rk1[9][idx] += W_term/tau_pi*DELTA_TAU;
     }
     return(0);
 }
