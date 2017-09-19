@@ -1559,6 +1559,7 @@ int Advance::Make_uWRHS(double tau, Field* hydro_fields,
         
         hydro_fields->Wmunu_rk1[idx_1d][idx] += sum*(DELTA_TAU);
     }
+    return(0);
 }
 
 int Advance::Make_uW_Geometic_terms(double tau, Field* hydro_fields,
@@ -1745,43 +1746,24 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
     int idx = get_indx(ieta, ix, iy);
 
     int include_WWterm = 1;
-    int include_Vorticity_term = 0;
+    //int include_Vorticity_term = 0;   // for future
     int include_Wsigma_term = 1;
     int include_bulk_coupling_term = 1;
     if (INITIAL_PROFILE < 2) {
         include_WWterm = 0;
         include_Wsigma_term = 0;
-        include_Vorticity_term = 0;
+        //include_Vorticity_term = 0;   // for future
         include_bulk_coupling_term = 0;
     }
 
-    //double sigma[4][4];
-    //double Wmunu[4][4];
-
-    //for (int a = 0; a < 4; a++) {
-    //    for (int b = a; b < 4; b++) {
-    //        int idx_1d = util->map_2d_idx_to_1d(a, b);
-    //        //Wmunu[a][b] = grid_pt->Wmunu[rk_flag][idx_1d];
-    //        //sigma[a][b] = sigma_1d[idx_1d];
-    //        Wmunu[a][b] = vis_array[idx][idx_1d];
-    //        sigma[a][b] = velocity_array[idx][6+idx_1d];
-    //    }
-    //}
-    //for (int a = 0; a < 4; a++) {
-    //    for (int b = a+1; b < 4; b++) {
-    //        Wmunu[b][a] = Wmunu[a][b];
-    //        sigma[b][a] = sigma[a][b];
-    //    }
-    //}
-
     // Useful variables to define
     double epsilon = hydro_fields->e_rk0[idx];
-    double rhob = hydro_fields->rhob_rk0[idx];
+    double pressure = get_pressure(epsilon, hydro_fields->rhob_rk0[idx]);
 
-    //  Defining transport coefficients  
-    double pressure = get_pressure(epsilon, rhob);
+    // Defining transport coefficients  
     double shear = (SHEAR_TO_S*(epsilon + pressure)
-                    /(get_temperature(epsilon, rhob) + 1e-15));
+                    /(get_temperature(epsilon, hydro_fields->rhob_rk0[idx])
+                      + 1e-15));
     double tau_pi = 5.0*shear/(epsilon + pressure + 1e-15);
     if (tau_pi < 0.01) {
         tau_pi = 0.01;
@@ -1791,29 +1773,22 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
     // -- shear only terms -- 4Mar2013
     // transport coefficients of a massless gas of
     // single component particles
-    double transport_coefficient  = 9./70.*tau_pi/shear*(4./5.);
-    double transport_coefficient2 = 4./3.*tau_pi;
-    double transport_coefficient3 = 10./7.*tau_pi;
-    double transport_coefficient4 = 2.*tau_pi;
-
     // transport coefficient for nonlinear terms
     // -- coupling to bulk viscous pressure -- 4Mar2013
-    // transport coefficients not yet known -- fixed to zero
-    double transport_coefficient_b  = 6./5.*tau_pi;
-    double transport_coefficient2_b = 0.;
 
     // This source has many terms
     // everything in the 1/(tau_pi) piece is here
     // third step in the split-operator time evol
-    //  use Wmunu[rk_flag] and u[rk_flag] with rk_flag = 0
+    // use Wmunu[rk_flag] and u[rk_flag] with rk_flag = 0
 
-    // Wmunu + transport_coefficient2*Wmunu*theta
-
+    double transport_coefficient = 0.0;
     for (int idx_1d = 4; idx_1d < 10; idx_1d++) {
         // full term is
+        // Wmunu + transport_coefficient2*Wmunu*theta
         //- (1.0 + transport_coefficient2*theta_local)
+        transport_coefficient = 4./3.*tau_pi;
         double tempf = (
-            - (1.0 + transport_coefficient2*hydro_fields->expansion_rate[idx])
+            - (1.0 + transport_coefficient*hydro_fields->expansion_rate[idx])
               *(hydro_fields->Wmunu_rk0[idx_1d][idx]));
 
         // Navier-Stokes Term -- -2.*shear*sigma^munu
@@ -1822,7 +1797,8 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
         double NS_term = - 2.*shear*hydro_fields->sigma_munu[idx_1d][idx];
 
         // Vorticity Term
-        //double Vorticity_term = 0.0;
+        // double Vorticity_term = 0.0;
+        // transport_coefficient4 = 2.*tau_pi;
         // for future
         // remember: dUsup[m][n] = partial^n u^m  ///
         // remember:  a[n]  =  u^m*partial_m u^n  ///
@@ -1867,11 +1843,16 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
         double Coupling_to_Bulk = 0.0;
         // transport_coefficient_b*Bulk*sigma^mu nu
         // sign changes according to metric sign convention
-        Coupling_to_Bulk += -(transport_coefficient_b
+        // transport_coefficient_b  = 6./5.*tau_pi;
+        transport_coefficient = 6./5.*tau_pi;
+        Coupling_to_Bulk += -(transport_coefficient
                               *hydro_fields->Wmunu_rk0[14][idx]
                               *hydro_fields->sigma_munu[idx_1d][idx]);
         // transport_coefficient2_b*Bulk*W^mu nu
-        Coupling_to_Bulk += (transport_coefficient2_b
+        // transport coefficients not yet known -- fixed to zero
+        // transport_coefficient2_b = 0.;
+        transport_coefficient = 0.0;
+        Coupling_to_Bulk += (transport_coefficient
                              *hydro_fields->Wmunu_rk0[14][idx]
                              *hydro_fields->Wmunu_rk0[idx_1d][idx]);
 
@@ -1882,12 +1863,14 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
     }
 
     // Add nonlinear term in shear-stress tensor
-    //  transport_coefficient3*Delta(mu nu)(alpha beta)*Wmu
-    //  gamma sigma nu gamma
+    // transport_coefficient3*Delta(mu nu)(alpha beta)*Wmu
+    // gamma sigma nu gamma
+    // transport_coefficient3 = 10./7.*tau_pi;
     double W_term;
     double term1_W, term2_W;
     double term_WW;
     if (include_Wsigma_term == 1) {
+        transport_coefficient = 10./7.*tau_pi;
         term_WW = (
             //  Wmunu[0][0]*sigma[0][0]
             //+ Wmunu[1][1]*sigma[1][1]
@@ -1934,7 +1917,7 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
                                       *hydro_fields->u_rk0[1][idx])
                                  *term_WW);
         // full term is
-        W_term = (-term1_W - term2_W)*transport_coefficient3;
+        W_term = (-term1_W - term2_W)*transport_coefficient;
         hydro_fields->Wmunu_rk1[4][idx] += W_term/tau_pi*DELTA_TAU;
 
         // pi^xy
@@ -1951,7 +1934,7 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
         term2_W = (-(1./3.)*(hydro_fields->u_rk0[1][idx]
                                   *hydro_fields->u_rk0[2][idx])
                                  *term_WW);
-        W_term = (-term1_W - term2_W)*transport_coefficient3;
+        W_term = (-term1_W - term2_W)*transport_coefficient;
         hydro_fields->Wmunu_rk1[5][idx] += W_term/tau_pi*DELTA_TAU;
 
         // pi^xeta
@@ -1968,7 +1951,7 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
         term2_W = (-(1./3.)*(hydro_fields->u_rk0[1][idx]
                                       *hydro_fields->u_rk0[3][idx])
                                  *term_WW);
-        W_term = (-term1_W - term2_W)*transport_coefficient3;
+        W_term = (-term1_W - term2_W)*transport_coefficient;
         hydro_fields->Wmunu_rk1[6][idx] += W_term/tau_pi*DELTA_TAU;
 
         // pi^yy
@@ -1980,7 +1963,7 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
         term2_W = (-(1./3.)*(1.+ hydro_fields->u_rk0[2][idx]
                                       *hydro_fields->u_rk0[2][idx])
                                  *term_WW);
-        W_term = (-term1_W - term2_W)*transport_coefficient3;
+        W_term = (-term1_W - term2_W)*transport_coefficient;
         hydro_fields->Wmunu_rk1[7][idx] += W_term/tau_pi*DELTA_TAU;
         
         // pi^yeta
@@ -1997,7 +1980,7 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
         term2_W = (-(1./3.)*(hydro_fields->u_rk0[2][idx]
                                   *hydro_fields->u_rk0[3][idx])
                                  *term_WW);
-        W_term = (-term1_W - term2_W)*transport_coefficient3;
+        W_term = (-term1_W - term2_W)*transport_coefficient;
         hydro_fields->Wmunu_rk1[8][idx] += W_term/tau_pi*DELTA_TAU;
 
         // pi^etaeta
@@ -2009,14 +1992,16 @@ double Advance::Make_uWSource(double tau, Field *hydro_fields,
         term2_W = (-(1./3.)*(1.+ hydro_fields->u_rk0[3][idx]
                                       *hydro_fields->u_rk0[3][idx])
                                  *term_WW);
-        W_term = (-term1_W - term2_W)*transport_coefficient3;
+        W_term = (-term1_W - term2_W)*transport_coefficient;
         hydro_fields->Wmunu_rk1[9][idx] += W_term/tau_pi*DELTA_TAU;
     }
 
     // Add nonlinear term in shear-stress tensor
     // transport_coefficient*Delta(mu nu)(alpha beta)*Wmu
     // gamma Wnu gamma
+    // transport_coefficient  = 9./70.*tau_pi/shear*(4./5.);
     if (include_WWterm == 1) {
+        transport_coefficient  = 9./70.*tau_pi/shear*(4./5.);
         //term_WW = (  Wmunu[0][0]*Wmunu[0][0]
         //           + Wmunu[1][1]*Wmunu[1][1]
         //           + Wmunu[2][2]*Wmunu[2][2]
@@ -2135,8 +2120,8 @@ double Advance::Make_uPiSource(double tau, Field *hydro_fields,
     // defining bulk viscosity coefficient
     double epsilon = hydro_fields->e_rk0[idx];
     double rhob = hydro_fields->rhob_rk0[idx];
-    double temperature = get_temperature(epsilon, rhob);
 
+    double temperature = get_temperature(epsilon, rhob);
     // cs2 is the velocity of sound squared
     double cs2 = get_cs2(epsilon, rhob);  
     double pressure = get_pressure(epsilon, rhob);
@@ -2151,14 +2136,7 @@ double Advance::Make_uPiSource(double tau, Field *hydro_fields,
     double Bulk_Relax_time = (1./14.55/(1./3.-cs2)/(1./3.-cs2)
                               /(epsilon + pressure)*bulk);
 
-    // from kinetic theory, small mass limit
-    double transport_coeff1 = 2.0/3.0*(Bulk_Relax_time);
-    double transport_coeff2 = 0.;  // not known; put 0
-
-    // from kinetic theory
-    double transport_coeff1_s = (8./5.*(1./3.-cs2)
-                                 *Bulk_Relax_time);
-    double transport_coeff2_s = 0.;  // not known;  put 0
+    double transport_coeff = 0.0;
 
     // Computing Navier-Stokes term (-bulk viscosity * theta)
     //double NS_term = -bulk*theta_local;
@@ -2166,93 +2144,65 @@ double Advance::Make_uPiSource(double tau, Field *hydro_fields,
 
     // Computing relaxation term and nonlinear term:
     // - Bulk - transport_coeff1*Bulk*theta
-    //double tempf = (-(grid_pt->pi_b[rk_flag])
-    //         - transport_coeff1*theta_local
-    //           *(grid_pt->pi_b[rk_flag]));
+    // with transport_coeff1 = 2.0/3.0*(Bulk_Relax_time);
+    // from kinetic theory, small mass limit
+    transport_coeff = 2.0/3.0*(Bulk_Relax_time);
     double tempf = (- hydro_fields->Wmunu_rk0[14][idx]
-                    - transport_coeff1*hydro_fields->expansion_rate[idx]
+                    - transport_coeff*hydro_fields->expansion_rate[idx]
                       *hydro_fields->Wmunu_rk0[14][idx]);
 
     // Computing nonlinear term: + transport_coeff2*Bulk*Bulk
+    // transport_coeff2 = 0. not known put 0
     double BB_term = 0.0;
-    if (include_BBterm == 1) {
-        //BB_term = (transport_coeff2*(grid_pt->pi_b[rk_flag])
-        //           *(grid_pt->pi_b[rk_flag]));
-        BB_term = (transport_coeff2*hydro_fields->Wmunu_rk0[14][idx]
-                   *hydro_fields->Wmunu_rk0[14][idx]);
-    }
+    transport_coeff = 0.0;
+    BB_term = (transport_coeff*hydro_fields->Wmunu_rk0[14][idx]
+               *hydro_fields->Wmunu_rk0[14][idx]);
+    BB_term *= include_BBterm;
 
     // Computing terms that Couple with shear-stress tensor
-    double Wsigma, WW, Shear_Sigma_term, Shear_Shear_term;
-    double Coupling_to_Shear;
-
+    double Coupling_to_Shear = 0.0;
+    double WW;
     if (include_coupling_to_shear == 1) {
-        // Computing sigma^mu^nu
-        //double sigma[4][4], Wmunu[4][4];
-        //for (int a = 0; a < 4 ; a++) {
-        //    for (int b = a; b < 4; b++) {
-        //        int idx_1d = util->map_2d_idx_to_1d(a, b);
-        //        sigma[a][b] = velocity_array[6+idx_1d];
-        //        Wmunu[a][b] = vis_array[idx_1d];
-        //    }
-        //}
+        // Computing transport_coeff1_s*(W_mu_nu sigma^mu^nu)
+        // with transport_coeff1_s = (8./5.*(1./3.-cs2)*Bulk_Relax_time)
+        // from kinetic theory
+        // extra "-" sign for this term from the metric
+        transport_coeff = (8./5.*(1./3.-cs2)*Bulk_Relax_time);
+        WW = (
+              hydro_fields->Wmunu_rk0[0][idx]*hydro_fields->sigma_munu[0][idx]
+            + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->sigma_munu[4][idx]
+            + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->sigma_munu[7][idx]
+            + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->sigma_munu[9][idx]
+            - 2.*(  hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->sigma_munu[1][idx]
+                  + hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->sigma_munu[2][idx]
+                  + hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->sigma_munu[3][idx]) 
+            + 2.*(  hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->sigma_munu[5][idx]
+                  + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->sigma_munu[6][idx]
+                  + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[8][idx])
+        );
+        Coupling_to_Shear += - transport_coeff*WW;
 
-        //Wsigma = (  Wmunu[0][0]*sigma[0][0]
-        //          + Wmunu[1][1]*sigma[1][1]
-        //          + Wmunu[2][2]*sigma[2][2]
-        //          + Wmunu[3][3]*sigma[3][3]
-        //          - 2.*(  Wmunu[0][1]*sigma[0][1]
-        //                + Wmunu[0][2]*sigma[0][2]
-        //                + Wmunu[0][3]*sigma[0][3])
-        //          + 2.*(  Wmunu[1][2]*sigma[1][2]
-        //                + Wmunu[1][3]*sigma[1][3]
-        //                + Wmunu[2][3]*sigma[2][3]));
-        Wsigma = (  hydro_fields->Wmunu_rk0[0][idx]*hydro_fields->sigma_munu[0][idx]
-                  + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->sigma_munu[4][idx]
-                  + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->sigma_munu[7][idx]
-                  + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->sigma_munu[9][idx]
-                  - 2.*(  hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->sigma_munu[1][idx]
-                        + hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->sigma_munu[8][idx]
-                        + hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->sigma_munu[9][idx]) 
-                  + 2.*(  hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->sigma_munu[5][idx]
-                        + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->sigma_munu[6][idx]
-                        + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->sigma_munu[8][idx])
-                  );
-
-        //WW = (   Wmunu[0][0]*Wmunu[0][0]
-        //       + Wmunu[1][1]*Wmunu[1][1]
-        //       + Wmunu[2][2]*Wmunu[2][2]
-        //       + Wmunu[3][3]*Wmunu[3][3]
-        //       - 2.*(  Wmunu[0][1]*Wmunu[0][1]
-        //             + Wmunu[0][2]*Wmunu[0][2]
-        //             + Wmunu[0][3]*Wmunu[0][3])
-        //       + 2.*(  Wmunu[1][2]*Wmunu[1][2]
-        //             + Wmunu[1][3]*Wmunu[1][3]
-        //             + Wmunu[2][3]*Wmunu[2][3]));
-        WW = (  hydro_fields->Wmunu_rk0[0][idx]*hydro_fields->Wmunu_rk0[0][idx]
-              + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->Wmunu_rk0[4][idx]
-              + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->Wmunu_rk0[8][idx]
-              + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->Wmunu_rk0[9][idx]
-              - 2.*(  hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->Wmunu_rk0[1][idx]
-                    + hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->Wmunu_rk0[2][idx]
-                    + hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->Wmunu_rk0[3][idx])
-              + 2.*(  hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[5][idx]
-                    + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->Wmunu_rk0[6][idx]
-                    + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->Wmunu_rk0[8][idx]));
-        // multiply term by its transport coefficient
-        Shear_Sigma_term = Wsigma*transport_coeff1_s;
-        Shear_Shear_term = WW*transport_coeff2_s;
-
-        // full term that couples to shear is
-        Coupling_to_Shear = (- Shear_Sigma_term + Shear_Shear_term);
-    } else {
-        Coupling_to_Shear = 0.0;
+        // Computing transport_coeff2_s*(W_mu_nu W^mu^nu)
+        // transport_coeff2_s not known;  put 0
+        transport_coeff = 0.0;
+        WW = (
+              hydro_fields->Wmunu_rk0[0][idx]*hydro_fields->Wmunu_rk0[0][idx]
+            + hydro_fields->Wmunu_rk0[4][idx]*hydro_fields->Wmunu_rk0[4][idx]
+            + hydro_fields->Wmunu_rk0[7][idx]*hydro_fields->Wmunu_rk0[7][idx]
+            + hydro_fields->Wmunu_rk0[9][idx]*hydro_fields->Wmunu_rk0[9][idx]
+            - 2.*(  hydro_fields->Wmunu_rk0[1][idx]*hydro_fields->Wmunu_rk0[1][idx]
+                  + hydro_fields->Wmunu_rk0[2][idx]*hydro_fields->Wmunu_rk0[2][idx]
+                  + hydro_fields->Wmunu_rk0[3][idx]*hydro_fields->Wmunu_rk0[3][idx])
+            + 2.*(  hydro_fields->Wmunu_rk0[5][idx]*hydro_fields->Wmunu_rk0[5][idx]
+                  + hydro_fields->Wmunu_rk0[6][idx]*hydro_fields->Wmunu_rk0[6][idx]
+                  + hydro_fields->Wmunu_rk0[8][idx]*hydro_fields->Wmunu_rk0[8][idx])
+        );
+        Coupling_to_Shear += transport_coeff*WW;
     }
     
     // Final Answer
-    double Final_Answer = (NS_term + tempf + BB_term
-                            + Coupling_to_Shear)/Bulk_Relax_time;
-    hydro_fields->Wmunu_rk1[14][idx] += Final_Answer*(DELTA_TAU);
+    hydro_fields->Wmunu_rk1[14][idx] += (DELTA_TAU
+        *(NS_term + tempf + BB_term + Coupling_to_Shear)/Bulk_Relax_time);
     return(0);
 }
 
@@ -2321,26 +2271,26 @@ double Advance::Make_uqSource(double tau, Field *hydro_fields,
     }
 
     // add a new non-linear term (- 3/5 q_\nu \sigma^{\mu\nu})
-    double transport_coeff_2 = 3./5.*tau_rho;  // from 14-momentum massless
-    hydro_fields->Wmunu_rk1[10][idx] += (-transport_coeff_2*(
+    transport_coeff = 3./5.*tau_rho;  // from 14-momentum massless
+    hydro_fields->Wmunu_rk1[10][idx] += (-transport_coeff*(
         - hydro_fields->Wmunu_rk0[10][idx]*hydro_fields->sigma_munu[0][idx]
         + hydro_fields->Wmunu_rk0[11][idx]*hydro_fields->sigma_munu[1][idx]
         + hydro_fields->Wmunu_rk0[12][idx]*hydro_fields->sigma_munu[2][idx]
         + hydro_fields->Wmunu_rk0[13][idx]*hydro_fields->sigma_munu[3][idx]));
     
-    hydro_fields->Wmunu_rk1[11][idx] += (-transport_coeff_2*(
+    hydro_fields->Wmunu_rk1[11][idx] += (-transport_coeff*(
         - hydro_fields->Wmunu_rk0[10][idx]*hydro_fields->sigma_munu[1][idx]
         + hydro_fields->Wmunu_rk0[11][idx]*hydro_fields->sigma_munu[4][idx]
         + hydro_fields->Wmunu_rk0[12][idx]*hydro_fields->sigma_munu[5][idx]
         + hydro_fields->Wmunu_rk0[13][idx]*hydro_fields->sigma_munu[6][idx]));
     
-    hydro_fields->Wmunu_rk1[12][idx] += (-transport_coeff_2*(
+    hydro_fields->Wmunu_rk1[12][idx] += (-transport_coeff*(
         - hydro_fields->Wmunu_rk0[10][idx]*hydro_fields->sigma_munu[2][idx]
         + hydro_fields->Wmunu_rk0[11][idx]*hydro_fields->sigma_munu[5][idx]
         + hydro_fields->Wmunu_rk0[12][idx]*hydro_fields->sigma_munu[7][idx]
         + hydro_fields->Wmunu_rk0[13][idx]*hydro_fields->sigma_munu[8][idx]));
     
-    hydro_fields->Wmunu_rk1[13][idx] += (-transport_coeff_2*(
+    hydro_fields->Wmunu_rk1[13][idx] += (-transport_coeff*(
         - hydro_fields->Wmunu_rk0[10][idx]*hydro_fields->sigma_munu[3][idx]
         + hydro_fields->Wmunu_rk0[11][idx]*hydro_fields->sigma_munu[6][idx]
         + hydro_fields->Wmunu_rk0[12][idx]*hydro_fields->sigma_munu[8][idx]
